@@ -1,0 +1,39 @@
+/**
+ * GeoFogo — página principal do GeoFogo Ceará.
+ * Conecta o hook useGeoFogo ao AppShell.
+ */
+import { useGeoFogo } from '../hooks/useGeoFogo';
+import AppShell from '../components/layout/AppShell';
+
+export default function GeoFogo() {
+  const geo = useGeoFogo();
+
+  return (
+    <AppShell
+      ready={geo.ready}
+      online={geo.online}
+      syncing={geo.syncing}
+      syncMessage={geo.syncMessage}
+      layers={geo.layers}
+      layerGroups={geo.layerGroups}
+      stats={geo.stats}
+      alerts={geo.alerts}
+      errors={geo.errors}
+      selectedFeature={geo.selectedFeature}
+      fieldState={geo.fieldState}
+      baseMaps={geo.baseMaps}
+      baseMapId={geo.baseMapId}
+      config={geo.config}
+      sync={geo.sync}
+      toggleLayer={geo.toggleLayer}
+      setLayerOpacity={geo.setLayerOpacity}
+      setAlertDistance={geo.setAlertDistance}
+      changeBaseMap={geo.changeBaseMap}
+      startFieldMode={geo.startFieldMode}
+      stopFieldMode={geo.stopFieldMode}
+      toggleRecording={geo.toggleRecording}
+      addFieldPoint={geo.addFieldPoint}
+      closePopup={geo.closePopup}
+    />
+  );
+}

@@ -1,0 +1,9 @@
+{
+  "name": "GeoFogo Cear\u00e1",
+  "site": {
+    "installCommand": "npm install",
+    "buildCommand": "npm run build",
+    "serveCommand": "npm run dev",
+    "outputDirectory": "./dist"
+  }
+}
