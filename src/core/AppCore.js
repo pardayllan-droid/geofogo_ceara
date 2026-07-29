@@ -138,14 +138,53 @@ class AppCoreImpl {
 
     // Fase 2: UCs + eventos de fogo + frentes (dependem do bbox da fase 1)
     const phase2 = {};
-
     phase2.conservationUnits = {
       label: 'Unidades de Conservação',
       module: 'conservation',
-      fn: async () => {
-        const ucs = await loadConservationUnits();
-        this.conservationUnits = ucs;
-        return ucs;
+
+      fn: async ({ signal } = {}) => {
+        const raw =
+          await loadConservationUnits({
+            signal,
+            forceRefresh: true,
+          });
+
+        const boundaryPoly =
+          getBoundaryPolygon(
+            this.cearaBoundary,
+          );
+
+        const filtered =
+          boundaryPoly &&
+          raw?.features?.length
+            ? filterByBoundary(
+                raw,
+                boundaryPoly,
+              )
+            : raw;
+
+        this.conservationUnits =
+          filtered;
+
+        return filtered;
+      },
+
+      validate: (data) => {
+        if (
+          data?.type !==
+            'FeatureCollection' ||
+          !Array.isArray(data.features)
+        ) {
+          return 'As Unidades de Conservação retornaram um GeoJSON inválido.';
+        }
+
+        if (
+          data.features.length === 0
+        ) {
+          return 'Nenhuma Unidade de Conservação do Ceará foi encontrada.';
+        }
+
+        return true;
       },
     };
 
@@ -153,28 +192,108 @@ class AppCoreImpl {
       phase2.fireEvents = {
         label: 'Eventos de fogo',
         module: 'sipam',
-        fn: async () => {
-          const raw = await loadFireEvents(this.cearaBbox);
-          const boundaryPoly = getBoundaryPolygon(this.cearaBoundary);
-          const filtered = boundaryPoly ? filterByBoundary(raw, boundaryPoly) : raw;
-          this.fireEvents = filtered;
+
+        /*
+        * Zero eventos é um resultado possível e válido.
+        */
+        allowEmpty: true,
+
+        fn: async ({ signal } = {}) => {
+          const raw =
+            await loadFireEvents(
+              this.cearaBbox,
+              {
+                signal,
+              },
+            );
+
+          const boundaryPoly =
+            getBoundaryPolygon(
+              this.cearaBoundary,
+            );
+
+          const filtered =
+            boundaryPoly &&
+            raw?.features?.length
+              ? filterByBoundary(
+                  raw,
+                  boundaryPoly,
+                )
+              : raw;
+
+          this.fireEvents =
+            filtered;
+
           return filtered;
+        },
+
+        validate: (data) => {
+          if (
+            data?.type !==
+              'FeatureCollection' ||
+            !Array.isArray(data.features)
+          ) {
+            return 'Os eventos de fogo retornaram um GeoJSON inválido.';
+          }
+
+          return true;
         },
       };
 
       phase2.fireFronts = {
         label: 'Frentes de fogo',
         module: 'sipam',
-        fn: async () => {
-          const raw = await loadFireFronts(this.cearaBbox);
-          const boundaryPoly = getBoundaryPolygon(this.cearaBoundary);
-          const filtered = boundaryPoly ? filterByBoundary(raw, boundaryPoly) : raw;
-          this.fireFronts = filtered;
+
+        /*
+        * Zero frentes também é um resultado válido.
+        */
+        allowEmpty: true,
+
+        fn: async ({ signal } = {}) => {
+          const raw =
+            await loadFireFronts(
+              this.cearaBbox,
+              {
+                signal,
+              },
+            );
+
+          const boundaryPoly =
+            getBoundaryPolygon(
+              this.cearaBoundary,
+            );
+
+          const filtered =
+            boundaryPoly &&
+            raw?.features?.length
+              ? filterByBoundary(
+                  raw,
+                  boundaryPoly,
+                )
+              : raw;
+
+          this.fireFronts =
+            filtered;
+
           return filtered;
+        },
+
+        validate: (data) => {
+          if (
+            data?.type !==
+              'FeatureCollection' ||
+            !Array.isArray(data.features)
+          ) {
+            return 'As frentes de fogo retornaram um GeoJSON inválido.';
+          }
+
+          return true;
         },
       };
     } else {
-      console.warn('[AppCore] Sem bbox do Ceará — eventos de fogo não serão carregados');
+      console.warn(
+        '[AppCore] Sem BBOX do Ceará — dados SIPAM não serão carregados.',
+      );
     }
 
     const result = await SyncEngine.sync(phase2);

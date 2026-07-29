@@ -1,86 +1,341 @@
 /**
- * SIPAM Service — consulta de eventos de fogo e frentes de fogo via WFS.
- * Fonte: painel_do_fogo (SIPAM/MMA).
+ * SIPAM Service
  *
- * Políticas:
- * - bbox usado apenas para reduzir volume inicial
- * - Após a consulta, cada feição é validada contra o polígono real do Ceará
- * - Em caso de falha, retorna o último cache válido
- * - Timeout de 30s em cada requisição
+ * Consulta eventos e frentes de fogo por WFS.
+ *
+ * Regras:
+ * - utiliza BBOX do Ceará;
+ * - exige GeoJSON válido;
+ * - coleção vazia é um resultado válido;
+ * - respostas inválidas não sobrescrevem cache;
+ * - em falha real, utiliza o último cache válido;
+ * - aceita AbortSignal do SyncEngine.
  */
+
 import { config } from '../core/config';
 import { db } from '../storage/indexedDb';
-import { EventBus, EVENTS } from '../core/EventBus';
+
+import {
+  EventBus,
+  EVENTS,
+} from '../core/EventBus';
+
 import { ErrorManager } from '../core/ErrorManager';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
-function buildSipamUrl({ typeName, bbox, maxFeatures = config.sipamMaxFeatures }) {
+const EMPTY_FEATURE_COLLECTION = {
+  type: 'FeatureCollection',
+  features: [],
+};
+
+function isFeatureCollection(data) {
+  return (
+    data?.type === 'FeatureCollection' &&
+    Array.isArray(data.features)
+  );
+}
+
+function normalizeBbox(bbox) {
+  if (Array.isArray(bbox)) {
+    return bbox.join(',');
+  }
+
+  return String(bbox || '')
+    .replace(/\s+/g, '');
+}
+
+function buildSipamUrl({
+  typeName,
+  bbox,
+  maxFeatures =
+    config.sipamMaxFeatures,
+}) {
+  const normalizedBbox =
+    normalizeBbox(bbox);
+
+  if (!normalizedBbox) {
+    throw new Error(
+      'BBOX do Ceará não foi informado.',
+    );
+  }
+
   const params = new URLSearchParams({
-    api_key: config.sipamApiKey,
     service: 'WFS',
+    version: '1.0.0',
     request: 'GetFeature',
     typeName,
-    outputFormat: 'application/json',
-    bbox,
-    maxFeatures: String(maxFeatures),
+    outputFormat:
+      'application/json',
+    srsName: 'EPSG:4326',
+    bbox: `${normalizedBbox},EPSG:4326`,
+    maxFeatures: String(
+      maxFeatures,
+    ),
   });
+
+  if (config.sipamApiKey) {
+    params.set(
+      'api_key',
+      config.sipamApiKey,
+    );
+  }
+
   return `${config.sipamWfsUrl}?${params.toString()}`;
 }
 
-async function fetchWfs(typeName, bbox, cacheStore) {
-  const url = buildSipamUrl({ typeName, bbox });
+async function getValidCache(
+  cacheStore,
+) {
+  const cached = await db.get(
+    cacheStore,
+    'latest',
+  );
 
-  try {
-    const res = await fetchWithTimeout(url, {}, 30000);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const geojson = await res.json();
-
-    const record = {
-      id: 'latest',
-      data: geojson,
-      updated_date: Date.now(),
-      source: 'sipam',
-    };
-    await db.put(cacheStore, record);
-    return geojson;
-  } catch (err) {
-    console.error(`[sipamService] fetchWfs(${typeName}) falhou:`, err);
-    ErrorManager.report('sipam', err, { typeName });
-    const cached = await db.get(cacheStore, 'latest');
-    if (cached?.data) {
-      EventBus.emit(EVENTS.SYNC_PROGRESS, { message: 'Usando cache de ' + typeName });
-      return cached.data;
-    }
-    return { type: 'FeatureCollection', features: [] };
+  if (
+    isFeatureCollection(
+      cached?.data,
+    )
+  ) {
+    return cached.data;
   }
+
+  return null;
 }
 
-export async function loadFireEvents(cearaBbox) {
-  const data = await fetchWfs(
-    'painel_do_fogo:mv_evento_filtro',
-    cearaBbox,
-    db.stores.fireEvents
-  );
-  EventBus.emit(EVENTS.FIRE_EVENTS_UPDATED, data);
+async function saveCache(
+  cacheStore,
+  data,
+  {
+    typeName,
+    url,
+  },
+) {
+  if (!isFeatureCollection(data)) {
+    return false;
+  }
+
+  await db.put(cacheStore, {
+    id: 'latest',
+    data,
+    updated_date: Date.now(),
+    source: 'sipam',
+    typeName,
+    url,
+  });
+
+  return true;
+}
+
+async function parseGeoJsonResponse(
+  response,
+  typeName,
+) {
+  const contentType =
+    response.headers
+      .get('content-type')
+      ?.toLowerCase() || '';
+
+  if (
+    contentType.includes('xml') ||
+    contentType.includes('html')
+  ) {
+    const text = await response.text();
+
+    throw new Error(
+      `O SIPAM não retornou GeoJSON para ${typeName}: ${text.slice(
+        0,
+        220,
+      )}`,
+    );
+  }
+
+  let data;
+
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error(
+      `Resposta inválida do SIPAM para ${typeName}: ${error.message}`,
+    );
+  }
+
+  if (!isFeatureCollection(data)) {
+    const serviceMessage =
+      data?.exceptions?.[0]?.text ||
+      data?.message ||
+      data?.error;
+
+    throw new Error(
+      serviceMessage ||
+        `Resposta WFS inválida para ${typeName}.`,
+    );
+  }
+
   return data;
 }
 
-export async function loadFireFronts(cearaBbox) {
+async function fetchWfs(
+  typeName,
+  bbox,
+  cacheStore,
+  {
+    signal,
+  } = {},
+) {
+  const url = buildSipamUrl({
+    typeName,
+    bbox,
+  });
+
+  const cached =
+    await getValidCache(
+      cacheStore,
+    );
+
+  try {
+    const response =
+      await fetchWithTimeout(
+        url,
+        {
+          signal,
+          headers: {
+            Accept:
+              'application/geo+json, application/json',
+          },
+        },
+        45000,
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status} ${response.statusText}`.trim(),
+      );
+    }
+
+    const geojson =
+      await parseGeoJsonResponse(
+        response,
+        typeName,
+      );
+
+    /*
+     * Coleção vazia também é armazenada, porque ela
+     * representa corretamente a ausência de eventos.
+     */
+    await saveCache(
+      cacheStore,
+      geojson,
+      {
+        typeName,
+        url,
+      },
+    );
+
+    console.info(
+      '[sipamService] Consulta concluída:',
+      {
+        typeName,
+        featureCount:
+          geojson.features.length,
+      },
+    );
+
+    return geojson;
+  } catch (error) {
+    console.error(
+      `[sipamService] ${typeName} falhou:`,
+      error,
+    );
+
+    ErrorManager.report(
+      'sipam',
+      error,
+      {
+        operation: 'fetchWfs',
+        typeName,
+        bbox,
+        url,
+        cachedAvailable:
+          Boolean(cached),
+      },
+    );
+
+    if (cached) {
+      EventBus.emit(
+        EVENTS.SYNC_PROGRESS,
+        {
+          message:
+            `Usando dados armazenados de ${typeName}.`,
+        },
+      );
+
+      return cached;
+    }
+
+    return EMPTY_FEATURE_COLLECTION;
+  }
+}
+
+export async function loadFireEvents(
+  cearaBbox,
+  {
+    signal,
+  } = {},
+) {
+  const data = await fetchWfs(
+    'painel_do_fogo:mv_evento_filtro',
+    cearaBbox,
+    db.stores.fireEvents,
+    {
+      signal,
+    },
+  );
+
+  EventBus.emit(
+    EVENTS.FIRE_EVENTS_UPDATED,
+    data,
+  );
+
+  return data;
+}
+
+export async function loadFireFronts(
+  cearaBbox,
+  {
+    signal,
+  } = {},
+) {
   const data = await fetchWfs(
     'painel_do_fogo:mv_frente_deteccao',
     cearaBbox,
-    db.stores.fireFronts
+    db.stores.fireFronts,
+    {
+      signal,
+    },
   );
-  EventBus.emit(EVENTS.FIRE_FRONTS_UPDATED, data);
+
+  EventBus.emit(
+    EVENTS.FIRE_FRONTS_UPDATED,
+    data,
+  );
+
   return data;
 }
 
 export async function getCachedFireEvents() {
-  const rec = await db.get(db.stores.fireEvents, 'latest');
-  return rec?.data || { type: 'FeatureCollection', features: [] };
+  return (
+    (await getValidCache(
+      db.stores.fireEvents,
+    )) ||
+    EMPTY_FEATURE_COLLECTION
+  );
 }
 
 export async function getCachedFireFronts() {
-  const rec = await db.get(db.stores.fireFronts, 'latest');
-  return rec?.data || { type: 'FeatureCollection', features: [] };
+  return (
+    (await getValidCache(
+      db.stores.fireFronts,
+    )) ||
+    EMPTY_FEATURE_COLLECTION
+  );
 }
