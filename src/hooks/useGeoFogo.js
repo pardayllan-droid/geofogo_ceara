@@ -439,58 +439,6 @@ export function useGeoFogo() {
     refreshApplicationState,
   ]);
 
-  /**
-   * Eventos online/offline do próprio navegador.
-   *
-   * Isso funciona mesmo que outro módulo deixe de emitir
-   * CONNECTION_CHANGED.
-   */
-  useEffect(() => {
-    const handleOnline = () => {
-      setOnline(true);
-
-      EventBus.emit(
-        EVENTS.CONNECTION_CHANGED,
-        {
-          online: true,
-        },
-      );
-    };
-
-    const handleOffline = () => {
-      setOnline(false);
-
-      EventBus.emit(
-        EVENTS.CONNECTION_CHANGED,
-        {
-          online: false,
-        },
-      );
-    };
-
-    window.addEventListener(
-      'online',
-      handleOnline,
-    );
-
-    window.addEventListener(
-      'offline',
-      handleOffline,
-    );
-
-    return () => {
-      window.removeEventListener(
-        'online',
-        handleOnline,
-      );
-
-      window.removeEventListener(
-        'offline',
-        handleOffline,
-      );
-    };
-  }, []);
-
   const toggleLayer = useCallback(
     (layerId, visible) => {
       LayerManager.setVisibility(

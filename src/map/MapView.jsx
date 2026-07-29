@@ -876,7 +876,6 @@ export default function MapView({
 
             if (fitted) {
               fittedRef.current = true;
-              AppCore._fitted = true;
             }
           }
 
@@ -1017,7 +1016,6 @@ export default function MapView({
 
       styleReadyRef.current = true;
       fittedRef.current = false;
-      AppCore._fitted = false;
 
       LayerManager.setMap(map);
 
@@ -1215,7 +1213,6 @@ export default function MapView({
 
     styleReadyRef.current = false;
     fittedRef.current = false;
-    AppCore._fitted = false;
 
     const changed =
       applyBaseMap(

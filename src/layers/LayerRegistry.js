@@ -3,7 +3,6 @@
  * Permite adicionar camadas sem alterar o componente principal do mapa.
  */
 import { LAYER_DEFINITIONS, BASE_MAPS } from './LayerDefinitions';
-import { LayerManager } from './LayerManager';
 
 class LayerRegistryImpl {
   constructor() {
@@ -12,17 +11,12 @@ class LayerRegistryImpl {
   }
 
   initialize() {
-    Object.values(BASE_MAPS).forEach((bm) => this._baseMaps.set(bm.id, bm));
-    LAYER_DEFINITIONS.forEach((def) => this._definitions.push(def));
-  }
+    this._baseMaps.clear();
+    this._definitions = [...LAYER_DEFINITIONS];
 
-  register(definition) {
-    this._definitions.push(definition);
-    LayerManager.register(definition);
-  }
-
-  getBaseMap(id) {
-    return this._baseMaps.get(id);
+    Object.values(BASE_MAPS).forEach((baseMap) => {
+      this._baseMaps.set(baseMap.id, baseMap);
+    });
   }
 
   getBaseMaps() {
@@ -33,9 +27,6 @@ class LayerRegistryImpl {
     return [...this._definitions];
   }
 
-  getDefinition(id) {
-    return this._definitions.find((d) => d.id === id);
-  }
 }
 
 export const LayerRegistry = new LayerRegistryImpl();
