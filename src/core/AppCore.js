@@ -20,6 +20,7 @@ import { loadConservationUnits } from '../services/conservationUnitService';
 import { loadFireEvents, loadFireFronts, getCachedFireEvents, getCachedFireFronts } from '../services/sipamService';
 import { computeAlerts, getCachedAlerts } from '../alerts/AlertEngine';
 import { filterByBoundary, computeArea, representativePoint, findNearby } from '../spatial/SpatialEngine';
+import { enrichFireEventsWithMunicipalities } from '../services/fireEventEnrichmentService';
 
 class AppCoreImpl {
   constructor() {
@@ -67,8 +68,17 @@ class AppCoreImpl {
       this.conservationUnits = cachedUCs.data;
     }
 
-    this.fireEvents = await getCachedFireEvents();
-    this.fireFronts = await getCachedFireFronts();
+    const cachedFireEvents =
+  await getCachedFireEvents();
+
+    this.fireEvents =
+      enrichFireEventsWithMunicipalities(
+        cachedFireEvents,
+        this.municipalities,
+      );
+
+    this.fireFronts =
+      await getCachedFireFronts();
     this.alerts = await getCachedAlerts();
 
     this._updateStats();
@@ -202,9 +212,6 @@ class AppCoreImpl {
           const raw =
             await loadFireEvents(
               this.cearaBbox,
-              {
-                signal,
-              },
             );
 
           const boundaryPoly =
@@ -213,18 +220,28 @@ class AppCoreImpl {
             );
 
           const filtered =
-            boundaryPoly &&
-            raw?.features?.length
+            boundaryPoly
               ? filterByBoundary(
                   raw,
                   boundaryPoly,
                 )
               : raw;
 
-          this.fireEvents =
-            filtered;
+          /*
+          * Identifica espacialmente o município de cada evento
+          * antes que alertas, marcadores e estatísticas sejam
+          * recalculados.
+          */
+          const enriched =
+            enrichFireEventsWithMunicipalities(
+              filtered,
+              this.municipalities,
+            );
 
-          return filtered;
+          this.fireEvents =
+            enriched;
+
+          return enriched;
         },
 
         validate: (data) => {

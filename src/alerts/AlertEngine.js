@@ -63,7 +63,7 @@ export async function computeAlerts(fireEvents, conservationUnits, limitKm = con
         id: key,
         eventId,
         ucId,
-        eventName: event.properties?.nome || event.properties?.municipio || 'Evento sem nome',
+        eventName: event.properties?.municipio || event.properties?.municipality || event.properties?.nome || 'Evento sem município identificado',
         ucName: uc.properties?.nome || uc.properties?.name || 'UC sem nome',
         ucCategory: uc.properties?.categoria || uc.properties?.category || '—',
         ucGroup: uc.properties?.grupo || '—',
