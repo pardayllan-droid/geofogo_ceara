@@ -1,52 +1,140 @@
 /**
- * LayerManager — controla TODAS as fontes e camadas do mapa.
- * Nenhum componente deve chamar map.addSource/addLayer/removeLayer diretamente.
+ * LayerManager
  *
- * Responsabilidades:
- * - Registrar fontes e camadas
- * - Adicionar ao mapa
- * - Atualizar dados GeoJSON
- * - Ativar/desativar camadas
- * - Alterar opacidade e ordem
- * - Controlar zoom min/max
- * - Controle de seleção e cliques
- * - Legendas
- * - Carregamento e erros
- * - Gerenciar cache
+ * Gerencia todas as fontes e camadas operacionais do mapa.
+ *
+ * Nenhum componente React deve chamar diretamente:
+ * - map.addSource();
+ * - map.addLayer();
+ * - map.removeLayer();
+ * - source.setData();
  */
-import maplibregl from 'maplibre-gl';
+
 import { EventBus, EVENTS } from '../core/EventBus';
 import { ErrorManager } from '../core/ErrorManager';
+
+const EMPTY_FEATURE_COLLECTION = {
+  type: 'FeatureCollection',
+  features: [],
+};
 
 class LayerManagerImpl {
   constructor() {
     this._map = null;
-    this._layers = new Map(); // id → definition + state
-    this._sources = new Map(); // sourceId → { type, data }
+
+    /*
+     * ID da camada -> definição e estado.
+     */
+    this._layers = new Map();
+
+    /*
+     * ID da source -> dados GeoJSON preservados em memória.
+     */
+    this._sources = new Map();
+
+    /*
+     * ID da definição -> handlers usados pelo MapLibre.
+     */
     this._clickHandlers = new Map();
+
+    this._styleChanging = false;
   }
 
   setMap(map) {
+    if (!map) {
+      return;
+    }
+
     this._map = map;
+    this._styleChanging = false;
+  }
+
+  clearMap(expectedMap = null) {
+    if (
+      expectedMap &&
+      this._map &&
+      expectedMap !== this._map
+    ) {
+      return;
+    }
+
+    this._clickHandlers.clear();
+    this._map = null;
+    this._styleChanging = false;
   }
 
   isReady() {
-    return !!this._map;
+    return Boolean(
+      this._map &&
+      !this._styleChanging &&
+      this._map.isStyleLoaded?.(),
+    );
+  }
+
+  prepareForStyleChange() {
+    this._styleChanging = true;
+
+    /*
+     * O MapLibre remove as layers e seus handlers ao trocar o estilo.
+     * Os dados das sources permanecem armazenados em this._sources.
+     */
+    this._clickHandlers.clear();
   }
 
   register(definition) {
-    this._layers.set(definition.id, {
+    if (!definition?.id) {
+      console.error(
+        '[LayerManager] Tentativa de registrar camada sem ID.',
+        definition,
+      );
+
+      return null;
+    }
+
+    const existing = this._layers.get(definition.id);
+
+    const registeredLayer = {
+      ...existing,
       ...definition,
-      visible: definition.defaultVisible ?? true,
-      loading: false,
-      error: null,
-      lastUpdated: null,
-    });
-    EventBus.emit(EVENTS.LAYER_REGISTERED, definition);
+      visible:
+        existing?.visible ??
+        definition.defaultVisible ??
+        true,
+      opacity:
+        existing?.opacity ??
+        definition.opacity ??
+        1,
+      loading: existing?.loading ?? false,
+      error: existing?.error ?? null,
+      lastUpdated: existing?.lastUpdated ?? null,
+    };
+
+    this._layers.set(
+      definition.id,
+      registeredLayer,
+    );
+
+    EventBus.emit(
+      EVENTS.LAYER_REGISTERED,
+      registeredLayer,
+    );
+
+    return registeredLayer;
   }
 
-  registerAll(definitions) {
-    definitions.forEach((d) => this.register(d));
+  registerAll(definitions = []) {
+    if (!Array.isArray(definitions)) {
+      console.error(
+        '[LayerManager] registerAll recebeu um valor inválido.',
+        definitions,
+      );
+
+      return;
+    }
+
+    definitions.forEach((definition) => {
+      this.register(definition);
+    });
   }
 
   getLayer(id) {
@@ -59,169 +147,755 @@ class LayerManagerImpl {
 
   getLayersByGroup() {
     const groups = new Map();
+
     for (const layer of this._layers.values()) {
-      const g = layer.group || 'Outros';
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g).push(layer);
+      const groupName = layer.group || 'Outros';
+
+      if (!groups.has(groupName)) {
+        groups.set(groupName, []);
+      }
+
+      groups.get(groupName).push(layer);
     }
+
     return groups;
   }
 
-  addSource(sourceId, data) {
-    if (!this._map) return;
-    if (this._map.getSource(sourceId)) {
-      this._map.getSource(sourceId).setData(data);
-    } else {
-      this._map.addSource(sourceId, { type: 'geojson', data });
-    }
-    this._sources.set(sourceId, { type: 'geojson', data });
+  /**
+   * Verifica se a instância do MapLibre pode receber sources/layers.
+   */
+  _canUseMap() {
+    return Boolean(
+      this._map &&
+      !this._styleChanging &&
+      this._map.isStyleLoaded?.(),
+    );
   }
 
-  addLayerToMap(def) {
-    if (!this._map) return;
-    const sourceId = `src-${def.id}`;
-    const hasData = this._sources.has(sourceId);
+  /**
+   * Normaliza valores inválidos para uma FeatureCollection vazia.
+   */
+  _normalizeGeoJSON(data) {
+    if (!data || typeof data !== 'object') {
+      return EMPTY_FEATURE_COLLECTION;
+    }
 
-    if (!hasData) {
-      this.addSource(sourceId, { type: 'FeatureCollection', features: [] });
+    if (
+      data.type === 'FeatureCollection' &&
+      Array.isArray(data.features)
+    ) {
+      return data;
+    }
+
+    if (data.type === 'Feature') {
+      return {
+        type: 'FeatureCollection',
+        features: [data],
+      };
+    }
+
+    return data;
+  }
+
+  /**
+   * Armazena e/ou atualiza uma source no mapa.
+   */
+  addSource(sourceId, data) {
+    const normalizedData = this._normalizeGeoJSON(data);
+
+    /*
+     * O dado é preservado mesmo quando o mapa ainda não está pronto.
+     */
+    this._sources.set(sourceId, {
+      type: 'geojson',
+      data: normalizedData,
+    });
+
+    if (!this._canUseMap()) {
+      return false;
+    }
+
+    try {
+      const existingSource =
+        this._map.getSource(sourceId);
+
+      if (existingSource?.setData) {
+        existingSource.setData(normalizedData);
+      } else {
+        this._map.addSource(sourceId, {
+          type: 'geojson',
+          data: normalizedData,
+        });
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        `[LayerManager] Falha na source "${sourceId}":`,
+        error,
+      );
+
+      ErrorManager.report(
+        'layer',
+        error,
+        {
+          operation: 'addSource',
+          sourceId,
+        },
+      );
+
+      return false;
+    }
+  }
+
+  /**
+   * Adiciona uma definição de layer ao mapa.
+   */
+  addLayerToMap(definition) {
+    if (!this._canUseMap()) {
+      return false;
+    }
+
+    if (!definition?.id) {
+      const error = new Error(
+        'Definição de camada inexistente ou sem ID.',
+      );
+
+      ErrorManager.report(
+        'layer',
+        error,
+        {
+          operation: 'addLayerToMap',
+        },
+      );
+
+      return false;
+    }
+
+    const sourceId = `src-${definition.id}`;
+
+    const storedSource =
+      this._sources.get(sourceId);
+
+    /*
+     * A source pode existir na memória, mas não existir no mapa após
+     * uma troca de estilo. Sempre consultamos map.getSource().
+     */
+    if (!this._map.getSource(sourceId)) {
+      const sourceData =
+        storedSource?.data ||
+        EMPTY_FEATURE_COLLECTION;
+
+      const sourceAdded = this.addSource(
+        sourceId,
+        sourceData,
+      );
+
+      if (!sourceAdded) {
+        return false;
+      }
+    }
+
+    if (this._map.getLayer(definition.id)) {
+      return true;
     }
 
     const layerConfig = {
-      id: def.id,
+      id: definition.id,
       source: sourceId,
-      minzoom: def.minZoom || 0,
-      maxzoom: def.maxZoom || 24,
-      layout: { visibility: def.visible !== false ? 'visible' : 'none' },
+      minzoom: definition.minZoom ?? 0,
+      maxzoom: definition.maxZoom ?? 24,
+      layout: {
+        visibility:
+          definition.visible !== false
+            ? 'visible'
+            : 'none',
+      },
     };
 
-    if (def.geometryType === 'point') {
-      this._map.addLayer({ ...layerConfig, type: 'circle', paint: def.paint || {} });
-    } else if (def.geometryType === 'linestring') {
-      this._map.addLayer({ ...layerConfig, type: 'line', paint: def.paint || {} });
-    } else {
-      this._map.addLayer({ ...layerConfig, type: 'fill', paint: def.paint || {} });
-      if (def.paint?.['line-color']) {
+    try {
+      if (definition.geometryType === 'point') {
         this._map.addLayer({
-          id: `${def.id}-outline`,
-          source: sourceId,
+          ...layerConfig,
+          type: 'circle',
+          paint: definition.paint || {},
+        });
+      } else if (
+        definition.geometryType === 'linestring'
+      ) {
+        this._map.addLayer({
+          ...layerConfig,
           type: 'line',
-          minzoom: def.minZoom || 0,
-          maxzoom: def.maxZoom || 24,
-          layout: { visibility: def.visible !== false ? 'visible' : 'none' },
-          paint: {
-            'line-color': def.paint['line-color'],
-            'line-width': def.paint['line-width'] || 1,
-            'line-opacity': def.paint['line-opacity'] ?? 0.8,
-            ...(def.paint['line-dasharray'] ? { 'line-dasharray': def.paint['line-dasharray'] } : {}),
-          },
+          paint: definition.paint || {},
+        });
+      } else {
+        this._map.addLayer({
+          ...layerConfig,
+          type: 'fill',
+          paint: definition.paint || {},
+        });
+
+        if (definition.paint?.['line-color']) {
+          const outlineId =
+            `${definition.id}-outline`;
+
+          if (!this._map.getLayer(outlineId)) {
+            this._map.addLayer({
+              id: outlineId,
+              source: sourceId,
+              type: 'line',
+              minzoom: definition.minZoom ?? 0,
+              maxzoom: definition.maxZoom ?? 24,
+              layout: {
+                visibility:
+                  definition.visible !== false
+                    ? 'visible'
+                    : 'none',
+              },
+              paint: {
+                'line-color':
+                  definition.paint['line-color'],
+
+                'line-width':
+                  definition.paint['line-width'] ??
+                  1,
+
+                'line-opacity':
+                  definition.paint['line-opacity'] ??
+                  0.8,
+
+                ...(definition.paint[
+                  'line-dasharray'
+                ]
+                  ? {
+                      'line-dasharray':
+                        definition.paint[
+                          'line-dasharray'
+                        ],
+                    }
+                  : {}),
+              },
+            });
+          }
+        }
+      }
+
+      if (definition.interactive) {
+        this._attachClickHandler(definition);
+      }
+
+      this._applyOpacity(definition.id);
+
+      return true;
+    } catch (error) {
+      console.error(
+        `[LayerManager] Falha ao adicionar a camada "${definition.id}":`,
+        error,
+      );
+
+      this.setError(
+        definition.id,
+        error,
+        {
+          operation: 'addLayerToMap',
+        },
+      );
+
+      return false;
+    }
+  }
+
+  /**
+   * Remove handlers antigos de uma definição.
+   */
+  _detachClickHandler(layerId) {
+    if (!this._map) {
+      this._clickHandlers.delete(layerId);
+      return;
+    }
+
+    const registration =
+      this._clickHandlers.get(layerId);
+
+    if (!registration) {
+      return;
+    }
+
+    const {
+      handler,
+      mouseEnterHandler,
+      mouseLeaveHandler,
+      layerIds,
+    } = registration;
+
+    layerIds.forEach((mapLayerId) => {
+      try {
+        this._map.off(
+          'click',
+          mapLayerId,
+          handler,
+        );
+
+        this._map.off(
+          'mouseenter',
+          mapLayerId,
+          mouseEnterHandler,
+        );
+
+        this._map.off(
+          'mouseleave',
+          mapLayerId,
+          mouseLeaveHandler,
+        );
+      } catch {
+        // A camada pode já ter sido removida pelo MapLibre.
+      }
+    });
+
+    this._clickHandlers.delete(layerId);
+  }
+
+  _attachClickHandler(definition) {
+    if (!this._canUseMap()) {
+      return;
+    }
+
+    this._detachClickHandler(definition.id);
+
+    const layerIds = [
+      definition.id,
+      `${definition.id}-outline`,
+    ].filter((layerId) =>
+      Boolean(this._map.getLayer(layerId)),
+    );
+
+    if (layerIds.length === 0) {
+      return;
+    }
+
+    const handler = (event) => {
+      if (!event.features?.length) {
+        return;
+      }
+
+      const feature = event.features[0];
+
+      EventBus.emit('layer:click', {
+        layerId: definition.id,
+        feature,
+        lngLat: event.lngLat,
+      });
+    };
+
+    const mouseEnterHandler = () => {
+      if (this._map?.getCanvas()) {
+        this._map.getCanvas().style.cursor =
+          'pointer';
+      }
+    };
+
+    const mouseLeaveHandler = () => {
+      if (this._map?.getCanvas()) {
+        this._map.getCanvas().style.cursor = '';
+      }
+    };
+
+    layerIds.forEach((layerId) => {
+      this._map.on(
+        'click',
+        layerId,
+        handler,
+      );
+
+      this._map.on(
+        'mouseenter',
+        layerId,
+        mouseEnterHandler,
+      );
+
+      this._map.on(
+        'mouseleave',
+        layerId,
+        mouseLeaveHandler,
+      );
+    });
+
+    this._clickHandlers.set(
+      definition.id,
+      {
+        handler,
+        mouseEnterHandler,
+        mouseLeaveHandler,
+        layerIds,
+      },
+    );
+  }
+
+  /**
+   * Atualiza os dados de uma camada.
+   *
+   * Os dados são armazenados mesmo se o mapa ainda não estiver pronto.
+   */
+  updateLayerData(layerId, geoJSON) {
+    const definition =
+      this._layers.get(layerId);
+
+    if (!definition) {
+      const error = new Error(
+        `Camada não registrada: ${layerId}`,
+      );
+
+      console.error(
+        '[LayerManager]',
+        error.message,
+      );
+
+      ErrorManager.report(
+        'layer',
+        error,
+        {
+          operation: 'updateLayerData',
+          layerId,
+        },
+      );
+
+      return false;
+    }
+
+    const sourceId = `src-${layerId}`;
+    const normalizedData =
+      this._normalizeGeoJSON(geoJSON);
+
+    /*
+     * Guarda os dados mesmo que o mapa ainda esteja carregando.
+     */
+    this._sources.set(sourceId, {
+      type: 'geojson',
+      data: normalizedData,
+    });
+
+    if (!this._canUseMap()) {
+      return false;
+    }
+
+    try {
+      const existingSource =
+        this._map.getSource(sourceId);
+
+      if (existingSource?.setData) {
+        existingSource.setData(
+          normalizedData,
+        );
+      } else {
+        this._map.addSource(sourceId, {
+          type: 'geojson',
+          data: normalizedData,
         });
       }
-    }
 
-    if (def.interactive) {
-      this._attachClickHandler(def);
+      if (!this._map.getLayer(layerId)) {
+        const added =
+          this.addLayerToMap(definition);
+
+        if (!added) {
+          return false;
+        }
+      }
+
+      definition.lastUpdated = Date.now();
+      definition.loading = false;
+      definition.error = null;
+
+      /*
+       * Este evento informa à interface que a source foi atualizada.
+       * MapView não deve responder a ele chamando updateLayerData outra vez.
+       */
+      EventBus.emit(
+        EVENTS.LAYER_DATA_UPDATED,
+        {
+          layerId,
+          data: normalizedData,
+        },
+      );
+
+      return true;
+    } catch (error) {
+      this.setError(
+        layerId,
+        error,
+        {
+          operation: 'updateLayerData',
+        },
+      );
+
+      return false;
     }
   }
 
-  _attachClickHandler(def) {
-    if (!this._map) return;
-    const layerIds = [def.id, `${def.id}-outline`].filter((id) => this._map.getLayer(id));
+  /**
+   * Recria todas as sources e layers depois da troca de estilo.
+   */
+  restoreAllLayers() {
+    if (!this._map) {
+      return false;
+    }
 
-    const handler = (e) => {
-      if (!e.features?.length) return;
-      const feature = e.features[0];
-      EventBus.emit('layer:click', { layerId: def.id, feature, lngLat: e.lngLat });
-    };
+    this._styleChanging = false;
 
-    layerIds.forEach((lid) => {
-      this._map.on('click', lid, handler);
-      this._map.on('mouseenter', lid, () => {
-        this._map.getCanvas().style.cursor = 'pointer';
+    if (!this._map.isStyleLoaded?.()) {
+      return false;
+    }
+
+    for (const definition of this._layers.values()) {
+      const sourceId =
+        `src-${definition.id}`;
+
+      const storedSource =
+        this._sources.get(sourceId);
+
+      /*
+       * Não é necessário criar no mapa uma camada que nunca recebeu
+       * dados, exceto quando ela já possuir dados armazenados.
+       */
+      if (!storedSource) {
+        continue;
+      }
+
+      try {
+        if (!this._map.getSource(sourceId)) {
+          this._map.addSource(sourceId, {
+            type: 'geojson',
+            data:
+              storedSource.data ||
+              EMPTY_FEATURE_COLLECTION,
+          });
+        }
+
+        if (!this._map.getLayer(definition.id)) {
+          this.addLayerToMap(definition);
+        }
+
+        this.setVisibility(
+          definition.id,
+          definition.visible !== false,
+          false,
+        );
+      } catch (error) {
+        this.setError(
+          definition.id,
+          error,
+          {
+            operation: 'restoreAllLayers',
+          },
+        );
+      }
+    }
+
+    return true;
+  }
+
+  setVisibility(
+    layerId,
+    visible,
+    emitEvent = true,
+  ) {
+    const definition =
+      this._layers.get(layerId);
+
+    if (!definition) {
+      return false;
+    }
+
+    definition.visible = Boolean(visible);
+
+    if (this._canUseMap()) {
+      const layerIds = [
+        layerId,
+        `${layerId}-outline`,
+      ];
+
+      layerIds.forEach((mapLayerId) => {
+        if (this._map.getLayer(mapLayerId)) {
+          this._map.setLayoutProperty(
+            mapLayerId,
+            'visibility',
+            visible ? 'visible' : 'none',
+          );
+        }
       });
-      this._map.on('mouseleave', lid, () => {
-        this._map.getCanvas().style.cursor = '';
-      });
-    });
-
-    this._clickHandlers.set(def.id, { handler, layerIds });
-  }
-
-  updateLayerData(layerId, geojson) {
-    if (!this._map) return;
-    const sourceId = `src-${layerId}`;
-    const def = this._layers.get(layerId);
-
-    this.addSource(sourceId, geojson);
-
-    if (!this._map.getLayer(layerId)) {
-      this.addLayerToMap(def);
     }
 
-    if (def) {
-      def.lastUpdated = Date.now();
-      def.loading = false;
-      def.error = null;
+    if (emitEvent) {
+      EventBus.emit(
+        EVENTS.LAYER_VISIBILITY_CHANGED,
+        {
+          layerId,
+          visible: Boolean(visible),
+        },
+      );
     }
 
-    EventBus.emit(EVENTS.LAYER_DATA_UPDATED, { layerId, data: geojson });
+    return true;
   }
 
-  setVisibility(layerId, visible) {
-    if (!this._map) return;
-    const def = this._layers.get(layerId);
-    if (!def) return;
+  _applyOpacity(layerId) {
+    const definition =
+      this._layers.get(layerId);
 
-    def.visible = visible;
-    const layerIds = [layerId, `${layerId}-outline`];
-    layerIds.forEach((lid) => {
-      if (this._map.getLayer(lid)) {
-        this._map.setLayoutProperty(lid, 'visibility', visible ? 'visible' : 'none');
+    if (!definition || !this._canUseMap()) {
+      return;
+    }
+
+    const opacity =
+      Number.isFinite(definition.opacity)
+        ? definition.opacity
+        : 1;
+
+    const layerIds = [
+      layerId,
+      `${layerId}-outline`,
+    ];
+
+    layerIds.forEach((mapLayerId) => {
+      const mapLayer =
+        this._map.getLayer(mapLayerId);
+
+      if (!mapLayer) {
+        return;
+      }
+
+      if (mapLayer.type === 'fill') {
+        const originalOpacity =
+          definition.paint?.['fill-opacity'] ??
+          0.5;
+
+        this._map.setPaintProperty(
+          mapLayerId,
+          'fill-opacity',
+          opacity * originalOpacity,
+        );
+      } else if (mapLayer.type === 'line') {
+        const originalOpacity =
+          definition.paint?.['line-opacity'] ??
+          0.8;
+
+        this._map.setPaintProperty(
+          mapLayerId,
+          'line-opacity',
+          opacity * originalOpacity,
+        );
+      } else if (mapLayer.type === 'circle') {
+        const originalOpacity =
+          definition.paint?.[
+            'circle-opacity'
+          ] ?? 1;
+
+        this._map.setPaintProperty(
+          mapLayerId,
+          'circle-opacity',
+          opacity * originalOpacity,
+        );
+
+        if (
+          definition.paint?.[
+            'circle-stroke-opacity'
+          ] !== undefined
+        ) {
+          this._map.setPaintProperty(
+            mapLayerId,
+            'circle-stroke-opacity',
+            opacity *
+              definition.paint[
+                'circle-stroke-opacity'
+              ],
+          );
+        }
       }
     });
-
-    EventBus.emit(EVENTS.LAYER_VISIBILITY_CHANGED, { layerId, visible });
   }
 
   setOpacity(layerId, opacity) {
-    if (!this._map) return;
-    const def = this._layers.get(layerId);
-    if (!def) return;
+    const definition =
+      this._layers.get(layerId);
 
-    def.opacity = opacity;
-    const layerIds = [layerId, `${layerId}-outline`];
-    layerIds.forEach((lid) => {
-      if (!this._map.getLayer(lid)) return;
-      const type = this._map.getLayer(lid).type;
-      if (type === 'fill') {
-        this._map.setPaintProperty(lid, 'fill-opacity', opacity * (def.paint?.['fill-opacity'] ?? 0.5));
-      } else if (type === 'line') {
-        this._map.setPaintProperty(lid, 'line-opacity', opacity * (def.paint?.['line-opacity'] ?? 0.8));
-      } else if (type === 'circle') {
-        this._map.setPaintProperty(lid, 'circle-opacity', opacity);
-      }
-    });
+    if (!definition) {
+      return false;
+    }
+
+    const numericOpacity =
+      Number(opacity);
+
+    definition.opacity = Math.min(
+      1,
+      Math.max(
+        0,
+        Number.isFinite(numericOpacity)
+          ? numericOpacity
+          : 1,
+      ),
+    );
+
+    this._applyOpacity(layerId);
+
+    return true;
   }
 
   removeLayer(layerId) {
-    if (!this._map) return;
-    [layerId, `${layerId}-outline`].forEach((lid) => {
-      if (this._map.getLayer(lid)) this._map.removeLayer(lid);
-    });
-    if (this._map.getSource(`src-${layerId}`)) {
-      this._map.removeSource(`src-${layerId}`);
+    const definition =
+      this._layers.get(layerId);
+
+    if (!definition) {
+      return false;
     }
+
+    this._detachClickHandler(layerId);
+
+    if (this._canUseMap()) {
+      [
+        layerId,
+        `${layerId}-outline`,
+      ].forEach((mapLayerId) => {
+        if (this._map.getLayer(mapLayerId)) {
+          this._map.removeLayer(mapLayerId);
+        }
+      });
+
+      const sourceId = `src-${layerId}`;
+
+      if (this._map.getSource(sourceId)) {
+        this._map.removeSource(sourceId);
+      }
+    }
+
     this._layers.delete(layerId);
-    this._sources.delete(`src-${layerId}`);
+    this._sources.delete(
+      `src-${layerId}`,
+    );
+
+    return true;
   }
 
-  setError(layerId, error) {
-    const def = this._layers.get(layerId);
-    if (def) {
-      def.error = error;
-      def.loading = false;
+  setError(layerId, error, context = {}) {
+    const definition =
+      this._layers.get(layerId);
+
+    if (definition) {
+      definition.error =
+        error?.message || String(error);
+
+      definition.loading = false;
     }
-    ErrorManager.report('layer', error, { layerId });
+
+    ErrorManager.report(
+      'layer',
+      error,
+      {
+        layerId,
+        ...context,
+      },
+    );
   }
 }
 
-export const LayerManager = new LayerManagerImpl();
+export const LayerManager =
+  new LayerManagerImpl();

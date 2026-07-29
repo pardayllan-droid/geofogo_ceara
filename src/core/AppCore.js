@@ -79,31 +79,57 @@ class AppCoreImpl {
     // Fase 1: carregar limite + municípios (pré-requisitos para eventos de fogo)
     const phase1 = {};
 
-    if (!this.cearaBoundary) {
+    if (!this.cearaBoundary?.features?.length) {
       phase1.boundary = {
-        label: 'Limite do Ceará',
-        module: 'layer',
-        fn: async () => {
-          const boundary = await loadCearaBoundary();
-          if (boundary?.features?.length) {
-            this.cearaBoundary = boundary;
-            this.cearaBbox = computeBbox(boundary);
-          }
-          return boundary;
-        },
-      };
+      label: 'Limite do Ceará',
+      module: 'layer',
+
+      fn: async ({ signal } = {}) => {
+        const boundary =
+          await loadCearaBoundary({
+            signal,
+          });
+
+        if (!boundary?.features?.length) {
+          throw new Error(
+            'O limite do Ceará não contém feições.',
+          );
+        }
+
+        this.cearaBoundary = boundary;
+        this.cearaBbox =
+          computeBbox(boundary);
+
+        return boundary;
+      },
+    };
     }
 
-    if (!this.municipalities) {
+    if (!this.municipalities?.features?.length) {
       phase1.municipalities = {
-        label: 'Municípios',
-        module: 'layer',
-        fn: async () => {
-          const m = await loadMunicipalities();
-          if (m?.features?.length) this.municipalities = m;
-          return m;
-        },
-      };
+      label: 'Municípios',
+      module: 'layer',
+
+      fn: async ({ signal } = {}) => {
+        const municipalities =
+          await loadMunicipalities({
+            signal,
+          });
+
+        if (
+          !municipalities?.features?.length
+        ) {
+          throw new Error(
+            'A malha municipal não contém feições.',
+          );
+        }
+
+        this.municipalities =
+          municipalities;
+
+        return municipalities;
+      },
+    };
     }
 
     if (Object.keys(phase1).length > 0) {
