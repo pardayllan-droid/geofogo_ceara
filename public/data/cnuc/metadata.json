@@ -1,0 +1,15 @@
+{
+  "source": "Cadastro Nacional de Unidades de Conservação — CNUC/MMA",
+  "dataset": "Unidades de Conservação",
+  "resource": "Polígono CNUC 2025_08",
+  "resourceUrl": "https://dados.mma.gov.br/dataset/44b6dc8a-dc82-4a84-8d95-1b0da7c85dac/resource/6ba9a557-87e8-4882-acb7-b3e0f0ea192d/download/shp_cnuc_2025_08.zip",
+  "resourceYearMonth": 202508,
+  "generatedAt": "2026-07-29T01:42:04.143Z",
+  "bboxFilter": {
+    "west": -41.4215,
+    "south": -7.8575,
+    "east": -37.2532,
+    "north": -2.7845
+  },
+  "featureCount": 113
+}

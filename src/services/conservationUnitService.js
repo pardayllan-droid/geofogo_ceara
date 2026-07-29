@@ -1,13 +1,18 @@
 /**
  * Conservation Unit Service
  *
- * Carrega as Unidades de Conservação do Ceará.
+ * Fonte principal:
+ * Cadastro Nacional de Unidades de Conservação — CNUC/MMA.
+ *
+ * O arquivo é preparado pelo comando:
+ *
+ * npm run update:cnuc
  *
  * Estratégia:
- * 1. tenta arquivos GeoJSON locais;
- * 2. tenta fontes WFS públicas;
- * 3. utiliza cache válido como fallback;
- * 4. nunca considera coleção vazia como cache válido.
+ * 1. tenta carregar o GeoJSON CNUC incluído na PWA;
+ * 2. valida e normaliza os dados;
+ * 3. armazena no IndexedDB;
+ * 4. usa cache válido quando o arquivo não estiver disponível.
  */
 
 import { db } from '../storage/indexedDb';
@@ -19,36 +24,16 @@ const EMPTY_FEATURE_COLLECTION = {
   features: [],
 };
 
-/**
- * Caminhos locais possíveis.
- *
- * O Vite disponibiliza arquivos da pasta public
- * diretamente a partir da raiz da aplicação.
- */
-const LOCAL_UC_SOURCES = [
-  '/data/conservation_units/conservation_units.geojson',
-  '/data/conservation_units/unidades_conservacao.geojson',
-  '/data/conservation_units/ucs_ceara.geojson',
-  '/data/conservation_units/ucs.geojson',
-  '/data/conservation-units.geojson',
-  '/data/unidades_conservacao.geojson',
-  '/data/ucs_ceara.geojson',
-];
+const CNUC_URL =
+  '/data/cnuc/ucs-ceara.geojson';
 
-/**
- * Fontes públicas alternativas.
- *
- * Algumas fontes podem bloquear CORS ou ficar
- * temporariamente indisponíveis. Por isso nenhuma
- * delas é considerada única fonte obrigatória.
- */
-const REMOTE_UC_SOURCES = [
-  'https://geoserver.icmbio.gov.br/geoserver/uc/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=uc:uc&outputFormat=application/json&srsName=EPSG:4326&maxFeatures=10000',
-];
+const CACHE_ID =
+  'latest';
 
 function isFeatureCollection(data) {
   return (
-    data?.type === 'FeatureCollection' &&
+    data?.type ===
+      'FeatureCollection' &&
     Array.isArray(data.features)
   );
 }
@@ -60,115 +45,192 @@ function hasFeatures(data) {
   );
 }
 
-function normalizeFeatureCollection(data) {
-  if (isFeatureCollection(data)) {
-    return data;
-  }
-
-  if (data?.type === 'Feature') {
-    return {
-      type: 'FeatureCollection',
-      features: [data],
-    };
-  }
-
-  return EMPTY_FEATURE_COLLECTION;
-}
-
-/**
- * Detecta se uma feição pertence ao Ceará.
- *
- * O filtro é conservador: quando não existe informação
- * de UF, a feição não é descartada.
- */
-function belongsToCeara(feature) {
-  const properties = feature?.properties || {};
-
-  const possibleValues = [
-    properties.uf,
-    properties.UF,
-    properties.sigla_uf,
-    properties.SIGLA_UF,
-    properties.estado,
-    properties.ESTADO,
-    properties.cd_uf,
-    properties.codigo_uf,
-  ]
-    .filter(
-      (value) =>
-        value !== null &&
-        value !== undefined,
-    )
-    .map((value) =>
-      String(value)
-        .trim()
-        .toUpperCase(),
-    );
-
-  if (possibleValues.length === 0) {
-    return true;
-  }
-
-  return possibleValues.some(
-    (value) =>
-      value === 'CE' ||
-      value === '23' ||
-      value === 'CEARÁ' ||
-      value === 'CEARA',
-  );
-}
-
-function filterCearaFeatures(data) {
-  const normalized =
-    normalizeFeatureCollection(data);
-
-  if (!hasFeatures(normalized)) {
-    return EMPTY_FEATURE_COLLECTION;
-  }
-
-  const filtered =
-    normalized.features.filter(
-      belongsToCeara,
-    );
-
-  /*
-   * Se nenhuma feição possuir campo de UF compatível,
-   * preservamos o conjunto original. O filtro espacial
-   * definitivo poderá ser realizado pelo AppCore.
-   */
-  if (filtered.length === 0) {
-    return normalized;
-  }
+function normalizeFeature(
+  feature,
+  index,
+) {
+  const properties =
+    feature?.properties || {};
 
   return {
-    ...normalized,
-    features: filtered,
+    type: 'Feature',
+
+    id:
+      feature?.id ??
+      properties.cd_cnuc ??
+      properties.uc_id ??
+      `cnuc-ce-${index + 1}`,
+
+    properties: {
+      ...properties,
+
+      nome_uc:
+        properties.nome_uc ??
+        properties.nome ??
+        'Unidade de Conservação',
+
+      esfera:
+        properties.esfera ??
+        null,
+
+      categoria:
+        properties.categoria ??
+        null,
+
+      grupo:
+        properties.grupo ??
+        null,
+
+      org_gestor:
+        properties.org_gestor ??
+        properties.orgao_gestor ??
+        null,
+
+      municipio:
+        properties.municipio ??
+        properties.municipios ??
+        null,
+
+      uf:
+        properties.uf ??
+        'CE',
+
+      ha_total:
+        properties.ha_total ??
+        properties.area_ha ??
+        null,
+
+      cd_cnuc:
+        properties.cd_cnuc ??
+        properties.codigo_cnuc ??
+        null,
+
+      fonte:
+        'CNUC/MMA',
+    },
+
+    geometry:
+      feature?.geometry ??
+      null,
   };
 }
 
-async function readJsonSource(
-  url,
-  {
-    signal,
-    timeout = 30000,
-  } = {},
+function normalizeCollection(
+  data,
 ) {
+  if (!isFeatureCollection(data)) {
+    return EMPTY_FEATURE_COLLECTION;
+  }
+
+  const features =
+    data.features
+      .filter(
+        (feature) =>
+          feature?.geometry &&
+          (
+            feature.geometry.type ===
+              'Polygon' ||
+            feature.geometry.type ===
+              'MultiPolygon'
+          ),
+      )
+      .map(
+        normalizeFeature,
+      );
+
+  return {
+    type: 'FeatureCollection',
+
+    metadata: {
+      ...(data.metadata || {}),
+
+      source:
+        data.metadata?.source ??
+        'Cadastro Nacional de Unidades de Conservação — CNUC/MMA',
+    },
+
+    features,
+  };
+}
+
+async function getCacheRecord() {
+  try {
+    const cached =
+      await db.get(
+        db.stores.conservationUnits,
+        CACHE_ID,
+      );
+
+    if (
+      hasFeatures(
+        cached?.data,
+      )
+    ) {
+      return cached;
+    }
+
+    return null;
+  } catch (error) {
+    console.warn(
+      '[conservationUnitService] Falha ao ler cache:',
+      error,
+    );
+
+    return null;
+  }
+}
+
+async function saveCache(
+  data,
+) {
+  if (!hasFeatures(data)) {
+    return false;
+  }
+
+  await db.put(
+    db.stores.conservationUnits,
+    {
+      id: CACHE_ID,
+
+      data,
+
+      updated_date:
+        Date.now(),
+
+      source:
+        'cnuc-mma',
+
+      metadata:
+        data.metadata || null,
+    },
+  );
+
+  return true;
+}
+
+async function fetchCnucFile({
+  signal,
+} = {}) {
   const response =
     await fetchWithTimeout(
-      url,
+      CNUC_URL,
       {
         signal,
+
+        cache:
+          'no-cache',
+
         headers: {
           Accept:
             'application/geo+json, application/json',
         },
       },
-      timeout,
+      30000,
     );
 
   if (!response.ok) {
     throw new Error(
-      `HTTP ${response.status} ao carregar ${url}`,
+      `O arquivo CNUC retornou HTTP ${response.status}. Execute "npm run update:cnuc".`,
     );
   }
 
@@ -178,243 +240,125 @@ async function readJsonSource(
       ?.toLowerCase() || '';
 
   /*
-   * Alguns servidores GeoServer retornam XML de erro
-   * mesmo com status HTTP 200.
+   * Quando o arquivo não existe, alguns servidores de
+   * SPA devolvem index.html com status 200.
    */
   if (
-    contentType.includes('xml') ||
-    contentType.includes('text/html')
+    contentType.includes(
+      'text/html',
+    )
   ) {
-    const text = await response.text();
-
     throw new Error(
-      `A fonte não retornou GeoJSON: ${text.slice(
-        0,
-        180,
-      )}`,
+      'O servidor retornou HTML no lugar do GeoJSON do CNUC. Execute "npm run update:cnuc".',
     );
   }
 
-  const data = await response.json();
+  let raw;
 
-  if (!isFeatureCollection(data)) {
+  try {
+    raw = await response.json();
+  } catch (error) {
     throw new Error(
-      'A fonte não retornou uma FeatureCollection válida.',
+      `O arquivo CNUC não contém JSON válido: ${error.message}`,
     );
   }
 
-  if (!data.features.length) {
+  const normalized =
+    normalizeCollection(raw);
+
+  if (!hasFeatures(normalized)) {
     throw new Error(
-      'A fonte retornou uma coleção vazia.',
+      'O arquivo CNUC não contém polígonos de Unidades de Conservação do Ceará.',
     );
   }
 
-  return data;
+  return normalized;
 }
 
-async function saveCache(
-  data,
-  source,
-) {
-  if (!hasFeatures(data)) {
-    return false;
-  }
-
-  await db.put(
-    db.stores.conservationUnits,
-    {
-      id: 'latest',
-      data,
-      updated_date: Date.now(),
-      source,
-    },
-  );
-
-  return true;
-}
-
-async function getValidCache() {
-  const cached = await db.get(
-    db.stores.conservationUnits,
-    'latest',
-  );
-
-  if (hasFeatures(cached?.data)) {
-    return cached.data;
-  }
-
-  return null;
-}
-
-async function trySources(
-  sources,
-  {
-    signal,
-    sourceType,
-  },
-) {
-  const failures = [];
-
-  for (const url of sources) {
-    try {
-      const raw = await readJsonSource(
-        url,
-        {
-          signal,
-          timeout:
-            sourceType === 'local'
-              ? 15000
-              : 45000,
-        },
-      );
-
-      const filtered =
-        filterCearaFeatures(raw);
-
-      if (!hasFeatures(filtered)) {
-        throw new Error(
-          'Nenhuma Unidade de Conservação válida foi encontrada.',
-        );
-      }
-
-      await saveCache(filtered, url);
-
-      console.info(
-        '[conservationUnitService] UCs carregadas:',
-        {
-          source: url,
-          sourceType,
-          featureCount:
-            filtered.features.length,
-        },
-      );
-
-      return filtered;
-    } catch (error) {
-      failures.push({
-        url,
-        message: error.message,
-      });
-
-      /*
-       * Arquivos locais inexistentes são esperados
-       * durante a tentativa dos caminhos alternativos.
-       */
-      if (sourceType === 'remote') {
-        console.warn(
-          '[conservationUnitService] Fonte remota falhou:',
-          url,
-          error,
-        );
-      }
-    }
-  }
-
-  return {
-    data: null,
-    failures,
-  };
-}
-
-/**
- * Carrega UCs priorizando atualização online.
- *
- * O cache é fallback, não bloqueio para nova consulta.
- */
-export async function loadConservationUnits(
-  {
-    signal,
-    forceRefresh = false,
-  } = {},
-) {
+export async function loadConservationUnits({
+  signal,
+  forceRefresh = false,
+} = {}) {
   const cached =
-    await getValidCache();
+    await getCacheRecord();
 
-  /*
-   * Primeiro tentamos arquivos locais.
-   * Isso torna a PWA previsível e funciona offline
-   * depois que o arquivo é incluído no build.
-   */
-  const localResult =
-    await trySources(
-      LOCAL_UC_SOURCES,
-      {
-        signal,
-        sourceType: 'local',
-      },
-    );
-
-  if (hasFeatures(localResult)) {
-    return localResult;
-  }
-
-  /*
-   * Quando estiver offline, utilizamos o cache válido.
-   */
   if (
-    typeof navigator !== 'undefined' &&
+    typeof navigator !==
+      'undefined' &&
     navigator.onLine === false
   ) {
     return (
-      cached ||
+      cached?.data ||
       EMPTY_FEATURE_COLLECTION
     );
   }
 
-  /*
-   * Em modo normal, tentamos atualizar pela fonte remota.
-   */
-  const remoteResult =
-    await trySources(
-      REMOTE_UC_SOURCES,
-      {
+  try {
+    const data =
+      await fetchCnucFile({
         signal,
-        sourceType: 'remote',
+      });
+
+    await saveCache(data);
+
+    console.info(
+      '[conservationUnitService] UCs do CNUC carregadas:',
+      {
+        featureCount:
+          data.features.length,
+
+        source:
+          data.metadata?.resource ??
+          data.metadata?.source,
       },
     );
 
-  if (hasFeatures(remoteResult)) {
-    return remoteResult;
-  }
-
-  /*
-   * Se a atualização falhar, preservamos o último
-   * cache realmente válido.
-   */
-  if (cached) {
-    console.warn(
-      '[conservationUnitService] Usando cache válido de UCs.',
+    return data;
+  } catch (error) {
+    console.error(
+      '[conservationUnitService] Falha ao carregar CNUC:',
+      error,
     );
 
-    return cached;
+    /*
+     * Em caso de atualização malsucedida, preservamos
+     * o último conjunto válido.
+     */
+    if (cached?.data) {
+      console.warn(
+        '[conservationUnitService] Utilizando cache anterior do CNUC.',
+      );
+
+      return cached.data;
+    }
+
+    ErrorManager.report(
+      'conservation',
+      error,
+      {
+        operation:
+          'loadConservationUnits',
+
+        source:
+          CNUC_URL,
+
+        forceRefresh,
+
+        cachedAvailable:
+          false,
+      },
+    );
+
+    return EMPTY_FEATURE_COLLECTION;
   }
-
-  const failures = [
-    ...(localResult?.failures || []),
-    ...(remoteResult?.failures || []),
-  ];
-
-  const error = new Error(
-    'Nenhuma fonte válida de Unidades de Conservação foi encontrada.',
-  );
-
-  ErrorManager.report(
-    'conservation',
-    error,
-    {
-      operation:
-        'loadConservationUnits',
-      forceRefresh,
-      attempts: failures,
-    },
-  );
-
-  return EMPTY_FEATURE_COLLECTION;
 }
 
 export async function getCachedUCs() {
+  const cached =
+    await getCacheRecord();
+
   return (
-    (await getValidCache()) ||
+    cached?.data ||
     EMPTY_FEATURE_COLLECTION
   );
 }
