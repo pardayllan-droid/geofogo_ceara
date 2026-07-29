@@ -29,8 +29,6 @@ import {
   RefreshCw,
   Server,
   Smartphone,
-  Wifi,
-  WifiOff,
   XCircle,
 } from 'lucide-react';
 

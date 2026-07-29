@@ -3,10 +3,10 @@
  * GPS, trilha, pontos, observações, exportação GeoJSON/GPX.
  * Fora do Modo Campo: GPS desativado.
  */
-import { Navigation, Play, Pause, Square, MapPin, Download, FileText, Plus } from 'lucide-react';
+import { Navigation, Play, Pause, Square, Download, FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { FieldController } from '../../field/FieldController';
-import { formatDistance, formatNumber } from '../../utils/formatters';
+import { formatDistance } from '../../utils/formatters';
 
 export default function FieldModePanel({ fieldState, onStart, onStop, onToggleRecord, onAddPoint }) {
   const [obs, setObs] = useState('');

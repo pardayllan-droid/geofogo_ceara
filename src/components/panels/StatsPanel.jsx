@@ -3,7 +3,6 @@
  */
 import { BarChart3, Flame, Map, Shield, AlertTriangle, Layers, Maximize, Clock, Wifi, WifiOff } from 'lucide-react';
 import { formatArea, formatNumber } from '../../utils/formatters';
-import { CRITICALITY_COLORS, CRITICALITY } from '../../alerts/alertRules';
 import { timeAgoShort } from '../../utils/dates';
 
 export default function StatsPanel({ stats, online, syncing }) {

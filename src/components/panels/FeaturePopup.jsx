@@ -2,10 +2,10 @@
  * FeaturePopup — exibe detalhes de uma feição selecionada no mapa.
  * Mostra atributos do evento de fogo, UC, município, etc.
  */
-import { X, Flame, Shield, MapPin, Navigation, Clock, Cloud } from 'lucide-react';
+import { X, Flame, Shield, MapPin, Clock, Cloud } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { formatArea, formatDistance, formatCoords } from '../../utils/formatters';
-import { formatDate, timeAgoShort } from '../../utils/dates';
+import { formatDate } from '../../utils/dates';
 import * as turf from '@turf/turf';
 import { loadWeatherForecast, parseForecastEntry, getCurrentEntry } from '../../services/weatherService';
 import { AppCore } from '../../core/AppCore';

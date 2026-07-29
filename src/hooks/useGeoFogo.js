@@ -29,6 +29,7 @@ import {
   saveUserOverrides,
 } from '../core/config';
 import { db } from '../storage/indexedDb';
+import { computeAlerts } from '../alerts/AlertEngine';
 
 export function useGeoFogo() {
   const [ready, setReady] = useState(false);
@@ -550,10 +551,6 @@ export function useGeoFogo() {
           AppCore.fireEvents &&
           AppCore.conservationUnits
         ) {
-          const { computeAlerts } =
-            await import(
-              '../alerts/AlertEngine'
-            );
 
           AppCore.alerts =
             await computeAlerts(
