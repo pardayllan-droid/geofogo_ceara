@@ -199,6 +199,31 @@ Este projeto encontra-se em desenvolvimento.
 
 A definição da licença será realizada após a conclusão da versão estável.
 
+# Progresso
+
+Limpeza final da arquitetura
+      ~~remover arquivos mortos~~;
+      ~~padronizar nomes~~;
+      ~~eliminar código duplicado~~.
+Melhorar a experiência do usuário
+      tela de carregamento;
+      mensagens de sincronização;
+      indicadores offline/online;
+      tratamento elegante de erros.
+Otimizar o mapa
+      renderização mais rápida;
+      clusters quando houver muitos eventos;
+      popups mais ricos.
+Aprimorar o sistema de alertas
+      alerta por distância configurável;
+      severidade;
+      notificações.
+Preparar a versão 1.0
+      documentação;
+      testes;
+      APK;
+      publicação.
+
 git add .
 git commit -m "Remover dependências legadas"
 git push
