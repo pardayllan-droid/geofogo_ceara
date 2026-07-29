@@ -13,6 +13,7 @@ export default function GeoFogo() {
       ready={geo.ready}
       online={geo.online}
       syncing={geo.syncing}
+      syncState={geo.syncState}
       syncMessage={geo.syncMessage}
       layers={geo.layers}
       layerGroups={geo.layerGroups}
