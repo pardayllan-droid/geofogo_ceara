@@ -380,8 +380,13 @@ class LayerManagerImpl {
     }
 
     try {
+      const style =
+        this._map.getStyle?.();
+
       return Boolean(
-        this._map.isStyleLoaded?.(),
+        style &&
+          Number(style.version) === 8 &&
+          Array.isArray(style.layers),
       );
     } catch {
       return false;
@@ -916,7 +921,7 @@ class LayerManagerImpl {
 
     this._styleChanging = false;
 
-    if (!this._map.isStyleLoaded?.()) {
+    if (!this._canUseMap()) {
       return false;
     }
 

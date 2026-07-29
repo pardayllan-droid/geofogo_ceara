@@ -1,18 +1,14 @@
 /**
  * MapView
  *
- * Componente React responsável por:
- * - criar e destruir o mapa MapLibre;
- * - conectar o mapa ao LayerManager;
- * - instalar e restaurar as camadas operacionais;
- * - atualizar as camadas quando o AppCore mudar;
- * - acompanhar o Modo Campo;
- * - trocar o mapa-base;
- * - enquadrar o limite do Ceará.
+ * Cria o mapa MapLibre e coordena a instalação das
+ * camadas operacionais do GeoFogo Ceará.
  *
- * Regra arquitetural:
- * este componente não chama map.addSource() ou map.addLayer()
- * diretamente. Essas operações pertencem ao LayerManager.
+ * Importante:
+ * map.isStyleLoaded() não é usado como condição principal.
+ * Em mapas raster, ele pode permanecer falso enquanto
+ * tiles continuam sendo baixados, embora o estilo já aceite
+ * novas sources e layers.
  */
 
 import {
@@ -43,7 +39,7 @@ const EMPTY_FEATURE_COLLECTION = {
   features: [],
 };
 
-function hasFeatureCollection(value) {
+function isFeatureCollection(value) {
   return (
     value?.type === 'FeatureCollection' &&
     Array.isArray(value.features)
@@ -56,6 +52,24 @@ function featureCount(value) {
     : 0;
 }
 
+function mapHasStyle(map) {
+  if (!map) {
+    return false;
+  }
+
+  try {
+    const style = map.getStyle?.();
+
+    return Boolean(
+      style &&
+        Number(style.version) === 8 &&
+        Array.isArray(style.layers),
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default function MapView({
   baseMapId,
   onReady,
@@ -63,45 +77,38 @@ export default function MapView({
   const containerRef = useRef(null);
   const mapRef = useRef(null);
 
-  const baseMapRef = useRef(baseMapId);
   const mountedRef = useRef(false);
-
-  const installingRef = useRef(false);
-  const installPendingRef = useRef(false);
-  const retryTimerRef = useRef(null);
+  const styleReadyRef = useRef(false);
   const fittedRef = useRef(false);
 
-  /**
-   * Cancela uma tentativa agendada anteriormente.
-   */
-  const clearRetryTimer = useCallback(() => {
-    if (retryTimerRef.current) {
-      window.clearTimeout(
-        retryTimerRef.current,
-      );
+  const baseMapRef = useRef(baseMapId);
 
-      retryTimerRef.current = null;
+  const installingRef = useRef(false);
+  const pendingInstallRef = useRef(false);
+  const retryTimerRef = useRef(null);
+
+  const clearRetry = useCallback(() => {
+    if (!retryTimerRef.current) {
+      return;
     }
+
+    window.clearTimeout(
+      retryTimerRef.current,
+    );
+
+    retryTimerRef.current = null;
   }, []);
 
-  /**
-   * Envia uma coleção ao LayerManager.
-   *
-   * Coleções vazias também são válidas para camadas
-   * dinâmicas, pois permitem limpar dados antigos.
-   */
   const updateLayer = useCallback(
-    (layerId, collection) => {
-      if (
-        !hasFeatureCollection(collection)
-      ) {
+    (layerId, data) => {
+      if (!isFeatureCollection(data)) {
         return false;
       }
 
       try {
         return LayerManager.updateLayerData(
           layerId,
-          collection,
+          data,
         );
       } catch (error) {
         ErrorManager.report(
@@ -114,7 +121,7 @@ export default function MapView({
             layerId,
 
             featureCount:
-              featureCount(collection),
+              featureCount(data),
           },
         );
 
@@ -125,125 +132,68 @@ export default function MapView({
   );
 
   /**
-   * Transfere todos os dados atuais do AppCore
-   * para o LayerManager.
+   * Envia todos os dados atualmente existentes no
+   * AppCore para o LayerManager.
+   *
+   * Coleções vazias também são enviadas para limpar
+   * dados antigos.
    */
   const updateAllLayerData =
     useCallback(() => {
-      const results = [];
+      updateLayer(
+        'ceara-boundary',
+        AppCore.cearaBoundary ||
+          EMPTY_FEATURE_COLLECTION,
+      );
 
-      if (
-        hasFeatureCollection(
-          AppCore.cearaBoundary,
-        )
-      ) {
-        results.push(
-          updateLayer(
-            'ceara-boundary',
-            AppCore.cearaBoundary,
-          ),
-        );
-      }
+      updateLayer(
+        'municipalities',
+        AppCore.municipalities ||
+          EMPTY_FEATURE_COLLECTION,
+      );
 
-      if (
-        hasFeatureCollection(
-          AppCore.municipalities,
-        )
-      ) {
-        results.push(
-          updateLayer(
-            'municipalities',
-            AppCore.municipalities,
-          ),
-        );
-      }
+      updateLayer(
+        'conservation-units',
+        AppCore.conservationUnits ||
+          EMPTY_FEATURE_COLLECTION,
+      );
 
-      if (
-        hasFeatureCollection(
-          AppCore.conservationUnits,
-        )
-      ) {
-        results.push(
-          updateLayer(
-            'conservation-units',
-            AppCore.conservationUnits,
-          ),
-        );
-      }
+      updateLayer(
+        'fire-events',
+        AppCore.fireEvents ||
+          EMPTY_FEATURE_COLLECTION,
+      );
 
-      if (
-        hasFeatureCollection(
-          AppCore.fireEvents,
-        )
-      ) {
-        results.push(
-          updateLayer(
-            'fire-events',
-            AppCore.fireEvents,
-          ),
-        );
+      updateLayer(
+        'fire-events-markers',
+        AppCore.getFireEventMarkers?.() ||
+          EMPTY_FEATURE_COLLECTION,
+      );
 
-        const markers =
-          AppCore.getFireEventMarkers?.() ||
-          EMPTY_FEATURE_COLLECTION;
+      updateLayer(
+        'fire-fronts',
+        AppCore.fireFronts ||
+          EMPTY_FEATURE_COLLECTION,
+      );
 
-        results.push(
-          updateLayer(
-            'fire-events-markers',
-            markers,
-          ),
-        );
-      }
-
-      if (
-        hasFeatureCollection(
-          AppCore.fireFronts,
-        )
-      ) {
-        results.push(
-          updateLayer(
-            'fire-fronts',
-            AppCore.fireFronts,
-          ),
-        );
-      }
-
-      /*
-       * Alert buffers são derivados dos alertas.
-       * Enquanto não houver um método específico,
-       * a camada recebe uma coleção vazia para evitar
-       * manter dados antigos no mapa.
-       */
-      if (
-        LayerManager.getLayer(
-          'alert-buffers',
-        )
-      ) {
-        const alertBuffers =
-          AppCore.getAlertBuffers?.() ||
-          EMPTY_FEATURE_COLLECTION;
-
-        results.push(
-          updateLayer(
-            'alert-buffers',
-            alertBuffers,
-          ),
-        );
-      }
-
-      return results;
+      updateLayer(
+        'alert-buffers',
+        AppCore.getAlertBuffers?.() ||
+          EMPTY_FEATURE_COLLECTION,
+      );
     }, [updateLayer]);
 
   /**
-   * Instala ou restaura todas as camadas operacionais.
+   * Tenta criar as camadas sem depender de
+   * map.isStyleLoaded().
    *
-   * A função é idempotente:
-   * pode ser chamada após load, style.load, idle,
-   * sincronização e troca de mapa-base.
+   * A autorização principal é:
+   * - evento load ou style.load já ocorreu;
+   * - map.getStyle() devolve um estilo válido.
    */
   const installOperationalLayers =
     useCallback(
-      async ({
+      ({
         reason = 'manual',
         attempt = 0,
       } = {}) => {
@@ -257,22 +207,17 @@ export default function MapView({
         }
 
         if (installingRef.current) {
-          installPendingRef.current = true;
+          pendingInstallRef.current = true;
           return false;
         }
 
-        let styleLoaded = false;
+        const styleAvailable =
+          styleReadyRef.current ||
+          mapHasStyle(map);
 
-        try {
-          styleLoaded =
-            map.isStyleLoaded?.() === true;
-        } catch {
-          styleLoaded = false;
-        }
-
-        if (!styleLoaded) {
-          if (attempt < 10) {
-            clearRetryTimer();
+        if (!styleAvailable) {
+          if (attempt < 20) {
+            clearRetry();
 
             retryTimerRef.current =
               window.setTimeout(() => {
@@ -287,45 +232,47 @@ export default function MapView({
         }
 
         installingRef.current = true;
-        installPendingRef.current = false;
+        pendingInstallRef.current = false;
 
         try {
           /*
-           * A conexão é renovada sempre que instalamos.
-           * Isso protege contra:
-           * - remontagem do componente;
-           * - troca de estilo;
-           * - troca de mapa-base;
-           * - referências antigas no LayerManager.
+           * Reconecta o mapa. O LayerManager continuará
+           * preservando todas as sources em memória.
            */
           LayerManager.setMap(map);
 
           /*
-           * Primeiro, enviamos os dados atuais.
-           * updateLayerData cria as sources/layers quando
-           * o estilo está pronto.
+           * Primeira passagem:
+           * tenta criar sources e layers usando os dados
+           * atuais do AppCore.
            */
           updateAllLayerData();
 
           /*
-           * Depois, pedimos restauração explícita.
-           * Isso cobre sources preservadas em memória
-           * antes de o mapa estar disponível.
+           * Segunda passagem:
+           * restaura qualquer source que tenha sido
+           * armazenada antes de o mapa ficar disponível.
            */
           LayerManager.restoreAllLayers?.();
 
           /*
-           * Segunda passagem:
-           * algumas versões do MapLibre podem concluir
-           * a criação da source antes da layer.
+           * Terceira passagem:
+           * garante setData nas sources recém-criadas.
            */
           updateAllLayerData();
 
           try {
             map.resize();
           } catch {
-            // Redimensionamento não é essencial.
+            // Não impede o funcionamento das camadas.
           }
+
+          const boundarySourceCreated =
+            Boolean(
+              map.getSource?.(
+                'src-ceara-boundary',
+              ),
+            );
 
           const boundaryLayerCreated =
             Boolean(
@@ -334,58 +281,27 @@ export default function MapView({
               ),
             );
 
-          const municipalitiesCreated =
+          const municipalitySourceCreated =
+            Boolean(
+              map.getSource?.(
+                'src-municipalities',
+              ),
+            );
+
+          const municipalityLayerCreated =
             Boolean(
               map.getLayer?.(
                 'municipalities',
               ),
             );
 
-          const result = {
-            reason,
-            attempt,
-
-            boundaryFeatures:
-              featureCount(
-                AppCore.cearaBoundary,
-              ),
-
-            municipalityFeatures:
-              featureCount(
-                AppCore.municipalities,
-              ),
-
-            boundarySourceCreated:
-              Boolean(
-                map.getSource?.(
-                  'src-ceara-boundary',
-                ),
-              ),
-
-            boundaryLayerCreated,
-
-            municipalitiesSourceCreated:
-              Boolean(
-                map.getSource?.(
-                  'src-municipalities',
-                ),
-              ),
-
-            municipalitiesLayerCreated:
-              municipalitiesCreated,
-          };
-
-          console.info(
-            '[MapView] Instalação das camadas:',
-            result,
-          );
-
           /*
-           * Caso existam dados territoriais e as layers
-           * ainda não tenham sido criadas, registramos um
-           * erro que aparecerá no painel de diagnóstico.
+           * Só registra erro após algumas tentativas.
+           * Isso evita registrar falhas transitórias
+           * durante o primeiro carregamento.
            */
           if (
+            attempt >= 3 &&
             featureCount(
               AppCore.cearaBoundary,
             ) > 0 &&
@@ -394,7 +310,7 @@ export default function MapView({
             ErrorManager.report(
               'layer',
               new Error(
-                'O limite do Ceará possui dados, mas a layer não foi criada no mapa.',
+                'O limite do Ceará possui dados, mas não foi criado no mapa.',
               ),
               {
                 operation:
@@ -403,29 +319,33 @@ export default function MapView({
                 reason,
                 attempt,
 
-                sourceCreated:
-                  Boolean(
-                    map.getSource?.(
-                      'src-ceara-boundary',
-                    ),
-                  ),
+                styleReadyEvent:
+                  styleReadyRef.current,
 
-                styleLoaded:
-                  map.isStyleLoaded?.(),
+                styleObjectAvailable:
+                  mapHasStyle(map),
+
+                isStyleLoaded:
+                  map.isStyleLoaded?.() ??
+                  false,
+
+                sourceCreated:
+                  boundarySourceCreated,
               },
             );
           }
 
           if (
+            attempt >= 3 &&
             featureCount(
               AppCore.municipalities,
             ) > 0 &&
-            !municipalitiesCreated
+            !municipalityLayerCreated
           ) {
             ErrorManager.report(
               'layer',
               new Error(
-                'Os municípios possuem dados, mas a layer não foi criada no mapa.',
+                'Os municípios possuem dados, mas não foram criados no mapa.',
               ),
               {
                 operation:
@@ -439,23 +359,22 @@ export default function MapView({
                     AppCore.municipalities,
                   ),
 
-                sourceCreated:
-                  Boolean(
-                    map.getSource?.(
-                      'src-municipalities',
-                    ),
-                  ),
+                styleReadyEvent:
+                  styleReadyRef.current,
 
-                styleLoaded:
-                  map.isStyleLoaded?.(),
+                styleObjectAvailable:
+                  mapHasStyle(map),
+
+                isStyleLoaded:
+                  map.isStyleLoaded?.() ??
+                  false,
+
+                sourceCreated:
+                  municipalitySourceCreated,
               },
             );
           }
 
-          /*
-           * Faz o enquadramento apenas quando a layer
-           * territorial estiver efetivamente instalada.
-           */
           if (
             !fittedRef.current &&
             boundaryLayerCreated &&
@@ -474,9 +393,43 @@ export default function MapView({
             }
           }
 
+          /*
+           * Se ainda não criou as layers territoriais,
+           * tenta novamente. Não esperamos o
+           * isStyleLoaded tornar-se true.
+           */
+          const territorialLayersMissing =
+            (
+              featureCount(
+                AppCore.cearaBoundary,
+              ) > 0 &&
+              !boundaryLayerCreated
+            ) ||
+            (
+              featureCount(
+                AppCore.municipalities,
+              ) > 0 &&
+              !municipalityLayerCreated
+            );
+
+          if (
+            territorialLayersMissing &&
+            attempt < 20
+          ) {
+            clearRetry();
+
+            retryTimerRef.current =
+              window.setTimeout(() => {
+                installOperationalLayers({
+                  reason: `${reason}:layer-retry`,
+                  attempt: attempt + 1,
+                });
+              }, 300);
+          }
+
           return (
             boundaryLayerCreated ||
-            municipalitiesCreated
+            municipalityLayerCreated
           );
         } catch (error) {
           ErrorManager.report(
@@ -488,6 +441,16 @@ export default function MapView({
 
               reason,
               attempt,
+
+              styleReadyEvent:
+                styleReadyRef.current,
+
+              styleObjectAvailable:
+                mapHasStyle(map),
+
+              isStyleLoaded:
+                map.isStyleLoaded?.() ??
+                false,
             },
           );
 
@@ -495,16 +458,11 @@ export default function MapView({
         } finally {
           installingRef.current = false;
 
-          /*
-           * Se algum evento pediu instalação enquanto
-           * esta execução estava ativa, executamos mais
-           * uma passagem.
-           */
           if (
-            installPendingRef.current &&
+            pendingInstallRef.current &&
             mountedRef.current
           ) {
-            installPendingRef.current = false;
+            pendingInstallRef.current = false;
 
             window.setTimeout(() => {
               installOperationalLayers({
@@ -516,13 +474,13 @@ export default function MapView({
         }
       },
       [
-        clearRetryTimer,
+        clearRetry,
         updateAllLayerData,
       ],
     );
 
   /**
-   * Criação e destruição do mapa.
+   * Cria e destrói o mapa.
    */
   useEffect(() => {
     mountedRef.current = true;
@@ -549,6 +507,8 @@ export default function MapView({
         return;
       }
 
+      styleReadyRef.current = true;
+
       LayerManager.setMap(map);
 
       onReady?.(map);
@@ -563,18 +523,39 @@ export default function MapView({
         return;
       }
 
-      LayerManager.setMap(map);
-
+      styleReadyRef.current = true;
       fittedRef.current = false;
       AppCore._fitted = false;
+
+      LayerManager.setMap(map);
 
       installOperationalLayers({
         reason: 'style-load',
       });
     };
 
+    const handleStyleData = () => {
+      if (!mountedRef.current) {
+        return;
+      }
+
+      if (!mapHasStyle(map)) {
+        return;
+      }
+
+      styleReadyRef.current = true;
+
+      installOperationalLayers({
+        reason: 'style-data',
+      });
+    };
+
     const handleIdle = () => {
       if (!mountedRef.current) {
+        return;
+      }
+
+      if (!mapHasStyle(map)) {
         return;
       }
 
@@ -594,11 +575,6 @@ export default function MapView({
           'municipalities',
         );
 
-      /*
-       * idle pode ocorrer muitas vezes.
-       * Só reinstalamos quando uma camada esperada
-       * estiver realmente ausente.
-       */
       if (
         boundaryMissing ||
         municipalitiesMissing
@@ -617,58 +593,72 @@ export default function MapView({
           'Erro desconhecido no MapLibre.',
         );
 
-      ErrorManager.report(
-        'map',
+      /*
+       * Erro de tile raster não deve impedir a criação
+       * das camadas GeoJSON operacionais.
+       */
+      console.warn(
+        '[MapView] Erro reportado pelo MapLibre:',
         error,
-        {
-          operation:
-            'MapView.map-error',
-        },
       );
     };
 
-    /*
-     * createMap já possui um listener interno de load.
-     * Estes listeners complementares tornam o fluxo
-     * resiliente a mudanças de estilo.
-     */
     map.on('load', handleLoad);
+
     map.on(
       'style.load',
       handleStyleLoad,
     );
+
+    map.on(
+      'styledata',
+      handleStyleData,
+    );
+
     map.on('idle', handleIdle);
     map.on('error', handleMapError);
 
     /*
-     * Caso o mapa esteja pronto antes de os handlers
-     * acima serem registrados.
+     * Proteção para o caso de o estilo já estar
+     * disponível antes do registro dos listeners.
      */
-    if (map.loaded?.()) {
-      handleLoad();
+    if (mapHasStyle(map)) {
+      styleReadyRef.current = true;
+
+      LayerManager.setMap(map);
+
+      installOperationalLayers({
+        reason:
+          'style-already-available',
+      });
     }
 
     return () => {
       mountedRef.current = false;
+      styleReadyRef.current = false;
 
-      clearRetryTimer();
+      clearRetry();
 
-      installPendingRef.current = false;
       installingRef.current = false;
+      pendingInstallRef.current = false;
 
       try {
         map.off('load', handleLoad);
+
         map.off(
           'style.load',
           handleStyleLoad,
         );
-        map.off('idle', handleIdle);
+
         map.off(
-          'error',
-          handleMapError,
+          'styledata',
+          handleStyleData,
         );
+
+        map.off('idle', handleIdle);
+        map.off('error', handleMapError);
       } catch {
-        // O mapa pode já ter sido destruído.
+        // O mapa pode já ter sido removido.
       }
 
       LayerManager.clearMap(map);
@@ -685,7 +675,7 @@ export default function MapView({
       mapRef.current = null;
     };
   }, [
-    clearRetryTimer,
+    clearRetry,
     installOperationalLayers,
     onReady,
   ]);
@@ -708,14 +698,19 @@ export default function MapView({
     baseMapRef.current =
       baseMapId;
 
+    styleReadyRef.current = false;
     fittedRef.current = false;
     AppCore._fitted = false;
 
-    applyBaseMap(
+    const changed = applyBaseMap(
       map,
       baseMapId,
       {
         onStyleReady: () => {
+          styleReadyRef.current = true;
+
+          LayerManager.setMap(map);
+
           installOperationalLayers({
             reason:
               'base-map-changed',
@@ -723,17 +718,21 @@ export default function MapView({
         },
       },
     );
+
+    if (!changed) {
+      styleReadyRef.current =
+        mapHasStyle(map);
+    }
   }, [
     baseMapId,
     installOperationalLayers,
   ]);
 
   /**
-   * Atualiza as camadas quando o núcleo muda.
+   * Atualiza as camadas quando os dados do núcleo
+   * forem modificados.
    *
-   * Importante:
-   * não escutamos LAYER_DATA_UPDATED, pois esse evento
-   * é emitido pelo próprio updateLayerData().
+   * Não escuta LAYER_DATA_UPDATED para evitar recursão.
    */
   useEffect(() => {
     const handleDataUpdated = () => {
@@ -781,7 +780,7 @@ export default function MapView({
   }, [installOperationalLayers]);
 
   /**
-   * Atualização periódica do Modo Campo.
+   * Camadas do Modo Campo.
    */
   useEffect(() => {
     const updateFieldLayers = () => {
@@ -790,7 +789,7 @@ export default function MapView({
       if (
         !FieldController.active ||
         !map ||
-        map.isStyleLoaded?.() !== true
+        !styleReadyRef.current
       ) {
         return;
       }
@@ -818,24 +817,20 @@ export default function MapView({
           EMPTY_FEATURE_COLLECTION,
       );
 
-      const currentPosition =
+      const position =
         FieldController.currentPosition;
 
-      if (
-        currentPosition?.geometry
-          ?.coordinates
-      ) {
-        const [
-          longitude,
-          latitude,
-        ] =
-          currentPosition.geometry
-            .coordinates;
+      const coordinates =
+        position?.geometry?.coordinates;
 
+      if (
+        Array.isArray(coordinates) &&
+        coordinates.length >= 2
+      ) {
         map.easeTo({
           center: [
-            longitude,
-            latitude,
+            coordinates[0],
+            coordinates[1],
           ],
 
           zoom: Math.max(
