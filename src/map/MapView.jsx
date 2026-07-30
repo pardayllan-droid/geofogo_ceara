@@ -729,22 +729,14 @@ export default function MapView({
         try {
           LayerManager.setMap(map);
 
-          /*
-           * Primeira passagem:
-           * envia os dados atuais.
-           */
-          updateAllLayerData();
-
-          /*
-           * Segunda passagem:
-           * recria camadas perdidas após troca de estilo.
-           */
-          LayerManager.restoreAllLayers?.();
-
-          /*
-           * Terceira passagem:
-           * garante setData nas sources recém-criadas.
-           */
+         /*
+          * Atualiza os dados e cria sources ou layers
+          * que ainda não estejam presentes no mapa.
+          *
+          * updateLayerData() já preserva os dados,
+          * cria a source, cria a layer e executa setData()
+          * quando os elementos já existem.
+          */
           updateAllLayerData();
 
           try {
