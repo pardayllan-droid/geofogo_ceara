@@ -1218,18 +1218,6 @@ export default function MapView({
       applyBaseMap(
         map,
         baseMapId,
-        {
-          onStyleReady: () => {
-            styleReadyRef.current = true;
-
-            LayerManager.setMap(map);
-
-            installOperationalLayers({
-              reason:
-                'base-map-changed',
-            });
-          },
-        },
       );
 
     if (!changed) {
