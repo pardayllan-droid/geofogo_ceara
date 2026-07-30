@@ -124,7 +124,15 @@ export function changeBaseMap(
   const handleStyleReady = () => {
     try {
       LayerManager.setMap(map);
-      LayerManager.restoreAllLayers();
+
+      const layersRestored =
+        LayerManager.restoreAllLayers();
+
+      if (!layersRestored) {
+        console.warn(
+          '[MapController] Algumas camadas podem não ter sido restauradas após a troca de estilo.',
+        );
+      }
 
       map.jumpTo({
         center,
