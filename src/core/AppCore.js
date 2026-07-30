@@ -313,7 +313,11 @@ class AppCoreImpl {
       );
     }
 
-    const result = await SyncEngine.sync(phase2);
+    let result = null;
+
+    if (Object.keys(phase2).length > 0) {
+      result = await SyncEngine.sync(phase2);
+    }
 
     // Após sincronizar, recalcular alertas
     if (this.fireEvents && this.conservationUnits) {
