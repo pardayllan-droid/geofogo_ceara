@@ -1009,21 +1009,6 @@ export default function MapView({
       });
     };
 
-    const handleStyleLoad = () => {
-      if (!mountedRef.current) {
-        return;
-      }
-
-      styleReadyRef.current = true;
-      fittedRef.current = false;
-
-      LayerManager.setMap(map);
-
-      installOperationalLayers({
-        reason: 'style-load',
-      });
-    };
-
     const handleStyleData = () => {
       if (!mountedRef.current) {
         return;
@@ -1101,11 +1086,6 @@ export default function MapView({
     );
 
     map.on(
-      'style.load',
-      handleStyleLoad,
-    );
-
-    map.on(
       'styledata',
       handleStyleData,
     );
@@ -1148,11 +1128,6 @@ export default function MapView({
         map.off(
           'load',
           handleLoad,
-        );
-
-        map.off(
-          'style.load',
-          handleStyleLoad,
         );
 
         map.off(
@@ -1247,9 +1222,24 @@ export default function MapView({
       });
     };
 
-    const handleMapReady = () => {
+    const handleMapReady = ({
+      styleChanged = false,
+    } = {}) => {
+      styleReadyRef.current = true;
+
+      /*
+      * Ao trocar o estilo, as camadas são recriadas,
+      * mas o enquadramento automático inicial não deve
+      * substituir a posição preservada pelo MapController.
+      */
+      if (!styleChanged) {
+        fittedRef.current = false;
+      }
+
       installOperationalLayers({
-        reason: 'map-ready',
+        reason: styleChanged
+          ? 'map-ready:style-changed'
+          : 'map-ready',
       });
     };
 
