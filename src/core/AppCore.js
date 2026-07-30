@@ -209,10 +209,12 @@ class AppCoreImpl {
         allowEmpty: true,
 
         fn: async ({ signal } = {}) => {
-          const raw =
-            await loadFireEvents(
-              this.cearaBbox,
-            );
+          const raw = await loadFireEvents(
+            this.cearaBbox,
+            {
+              signal,
+            },
+          );
 
           const boundaryPoly =
             getBoundaryPolygon(

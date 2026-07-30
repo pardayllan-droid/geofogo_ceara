@@ -242,6 +242,16 @@ async function fetchWfs(
 
     return geojson;
   } catch (error) {
+    if (
+      signal?.aborted ||
+      error?.name === 'AbortError'
+    ) {
+      throw (
+        signal?.reason ||
+        error
+      );
+    }
+
     console.error(
       `[sipamService] ${typeName} falhou:`,
       error,
