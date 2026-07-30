@@ -565,7 +565,9 @@ export default function MapView({
 
   const clearRetry =
     useCallback(() => {
-      if (!retryTimerRef.current) {
+      if (
+        retryTimerRef.current === null
+      ) {
         return;
       }
 
@@ -958,15 +960,26 @@ export default function MapView({
           ) {
             pendingInstallRef.current = false;
 
-            window.setTimeout(
-              () => {
-                installOperationalLayers({
-                  reason:
-                    'pending-installation',
-                });
-              },
-              0,
-            );
+            if (
+              pendingTimerRef.current !== null
+            ) {
+              window.clearTimeout(
+                pendingTimerRef.current,
+              );
+            }
+
+            pendingTimerRef.current =
+              window.setTimeout(
+                () => {
+                  pendingTimerRef.current = null;
+
+                  installOperationalLayers({
+                    reason:
+                      'pending-installation',
+                  });
+                },
+                0,
+              );
           }
         }
       },
@@ -1051,6 +1064,16 @@ export default function MapView({
       styleReadyRef.current = false;
 
       clearRetry();
+
+      if (
+        pendingTimerRef.current !== null
+      ) {
+        window.clearTimeout(
+          pendingTimerRef.current,
+        );
+
+        pendingTimerRef.current = null;
+      }
 
       installingRef.current = false;
       pendingInstallRef.current = false;
