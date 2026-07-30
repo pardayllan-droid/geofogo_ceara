@@ -560,6 +560,9 @@ export default function MapView({
   const retryTimerRef =
     useRef(null);
 
+  const pendingTimerRef =
+    useRef(null);
+
   const clearRetry =
     useCallback(() => {
       if (!retryTimerRef.current) {
@@ -701,6 +704,8 @@ export default function MapView({
             retryTimerRef.current =
               window.setTimeout(
                 () => {
+                  retryTimerRef.current = null;
+
                   installOperationalLayers({
                     reason:
                       `${reason}:retry`,
@@ -902,6 +907,8 @@ export default function MapView({
             retryTimerRef.current =
               window.setTimeout(
                 () => {
+                  retryTimerRef.current = null;
+
                   installOperationalLayers({
                     reason:
                       `${reason}:layer-retry`,
@@ -1009,57 +1016,6 @@ export default function MapView({
       });
     };
 
-    const handleStyleData = () => {
-      if (!mountedRef.current) {
-        return;
-      }
-
-      if (!mapHasStyle(map)) {
-        return;
-      }
-
-      styleReadyRef.current = true;
-
-      installOperationalLayers({
-        reason: 'style-data',
-      });
-    };
-
-    const handleIdle = () => {
-      if (!mountedRef.current) {
-        return;
-      }
-
-      if (!mapHasStyle(map)) {
-        return;
-      }
-
-      const boundaryMissing =
-        featureCount(
-          AppCore.cearaBoundary,
-        ) > 0 &&
-        !map.getLayer?.(
-          'ceara-boundary',
-        );
-
-      const municipalitiesMissing =
-        featureCount(
-          AppCore.municipalities,
-        ) > 0 &&
-        !map.getLayer?.(
-          'municipalities',
-        );
-
-      if (
-        boundaryMissing ||
-        municipalitiesMissing
-      ) {
-        installOperationalLayers({
-          reason: 'map-idle',
-        });
-      }
-    };
-
     const handleMapError = (
       event,
     ) => {
@@ -1086,34 +1042,9 @@ export default function MapView({
     );
 
     map.on(
-      'styledata',
-      handleStyleData,
-    );
-
-    map.on(
-      'idle',
-      handleIdle,
-    );
-
-    map.on(
       'error',
       handleMapError,
     );
-
-    /*
-     * Proteção para o caso de o estilo já estar
-     * disponível antes do registro dos listeners.
-     */
-    if (mapHasStyle(map)) {
-      styleReadyRef.current = true;
-
-      LayerManager.setMap(map);
-
-      installOperationalLayers({
-        reason:
-          'style-already-available',
-      });
-    }
 
     return () => {
       mountedRef.current = false;
@@ -1128,16 +1059,6 @@ export default function MapView({
         map.off(
           'load',
           handleLoad,
-        );
-
-        map.off(
-          'styledata',
-          handleStyleData,
-        );
-
-        map.off(
-          'idle',
-          handleIdle,
         );
 
         map.off(
@@ -1187,7 +1108,6 @@ export default function MapView({
       baseMapId;
 
     styleReadyRef.current = false;
-    fittedRef.current = false;
 
     const changed =
       applyBaseMap(
@@ -1199,12 +1119,9 @@ export default function MapView({
       styleReadyRef.current =
         mapHasStyle(map);
     }
-  }, [
-    baseMapId,
-    installOperationalLayers,
-  ]);
+  }, [baseMapId]);
 
-    /**
+  /**
    * Atualiza as camadas quando:
    *
    * - os dados mantidos pelo AppCore forem modificados;
@@ -1228,18 +1145,18 @@ export default function MapView({
       styleReadyRef.current = true;
 
       /*
-      * Ao trocar o estilo, as camadas são recriadas,
-      * mas o enquadramento automático inicial não deve
-      * substituir a posição preservada pelo MapController.
-      */
+       * No carregamento inicial, handleLoad já instala
+       * as camadas e notifica o componente pai.
+       *
+       * MAP_READY é usado aqui somente para reaplicar
+       * os dados após uma troca de mapa-base.
+       */
       if (!styleChanged) {
-        fittedRef.current = false;
+        return;
       }
 
       installOperationalLayers({
-        reason: styleChanged
-          ? 'map-ready:style-changed'
-          : 'map-ready',
+        reason: 'map-ready:style-changed',
       });
     };
 
