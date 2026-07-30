@@ -1241,22 +1241,21 @@ export default function MapView({
     installOperationalLayers,
   ]);
 
-  /**
-   * Atualiza as camadas quando os dados do núcleo
-   * forem modificados.
+    /**
+   * Atualiza as camadas quando:
    *
-   * Não escuta LAYER_DATA_UPDATED para evitar recursão.
+   * - os dados mantidos pelo AppCore forem modificados;
+   * - o mapa informar que sua estrutura está disponível.
+   *
+   * SYNC_COMPLETED não é escutado aqui porque AppCore.syncAll()
+   * emite DATA_UPDATED após aplicar os resultados da sincronização.
+   * O evento de sincronização continua sendo usado pela interface
+   * para atualizar mensagens e estado visual.
    */
   useEffect(() => {
     const handleDataUpdated = () => {
       installOperationalLayers({
         reason: 'data-updated',
-      });
-    };
-
-    const handleSyncCompleted = () => {
-      installOperationalLayers({
-        reason: 'sync-completed',
       });
     };
 
@@ -1272,12 +1271,6 @@ export default function MapView({
         handleDataUpdated,
       );
 
-    const unsubscribeSync =
-      EventBus.on(
-        EVENTS.SYNC_COMPLETED,
-        handleSyncCompleted,
-      );
-
     const unsubscribeMap =
       EventBus.on(
         EVENTS.MAP_READY,
@@ -1286,7 +1279,6 @@ export default function MapView({
 
     return () => {
       unsubscribeData?.();
-      unsubscribeSync?.();
       unsubscribeMap?.();
     };
   }, [installOperationalLayers]);
