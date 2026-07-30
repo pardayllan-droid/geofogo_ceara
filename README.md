@@ -225,7 +225,7 @@ Preparar a versão 1.0
       publicação.
 
 git add .
-git commit -m "Remover dependências legadas"
+git commit -m "PWA"
 git push
 
 npm run dev
