@@ -4,15 +4,18 @@
  * Enriquece os eventos de fogo com o município onde
  * se encontra o seu ponto representativo.
  *
- * Os campos adicionados são:
+ * Os campos normalizados adicionados são:
  *
  * - municipio
  * - municipality
+ * - nome_municipio
+ * - municipio_id
+ * - municipio_identificado
  * - nome
- * - nome_original, quando o evento já possuía nome
+ * - nome_original
  *
- * Isso permite que alertas, popups, marcadores e
- * estatísticas utilizem a mesma identificação.
+ * A identificação principal é feita espacialmente,
+ * utilizando a malha municipal enriquecida do IBGE.
  */
 
 import {
@@ -23,19 +26,149 @@ import {
 const UNKNOWN_EVENT_NAME =
   'Evento sem município identificado';
 
+const INVALID_EVENT_NAMES =
+  new Set([
+    'Evento sem nome',
+    UNKNOWN_EVENT_NAME,
+  ]);
+
 /**
- * Retorna o primeiro valor textual válido.
+ * Identifica representações internas de arrays Java,
+ * que algumas propriedades do SIPAM retornam como texto.
+ *
+ * Exemplo:
+ * [Ljava.lang.String;@24887cdb
+ */
+function isJavaObjectRepresentation(
+  value,
+) {
+  if (
+    typeof value !==
+    'string'
+  ) {
+    return false;
+  }
+
+  const text =
+    value.trim();
+
+  return (
+    /^\[L(?:java\.)?lang\.[A-Za-z]+;@[0-9a-f]+$/i.test(
+      text,
+    ) ||
+    /^\[L[A-Za-z0-9_.]+;@[0-9a-f]+$/i.test(
+      text,
+    )
+  );
+}
+
+/**
+ * Verifica se um valor pode ser apresentado
+ * como texto legível ao usuário.
+ */
+export function isReadableText(
+  value,
+) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return false;
+  }
+
+  const text =
+    String(value).trim();
+
+  if (!text) {
+    return false;
+  }
+
+  if (
+    isJavaObjectRepresentation(
+      text,
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    text === '[object Object]' ||
+    text === 'null' ||
+    text === 'undefined'
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Retorna o primeiro valor textual legível.
  */
 function firstTextValue(
   values,
 ) {
   for (const value of values) {
     if (
-      value !== undefined &&
-      value !== null &&
-      String(value).trim() !== ''
+      isReadableText(
+        value,
+      )
     ) {
-      return String(value).trim();
+      return String(
+        value,
+      ).trim();
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extrai o código municipal da feição do IBGE.
+ */
+export function getMunicipalityId(
+  municipalityFeature,
+) {
+  const properties =
+    municipalityFeature
+      ?.properties || {};
+
+  const candidates = [
+    municipalityFeature?.id,
+
+    properties.id,
+    properties.ID,
+
+    properties.municipio_id,
+
+    properties.codigo_ibge,
+    properties.codigoIBGE,
+
+    properties.codarea,
+    properties.CODAREA,
+
+    properties.CD_MUN,
+    properties.cd_mun,
+
+    properties.CD_GEOCMU,
+    properties.cd_geocmu,
+  ];
+
+  for (const candidate of candidates) {
+    if (
+      candidate === undefined ||
+      candidate === null
+    ) {
+      continue;
+    }
+
+    const normalized =
+      String(candidate)
+        .trim()
+        .replace(/\D/g, '');
+
+    if (normalized) {
+      return normalized;
     }
   }
 
@@ -44,39 +177,42 @@ function firstTextValue(
 
 /**
  * Extrai o nome do município independentemente do
- * campo utilizado pela resposta GeoJSON do IBGE.
+ * campo utilizado pela malha municipal.
  */
 export function getMunicipalityName(
   municipalityFeature,
 ) {
   const properties =
-    municipalityFeature?.properties || {};
+    municipalityFeature
+      ?.properties || {};
 
   return firstTextValue([
     properties.nome,
     properties.NOME,
+
     properties.name,
     properties.NAME,
 
     properties.nome_municipio,
     properties.nomeMunicipio,
+
     properties.municipio,
     properties.municipality,
 
     properties.NM_MUN,
     properties.nm_mun,
+
     properties.NM_MUNICIP,
     properties.nm_municip,
 
     properties.NOME_MUNICIPIO,
-    properties.nome_municipio,
 
     properties.description,
   ]);
 }
 
 /**
- * Tenta localizar diretamente o município que contém
+ * Tenta localizar o município que contém
  * o ponto representativo do evento.
  */
 function findMunicipalityForEvent(
@@ -85,7 +221,9 @@ function findMunicipalityForEvent(
 ) {
   if (
     !eventFeature?.geometry ||
-    !municipalities?.features?.length
+    !municipalities
+      ?.features
+      ?.length
   ) {
     return null;
   }
@@ -97,7 +235,9 @@ function findMunicipalityForEvent(
         municipalities,
       );
 
-    if (containing.length > 0) {
+    if (
+      containing.length > 0
+    ) {
       return containing[0];
     }
   } catch (error) {
@@ -111,6 +251,28 @@ function findMunicipalityForEvent(
 }
 
 /**
+ * Retorna um nome municipal legível já presente
+ * no evento, quando existir.
+ *
+ * Essa é apenas uma alternativa. A identificação
+ * espacial pela malha do IBGE tem prioridade.
+ */
+function getExistingMunicipalityName(
+  properties,
+) {
+  return firstTextValue([
+    properties.municipio,
+    properties.municipality,
+
+    properties.nome_municipio,
+    properties.nomeMunicipio,
+
+    properties.NM_MUN,
+    properties.nm_mun,
+  ]);
+}
+
+/**
  * Enriquece um único evento.
  */
 export function enrichFireEventWithMunicipality(
@@ -121,80 +283,92 @@ export function enrichFireEventWithMunicipality(
     return eventFeature;
   }
 
-  const municipality =
+  const municipalityFeature =
     findMunicipalityForEvent(
       eventFeature,
       municipalities,
     );
 
-  const municipalityName =
+  const spatialMunicipalityName =
     getMunicipalityName(
-      municipality,
+      municipalityFeature,
+    );
+
+  const spatialMunicipalityId =
+    getMunicipalityId(
+      municipalityFeature,
     );
 
   const currentProperties =
-    eventFeature.properties || {};
+    eventFeature.properties ||
+    {};
+
+  const existingMunicipalityName =
+    getExistingMunicipalityName(
+      currentProperties,
+    );
+
+  const municipalityName =
+    spatialMunicipalityName ||
+    existingMunicipalityName ||
+    null;
 
   const originalName =
     firstTextValue([
+      currentProperties.nome_original,
+
       currentProperties.nome,
       currentProperties.name,
+
       currentProperties.eventName,
       currentProperties.event_name,
     ]);
 
-  /*
-   * Quando o SIPAM já possui um nome operacional útil,
-   * ele é preservado em nome_original.
-   *
-   * O campo nome passa a apresentar o município, conforme
-   * a regra solicitada para o GeoFogo.
-   */
+  const usefulOriginalName =
+    originalName &&
+    !INVALID_EVENT_NAMES.has(
+      originalName,
+    )
+      ? originalName
+      : null;
+
+  const municipalityIdentified =
+    Boolean(
+      municipalityName,
+    );
+
   const properties = {
     ...currentProperties,
 
     nome_original:
-      originalName &&
-      originalName !==
-        'Evento sem nome'
-        ? originalName
-        : currentProperties.nome_original ||
-          null,
+      usefulOriginalName,
 
     municipio:
-      municipalityName ||
-      currentProperties.municipio ||
-      currentProperties.municipality ||
-      null,
+      municipalityName,
 
     municipality:
-      municipalityName ||
-      currentProperties.municipality ||
-      currentProperties.municipio ||
-      null,
+      municipalityName,
 
-    nome:
-      municipalityName ||
-      currentProperties.municipio ||
-      currentProperties.municipality ||
-      (
-        originalName !==
-        'Evento sem nome'
-          ? originalName
-          : null
-      ) ||
-      UNKNOWN_EVENT_NAME,
-
-    municipio_identificado:
-      Boolean(municipalityName),
+    nome_municipio:
+      municipalityName,
 
     municipio_id:
-      municipality?.id ??
-      municipality?.properties?.id ??
-      municipality?.properties?.codarea ??
-      municipality?.properties?.CD_MUN ??
-      municipality?.properties?.cd_mun ??
+      spatialMunicipalityId ||
+      currentProperties
+        .municipio_id ||
       null,
+
+    municipio_identificado:
+      municipalityIdentified,
+
+    /*
+     * O nome principal do evento passa a ser o município.
+     * Isso mantém alertas, marcadores e popup consistentes.
+     */
+    nome:
+      municipalityName ||
+      usefulOriginalName ||
+      UNKNOWN_EVENT_NAME,
   };
 
   return {
@@ -218,13 +392,17 @@ export function enrichFireEventsWithMunicipalities(
     )
   ) {
     return {
-      type: 'FeatureCollection',
+      type:
+        'FeatureCollection',
+
       features: [],
     };
   }
 
   if (
-    !municipalities?.features?.length
+    !municipalities
+      ?.features
+      ?.length
   ) {
     console.warn(
       '[fireEventEnrichmentService] Malha municipal indisponível. Eventos não foram enriquecidos.',
@@ -245,7 +423,8 @@ export function enrichFireEventsWithMunicipalities(
           );
 
         if (
-          enriched?.properties
+          enriched
+            ?.properties
             ?.municipio_identificado
         ) {
           identifiedCount += 1;
@@ -258,8 +437,12 @@ export function enrichFireEventsWithMunicipalities(
   console.info(
     '[fireEventEnrichmentService] Eventos enriquecidos:',
     {
-      total: features.length,
-      identified: identifiedCount,
+      total:
+        features.length,
+
+      identified:
+        identifiedCount,
+
       unidentified:
         features.length -
         identifiedCount,
@@ -274,8 +457,6 @@ export function enrichFireEventsWithMunicipalities(
 
 /**
  * Retorna o ponto representativo de um evento.
- *
- * Exportação auxiliar para diagnóstico ou uso futuro.
  */
 export function getEventRepresentativePoint(
   eventFeature,

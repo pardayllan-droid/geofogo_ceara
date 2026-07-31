@@ -20,8 +20,18 @@
 
 import * as turf from '@turf/turf';
 
-import { db } from '../storage/indexedDb';
-import { ErrorManager } from '../core/ErrorManager';
+import {
+  db,
+} from '../storage/indexedDb';
+
+import {
+  ErrorManager,
+} from '../core/ErrorManager';
+
+import {
+  enrichMunicipalityGeoJSON,
+  loadCearaMunicipalityCatalog,
+} from './municipalityCatalogService';
 
 const IBGE_BASE =
   'https://servicodados.ibge.gov.br/api/v2/malhas/23';
@@ -415,42 +425,86 @@ async function fetchCearaBoundary(signal) {
 }
 
 /**
- * Busca e valida os limites municipais.
+ * Busca, valida e enriquece os limites municipais.
  */
-async function fetchMunicipalities(signal) {
-  const url = createIbgeUrl({
-    municipalities: true,
-  });
+async function fetchMunicipalities(
+  signal,
+) {
+  const url =
+    createIbgeUrl({
+      municipalities: true,
+    });
 
   console.info(
-    '[municipalityService] Buscando municípios do Ceará no IBGE.',
+    '[municipalityService] Buscando malha dos municípios do Ceará no IBGE.',
   );
 
   const response =
-    await fetchWithSignalAndTimeout(url, {
-      signal,
-      timeoutMs:
-        MUNICIPALITIES_TIMEOUT_MS,
-    });
+    await fetchWithSignalAndTimeout(
+      url,
+      {
+        signal,
 
-  const rawData = await readJsonResponse(
-    response,
-    'Falha ao carregar os municípios do Ceará',
-  );
+        timeoutMs:
+          MUNICIPALITIES_TIMEOUT_MS,
+      },
+    );
+
+  const rawData =
+    await readJsonResponse(
+      response,
+      'Falha ao carregar os municípios do Ceará',
+    );
 
   /*
-   * O Ceará possui 184 municípios. Não exigimos exatamente 184
-   * para não derrubar o app diante de alterações administrativas
-   * ou respostas simplificadas, mas uma resposta com poucas
-   * feições não pode ser aceita como malha municipal válida.
+   * O Ceará possui 184 municípios. Não exigimos
+   * exatamente 184 para não derrubar o app diante
+   * de alterações administrativas ou respostas
+   * simplificadas.
    */
-  return validateTerritorialGeoJSON(
-    rawData,
-    {
-      label: 'Municípios do Ceará',
-      minimumFeatures: 100,
-    },
-  );
+  const validatedGeoJSON =
+    validateTerritorialGeoJSON(
+      rawData,
+      {
+        label:
+          'Municípios do Ceará',
+
+        minimumFeatures:
+          100,
+      },
+    );
+
+  try {
+    /*
+     * Complementa a malha geométrica com o catálogo
+     * administrativo oficial da API de Localidades.
+     */
+    const catalog =
+      await loadCearaMunicipalityCatalog(
+        {
+          signal,
+        },
+      );
+
+    return enrichMunicipalityGeoJSON(
+      validatedGeoJSON,
+      catalog,
+    );
+  } catch (error) {
+    /*
+     * Uma falha temporária no catálogo de nomes não
+     * deve impedir que a malha geométrica seja usada.
+     *
+     * A próxima sincronização tentará enriquecer
+     * novamente os nomes.
+     */
+    console.warn(
+      '[municipalityService] Não foi possível enriquecer os nomes municipais:',
+      error,
+    );
+
+    return validatedGeoJSON;
+  }
 }
 
 /**
@@ -580,15 +634,29 @@ export async function loadMunicipalities(
     const geojson =
       await fetchMunicipalities(signal);
 
-    await writeCache(
-      db.stores.municipalities,
-      MUNICIPALITIES_CACHE_KEY,
-      geojson,
-      {
-        featureCount:
-          geojson.features.length,
-      },
-    );
+          const municipalitiesWithName =
+        geojson.features.filter(
+          (feature) =>
+            typeof feature
+              ?.properties
+              ?.nome ===
+              'string' &&
+            feature.properties
+              .nome
+              .trim() !== '',
+        ).length;
+
+      await writeCache(
+        db.stores.municipalities,
+        MUNICIPALITIES_CACHE_KEY,
+        geojson,
+        {
+          featureCount:
+            geojson.features.length,
+
+          municipalitiesWithName,
+        },
+      );
 
     ErrorManager.clear('layer');
 
