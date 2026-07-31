@@ -23,6 +23,11 @@ import {
 import { ErrorManager } from '../core/ErrorManager';
 import { fetchWithTimeout } from '../utils/fetchWithTimeout';
 
+import {
+  SIPAM_LAYERS,
+  getSipamLayerLabel,
+} from './sipamLayers';
+
 const EMPTY_FEATURE_COLLECTION = {
   type: 'FeatureCollection',
   features: [],
@@ -141,12 +146,14 @@ async function parseGeoJsonResponse(
   ) {
     const text = await response.text();
 
-    throw new Error(
-      `O SIPAM não retornou GeoJSON para ${typeName}: ${text.slice(
-        0,
-        220,
-      )}`,
-    );
+      console.error(
+        '[SIPAM XML COMPLETO]',
+        text,
+      );
+
+      throw new Error(
+        `O SIPAM não retornou GeoJSON para ${typeName}. Consulte o console para o XML completo.`,
+      );
   }
 
   let data;
@@ -231,10 +238,24 @@ async function fetchWfs(
       },
     );
 
+    /*
+    * A consulta online funcionou.
+    * Remove eventual erro antigo desta camada SIPAM.
+    */
+    ErrorManager.clear(
+      `sipam:${typeName}`,
+    );
+
     console.info(
       '[sipamService] Consulta concluída:',
       {
+        layer:
+          getSipamLayerLabel(
+            typeName,
+          ),
+
         typeName,
+
         featureCount:
           geojson.features.length,
       },
@@ -253,8 +274,13 @@ async function fetchWfs(
     }
 
     console.error(
-      `[sipamService] ${typeName} falhou:`,
-      error,
+      `[sipamService] ${getSipamLayerLabel(
+        typeName,
+      )} falhou:`,
+      {
+        typeName,
+        error,
+      },
     );
 
    /*
@@ -263,6 +289,14 @@ async function fetchWfs(
     * na interface.
     */
     if (cached) {
+      /*
+      * Existe cache válido e a aplicação consegue continuar.
+      * Não mantém um erro crítico antigo no banner.
+      */
+      ErrorManager.clear(
+        `sipam:${typeName}`,
+      );
+
       console.warn(
         `[SIPAM] Não foi possível atualizar "${typeName}". ` +
           'Usando os últimos dados armazenados.',
@@ -339,7 +373,7 @@ export async function loadFireEvents(
   } = {},
 ) {
   const data = await fetchWfs(
-    'painel_do_fogo:mv_evento_filtro',
+    SIPAM_LAYERS.FIRE_EVENTS,
     cearaBbox,
     db.stores.fireEvents,
     {
@@ -362,7 +396,7 @@ export async function loadFireFronts(
   } = {},
 ) {
   const data = await fetchWfs(
-    'painel_do_fogo:mv_frente_deteccao',
+    SIPAM_LAYERS.FIRE_DETECTIONS,
     cearaBbox,
     db.stores.fireFronts,
     {
