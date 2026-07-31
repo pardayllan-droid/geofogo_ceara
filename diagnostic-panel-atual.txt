@@ -22,8 +22,6 @@ import {
   useState,
 } from 'react';
 
-import { createPortal } from 'react-dom';
-
 import {
   AlertTriangle,
   Bug,
@@ -1720,34 +1718,6 @@ export default function DiagnosticPanel({
       );
     }, [report]);
 
-
-  useEffect(() => {
-    if (!visible) {
-      return undefined;
-    }
-
-    const handleKeyDown = (event) => {
-      if (
-        event.key === 'Escape' &&
-        typeof onClose === 'function'
-      ) {
-        onClose();
-      }
-    };
-
-    window.addEventListener(
-      'keydown',
-      handleKeyDown,
-    );
-
-    return () => {
-      window.removeEventListener(
-        'keydown',
-        handleKeyDown,
-      );
-    };
-  }, [onClose, visible]);
-
   if (!visible) {
     return null;
   }
@@ -1769,10 +1739,10 @@ export default function DiagnosticPanel({
     fireEventsRendered === 0 &&
     fireMarkersRendered === 0;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-stretch justify-center overflow-hidden bg-black/60 p-0 sm:items-center sm:p-4">
-      <div className="flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden bg-background shadow-2xl sm:h-[min(94dvh,900px)] sm:rounded-xl sm:border sm:border-border">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-2 sm:p-4">
+      <div className="flex h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
+        <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
               <Bug className="h-5 w-5 text-orange-500" />
@@ -1800,7 +1770,7 @@ export default function DiagnosticPanel({
         </header>
 
         {hasRenderingWarning && (
-          <div className="mx-4 mt-3 flex shrink-0 items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
 
             <div>
@@ -1816,7 +1786,7 @@ export default function DiagnosticPanel({
           </div>
         )}
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2 overflow-x-auto border-b border-border px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
           <button
             type="button"
             onClick={collect}
@@ -1858,29 +1828,17 @@ export default function DiagnosticPanel({
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden p-2 sm:p-4">
+        <div className="min-h-0 flex-1 p-3 sm:p-4">
           <textarea
             ref={textareaRef}
             readOnly
             value={report}
             spellCheck={false}
-            className="h-full min-h-0 w-full resize-none overflow-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs leading-relaxed outline-none focus:ring-2 focus:ring-ring"
+            className="h-full min-h-[300px] w-full resize-none rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs leading-relaxed outline-none focus:ring-2 focus:ring-ring"
             aria-label="Relatório de diagnóstico"
           />
         </div>
-
-        <footer className="flex shrink-0 items-center justify-end border-t border-border bg-background px-4 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
-          >
-            <X className="h-4 w-4" />
-            Fechar relatório
-          </button>
-        </footer>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

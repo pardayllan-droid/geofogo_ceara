@@ -1,218 +1,378 @@
 # 🔥 GeoFogo Ceará
 
-Sistema de monitoramento geoespacial de incêndios florestais para o Estado do Ceará.
+<p align="center">
+  <img src="docs/images/logo.png" alt="GeoFogo Ceará" width="180"/>
+</p>
 
-O **GeoFogo Ceará** é uma aplicação web (PWA) desenvolvida para apoiar o monitoramento, análise e resposta a ocorrências de fogo em áreas sensíveis. O sistema integra dados geoespaciais, informações do Painel do Fogo (SIPAM), limites administrativos e recursos de operação em campo, oferecendo uma plataforma moderna para acompanhamento de eventos em tempo quase real.
+<p align="center">
 
----
+Sistema Inteligente para Monitoramento de Incêndios Florestais do Estado do Ceará
 
-# Objetivos
+</p>
 
-* Monitorar eventos de fogo no Estado do Ceará.
-* Identificar incêndios próximos às áreas sensíveis.
-* Auxiliar o planejamento operacional do Corpo de Bombeiros.
-* Disponibilizar uma aplicação utilizável tanto em computadores quanto em dispositivos móveis (PWA/APK).
-* Permitir operação em campo com suporte a funcionamento offline.
+<p align="center">
 
----
+Monitoramento • Alertas • Operação em Campo • Funcionamento Offline • PWA
 
-# Principais funcionalidades
-
-* Mapa interativo utilizando MapLibre GL.
-* Visualização de eventos de fogo provenientes do SIPAM.
-* Camada de Unidades de Conservação do Ceará.
-* Camadas operacionais para apoio ao atendimento.
-* Geração de alertas por proximidade entre Eventos de Fogo e áreassensíveis.
-* Armazenamento local utilizando IndexedDB.
-* Sincronização inteligente de dados.
-* Instalação como Progressive Web App (PWA).
-* Modo Campo para utilização em operações externas.
+</p>
 
 ---
 
-# Arquitetura
+## 📖 Sobre o Projeto
 
-O projeto foi desenvolvido com arquitetura modular, separando responsabilidades entre sincronização, gerenciamento de camadas, persistência e interface.
+O **GeoFogo Ceará** é um sistema de monitoramento geoespacial desenvolvido para apoiar ações de prevenção, monitoramento e resposta a incêndios florestais no Estado do Ceará.
 
-```
-src
-├── alerts
-├── components
-├── core
-├── hooks
-├── layers
-├── map
-├── services
-├── storage
-├── utils
-└── pages
-```
+A aplicação integra informações geográficas provenientes de diferentes fontes oficiais, permitindo visualizar em um único mapa:
 
-Principais módulos:
+- eventos ativos de fogo;
+- frentes de propagação;
+- unidades de conservação;
+- municípios;
+- companhias do Corpo de Bombeiros Militar do Ceará;
+- condições meteorológicas;
+- alertas automáticos por proximidade.
 
-* **AppCore** — coordena toda a aplicação.
-* **SyncEngine** — sincronização dos dados.
-* **LayerManager** — gerenciamento das camadas do mapa.
-* **MapView** — renderização utilizando MapLibre GL.
-* **AlertEngine** — cálculo de alertas por proximidade.
-* **IndexedDB** — armazenamento local para funcionamento offline.
+O projeto foi concebido para funcionar tanto em ambiente operacional quanto em campo, permitindo sua utilização mesmo em locais sem acesso contínuo à internet.
 
 ---
 
-# Tecnologias utilizadas
+# 🎯 Objetivos
 
-* React
-* Vite
-* MapLibre GL
-* Turf.js
-* TanStack Query
-* IndexedDB
-* React Router
-* Lucide Icons
-* Progressive Web App (PWA)
+O GeoFogo Ceará possui cinco objetivos principais:
+
+- fornecer uma visão operacional unificada dos eventos de fogo;
+- reduzir o tempo necessário para identificar áreas prioritárias;
+- aumentar a consciência situacional das equipes em campo;
+- funcionar mesmo em ambientes com conectividade limitada;
+- servir como plataforma aberta para evolução futura.
 
 ---
 
-# Fonte dos dados
+# ✨ Principais funcionalidades
 
-O sistema utiliza dados públicos provenientes de diferentes fontes geoespaciais, entre elas:
+## 🛰️ Monitoramento em tempo real
 
-* Painel do Fogo (SIPAM)
-* MapLibre GL
-* AccuWeather
-* IBGE
-
-As camadas são sincronizadas automaticamente e armazenadas localmente para melhorar desempenho e disponibilidade offline.
+Visualização automática dos eventos de fogo disponibilizados pelo SIPAM.
 
 ---
 
-# Instalação
+## 🔥 Frentes de fogo
 
-Clone o repositório:
-
-```bash
-git clone https://github.com/SEU_USUARIO/geofogo-ceara.git
-```
-
-Entre na pasta:
-
-```bash
-cd geofogo-ceara
-```
-
-Instale as dependências:
-
-```bash
-npm install
-```
-
-Execute em modo de desenvolvimento:
-
-```bash
-npm run dev
-```
+Exibição das frentes detectadas pelos satélites.
 
 ---
 
-# Build de produção
+## 🏞️ Unidades de Conservação
 
-```bash
-npm run build
-```
-
-Visualizar o build:
-
-```bash
-npm run preview
-```
+Visualização das UCs estaduais e federais.
 
 ---
 
-# Verificações
+## 🗺️ Municípios
 
-Executar análise de tipos:
-
-```bash
-npm run typecheck
-```
-
-Executar lint:
-
-```bash
-npm run lint
-```
+Limites municipais do Estado do Ceará.
 
 ---
 
-# Estrutura de sincronização
+## 🚒 Companhias do Corpo de Bombeiros
 
-Fluxo simplificado de inicialização:
+Localização das unidades operacionais.
 
+---
+
+## ⚠ Alertas automáticos
+
+Identificação automática de eventos de fogo próximos às Unidades de Conservação.
+
+A distância de alerta pode ser configurada pelo usuário.
+
+---
+
+## 🌦 Informações meteorológicas
+
+Exibição das condições atuais de tempo.
+
+---
+
+## 📍 Modo Campo
+
+Registro de:
+
+- trilhas
+- pontos
+- observações
+
+diretamente pelo dispositivo móvel.
+
+---
+
+## 💾 Funcionamento Offline
+
+O sistema armazena localmente:
+
+- limite do Ceará;
+- municípios;
+- unidades de conservação;
+- eventos sincronizados;
+- configurações.
+
+---
+
+## 📊 Diagnóstico Integrado
+
+Painel interno para inspeção do estado da aplicação.
+
+Permite verificar:
+
+- sincronização;
+- renderização;
+- camadas;
+- fontes de dados;
+- erros registrados;
+- funcionamento do mapa.
+
+---
+
+# 🏗 Arquitetura Geral
+
+O GeoFogo Ceará foi desenvolvido utilizando uma arquitetura modular.
+
+```text
+                 AppCore
+                     │
+      ┌──────────────┼──────────────┐
+      │              │              │
+ SyncEngine     LayerManager   AlertEngine
+      │              │              │
+      │              │              │
+ IndexedDB      MapLibre GL     Notifications
+      │
+      │
+ Serviços Externos
+      │
+ ┌────┴──────────────────────────────────┐
+ │                                       │
+ SIPAM                            OpenWeather
 ```
+
+Cada módulo possui responsabilidades bem definidas, facilitando manutenção e evolução do projeto.
+
+---
+
+# 🚀 Fluxo de Inicialização
+
+Durante uma inicialização completa ("Cold Start"), o sistema executa as seguintes etapas:
+
+```text
 Inicialização
-      │
-      ▼
+
+        │
+
+        ▼
+
 AppCore
-      │
-      ▼
-MapView
-      │
-      ▼
-LayerManager
-      │
-      ▼
-SyncEngine
-      │
-      ├── Limite do Ceará
-      ├── Municípios
-      ├── Unidades de Conservação
-      └── Eventos de Fogo
-              │
-              ▼
-AlertEngine
-              │
-              ▼
-Mapa
+
+        │
+
+        ▼
+
+MapLibre
+
+        │
+
+        ▼
+
+LayerRegistry
+
+        │
+
+        ▼
+
+Boundary do Ceará
+
+        │
+
+        ▼
+
+Municípios
+
+        │
+
+        ▼
+
+Unidades de Conservação
+
+        │
+
+        ▼
+
+Eventos do SIPAM
+
+        │
+
+        ▼
+
+Frentes de fogo
+
+        │
+
+        ▼
+
+Alertas
+
+        │
+
+        ▼
+
+Renderização
+
+        │
+
+        ▼
+
+Aplicação pronta
 ```
 
 ---
 
-# Roadmap
+# 🧩 Tecnologias Utilizadas
 
-Planejado para as próximas versões:
-
-* Notificações em tempo real.
-* Histórico temporal dos eventos.
-* Estatísticas operacionais.
-* Exportação de relatórios.
-* Integração com dados meteorológicos.
-* Integração com novas fontes geoespaciais.
+| Tecnologia | Finalidade |
+|------------|------------|
+| React | Interface da aplicação |
+| Vite | Build e desenvolvimento |
+| JavaScript ES2023 | Linguagem principal |
+| MapLibre GL JS | Motor cartográfico |
+| Tailwind CSS | Interface |
+| Lucide Icons | Ícones |
+| IndexedDB | Persistência Offline |
+| Service Worker | Cache Offline |
+| PWA | Instalação no dispositivo |
+| Capacitor | Empacotamento Android |
+| Git | Controle de versão |
+| GitHub | Repositório |
 
 ---
 
-# Licença
+# 🌐 Fontes Oficiais dos Dados
 
-Este projeto encontra-se em desenvolvimento.
+O GeoFogo Ceará utiliza exclusivamente dados provenientes de fontes oficiais ou amplamente reconhecidas pela comunidade geoespacial.
 
-A definição da licença será realizada após a conclusão da versão estável.
+## 🛰 SIPAM — Sistema de Proteção da Amazônia
 
-# Progresso
+Utilizado para obtenção de:
 
-Resumo do progresso
-Área	                                    Estado
-Eventos redundantes do MapView	      Concluído
-Timers e retries do MapView	            Concluído
-Restauração após troca de estilo	      Revisada
-Responsabilidade do MapController	      Confirmada
-Simplificação de instalação de camadas	Concluída
-Commits e push	                        Concluídos
-Teste manual completo	                  Pendente
-Auditoria do AppCore	                  Pendente
-Auditoria do SyncEngine	                  Pendente
-Validação offline/cold start	            Pendente
+- Eventos de fogo
+- Frentes de fogo
 
-git add .
-git commit -m "PWA"
-git push
+Tecnologia utilizada:
 
-npm run dev
+- OGC Web Feature Service (WFS)
+
+Camadas atualmente utilizadas:
+
+```text
+painel_do_fogo:mv_evento_filtro
+
+painel_do_fogo:mv_frente_deteccao
+```
+
+Referências:
+
+- Painel do Fogo – SIPAM
+- Serviços OGC/WFS disponibilizados pelo SIPAM
+
+---
+
+## 🌦 OpenWeather
+
+Utilizado para:
+
+- temperatura;
+- umidade;
+- velocidade do vento;
+- condições meteorológicas;
+- previsão.
+
+API utilizada:
+
+Current Weather API
+
+Documentação oficial:
+
+https://openweathermap.org/api
+
+---
+
+## 🗺 Instituto Brasileiro de Geografia e Estatística (IBGE)
+
+Utilizado para:
+
+- limites municipais;
+- divisão administrativa.
+
+Referências:
+
+https://www.ibge.gov.br/
+
+https://www.ibge.gov.br/geociencias
+
+---
+
+## 🌳 ICMBio
+
+Utilizado para:
+
+- Unidades de Conservação Federais.
+
+Referência:
+
+https://www.gov.br/icmbio
+
+---
+
+## 🌿 SEMA Ceará
+
+Utilizado para:
+
+- Unidades de Conservação Estaduais.
+
+Referência:
+
+https://www.sema.ce.gov.br/
+
+---
+
+## 🗺 OpenStreetMap
+
+Utilizado como mapa base.
+
+Licença:
+
+Open Database License (ODbL)
+
+https://www.openstreetmap.org
+
+---
+
+## 🗺 MapLibre
+
+Motor cartográfico utilizado pela aplicação.
+
+https://maplibre.org/
+
+---
+
+## 📦 Capacitor
+
+Responsável pela geração da aplicação Android.
+
+https://capacitorjs.com/
+
+---
+
+## 💾 IndexedDB
+
+Persistência local dos dados sincronizados.
+
+Padrão implementado pelos navegadores modernos.
