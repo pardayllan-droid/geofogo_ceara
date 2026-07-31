@@ -247,6 +247,33 @@ function findMunicipalityForEvent(
     );
   }
 
+  try {
+    const point =
+      representativePoint(
+        eventFeature,
+      );
+
+    console.warn(
+      '[municipality-debug] Nenhum município encontrado:',
+      {
+        eventId:
+          eventFeature
+            ?.properties
+            ?.id_evento,
+
+        representativePoint:
+          point?.geometry
+            ?.coordinates,
+
+        municipalityCount:
+          municipalities
+            ?.features
+            ?.length,
+      },
+    );
+  } catch {
+    // Apenas diagnóstico.
+  }
   return null;
 }
 
@@ -414,6 +441,52 @@ export function enrichFireEventsWithMunicipalities(
   let identifiedCount = 0;
 
   const features =
+  console.info(
+    '[municipality-debug] Amostra da malha:',
+    {
+      municipalityCount:
+        municipalities.features.length,
+
+      firstMunicipality: {
+        id:
+          municipalities.features[0]?.id,
+
+        geometryType:
+          municipalities.features[0]
+            ?.geometry?.type,
+
+        properties:
+          municipalities.features[0]
+            ?.properties,
+
+        firstCoordinate:
+          municipalities.features[0]
+            ?.geometry
+            ?.coordinates?.[0]?.[0]?.[0] ||
+          municipalities.features[0]
+            ?.geometry
+            ?.coordinates?.[0]?.[0],
+      },
+
+      firstEvent: {
+        id:
+          fireEvents.features[0]
+            ?.properties?.id_evento,
+
+        geometryType:
+          fireEvents.features[0]
+            ?.geometry?.type,
+
+        firstCoordinate:
+          fireEvents.features[0]
+            ?.geometry
+            ?.coordinates?.[0]?.[0]?.[0] ||
+          fireEvents.features[0]
+            ?.geometry
+            ?.coordinates?.[0]?.[0],
+      },
+    },
+  );
     fireEvents.features.map(
       (eventFeature) => {
         const enriched =
