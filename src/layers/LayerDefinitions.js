@@ -159,11 +159,64 @@ export const LAYER_DEFINITIONS = [
     interactive: true,
     refreshInterval: 15 * 60 * 1000,
     paint: {
-      'fill-color': '#ef4444',
-      'fill-opacity': 0.5,
-      'line-color': '#dc2626',
-      'line-width': 1,
-      'line-opacity': 0.9,
+      'fill-color': [
+        'match',
+
+        [
+          'get',
+          'fire_age_class',
+        ],
+
+        'up-to-24h',
+        '#ff2323',
+
+        '24-to-48h',
+        '#ff9e17',
+
+        '48-to-96h',
+        '#ffb1b0',
+
+        'over-96h',
+        '#c8c8c8',
+
+        /*
+        * Cor de fallback para evento sem dt_maxima
+        * ou ainda não classificado.
+        */
+        '#c8c8c8',
+      ],
+
+      'fill-opacity':
+        0.55,
+
+      'line-color': [
+        'match',
+
+        [
+          'get',
+          'fire_age_class',
+        ],
+
+        'up-to-24h',
+        '#b91c1c',
+
+        '24-to-48h',
+        '#c26700',
+
+        '48-to-96h',
+        '#dc7c7a',
+
+        'over-96h',
+        '#888888',
+
+        '#888888',
+      ],
+
+      'line-width':
+        1.25,
+
+      'line-opacity':
+        0.95,
     },
     markerColor: '#ef4444',
   },
@@ -183,7 +236,28 @@ export const LAYER_DEFINITIONS = [
     derivedFrom: 'fire-events',
     paint: {
       'circle-radius': 6,
-      'circle-color': '#f97316',
+      'circle-color': [
+        'match',
+
+        [
+          'get',
+          'fire_age_class',
+        ],
+
+        'up-to-24h',
+        '#ff2323',
+
+        '24-to-48h',
+        '#ff9e17',
+
+        '48-to-96h',
+        '#ffb1b0',
+
+        'over-96h',
+        '#c8c8c8',
+
+        '#c8c8c8',
+      ],
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 1.5,
       'circle-stroke-opacity': 0.9,

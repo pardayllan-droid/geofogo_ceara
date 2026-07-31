@@ -3,46 +3,173 @@
  */
 
 export function formatArea(km2) {
-  if (km2 == null || isNaN(km2)) return '—';
-  if (km2 < 1) return `${(km2 * 100).toFixed(1)} ha`;
-  if (km2 < 100) return `${km2.toFixed(2)} km²`;
-  return `${km2.toFixed(0)} km²`;
+  const numeric =
+    Number(km2);
+
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  if (numeric < 1) {
+    return `${(
+      numeric * 100
+    ).toFixed(1)} ha`;
+  }
+
+  if (numeric < 100) {
+    return `${numeric.toFixed(
+      2,
+    )} km²`;
+  }
+
+  return `${numeric.toFixed(
+    0,
+  )} km²`;
 }
 
-export function formatDistance(meters) {
-  if (meters == null || isNaN(meters)) return '—';
-  if (meters < 1) return '0 m';
-  if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toFixed(2)} km`;
+export function formatDistance(
+  meters,
+) {
+  const numeric =
+    Number(meters);
+
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  if (numeric < 1) {
+    return '0 m';
+  }
+
+  if (numeric < 1000) {
+    return `${Math.round(
+      numeric,
+    )} m`;
+  }
+
+  return `${(
+    numeric / 1000
+  ).toFixed(2)} km`;
 }
 
-export function formatTemperature(c) {
-  if (c == null || isNaN(c)) return '—';
-  return `${Math.round(c)}°C`;
+export function formatTemperature(
+  celsius,
+) {
+  const numeric =
+    Number(celsius);
+
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  return `${Math.round(
+    numeric,
+  )}°C`;
 }
 
-export function formatWindSpeed(ms) {
-  if (ms == null || isNaN(ms)) return '—';
-  return `${Math.round(ms * 3.6)} km/h`;
+export function formatWindSpeed(
+  metersPerSecond,
+) {
+  const numeric =
+    Number(metersPerSecond);
+
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  return `${Math.round(
+    numeric * 3.6,
+  )} km/h`;
 }
 
-export function formatWindDirection(deg) {
-  if (deg == null || isNaN(deg)) return '—';
-  const dirs = ['N', 'NNE', 'NE', 'ENE', 'L', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
-  return dirs[Math.round(deg / 22.5) % 16];
+export function formatWindDirection(
+  degrees,
+) {
+  const numeric =
+    Number(degrees);
+
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  const directions = [
+    'N',
+    'NNE',
+    'NE',
+    'ENE',
+    'L',
+    'ESE',
+    'SE',
+    'SSE',
+    'S',
+    'SSO',
+    'SO',
+    'OSO',
+    'O',
+    'ONO',
+    'NO',
+    'NNO',
+  ];
+
+  const normalized =
+    ((numeric % 360) + 360) %
+    360;
+
+  return directions[
+    Math.round(
+      normalized / 22.5,
+    ) % 16
+  ];
 }
 
-export function formatHumidity(pct) {
-  if (pct == null || isNaN(pct)) return '—';
-  return `${Math.round(pct)}%`;
+export function formatHumidity(
+  percentage,
+) {
+  const numeric =
+    Number(percentage);
+
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  return `${Math.round(
+    numeric,
+  )}%`;
 }
 
-export function formatCoords(lng, lat) {
-  if (lng == null || lat == null) return '—';
-  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+export function formatCoords(
+  longitude,
+  latitude,
+) {
+  const lng =
+    Number(longitude);
+
+  const lat =
+    Number(latitude);
+
+  if (
+    !Number.isFinite(lng) ||
+    !Number.isFinite(lat)
+  ) {
+    return '—';
+  }
+
+  return `${lat.toFixed(
+    4,
+  )}, ${lng.toFixed(4)}`;
 }
 
-export function formatNumber(n) {
-  if (n == null || isNaN(n)) return '—';
-  return n.toLocaleString('pt-BR');
+export function formatNumber(
+  number,
+) {
+  const numeric =
+    Number(number);
+
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  return numeric.toLocaleString(
+    'pt-BR',
+  );
 }

@@ -21,6 +21,9 @@ import { loadFireEvents, loadFireFronts, getCachedFireEvents, getCachedFireFront
 import { computeAlerts, getCachedAlerts } from '../alerts/AlertEngine';
 import { filterByBoundary, computeArea, representativePoint, findNearby } from '../spatial/SpatialEngine';
 import { enrichFireEventsWithMunicipalities } from '../services/fireEventEnrichmentService';
+import {
+  enrichFireEventsAge,
+} from '../utils/fireEventAge';
 
 class AppCoreImpl {
   constructor() {
@@ -71,10 +74,15 @@ class AppCoreImpl {
     const cachedFireEvents =
   await getCachedFireEvents();
 
-    this.fireEvents =
+    const cachedEventsWithMunicipality =
       enrichFireEventsWithMunicipalities(
         cachedFireEvents,
         this.municipalities,
+      );
+
+    this.fireEvents =
+      enrichFireEventsAge(
+        cachedEventsWithMunicipality,
       );
 
     this.fireFronts =
@@ -234,10 +242,15 @@ class AppCoreImpl {
           * antes que alertas, marcadores e estatísticas sejam
           * recalculados.
           */
-          const enriched =
+          const enrichedWithMunicipality =
             enrichFireEventsWithMunicipalities(
               filtered,
               this.municipalities,
+            );
+
+          const enriched =
+            enrichFireEventsAge(
+              enrichedWithMunicipality,
             );
 
           this.fireEvents =
