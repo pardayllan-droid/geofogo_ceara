@@ -2,33 +2,31 @@
 
 Sistema de monitoramento geoespacial de incêndios florestais para o Estado do Ceará.
 
-O **GeoFogo Ceará** é uma aplicação web (PWA) desenvolvida para apoiar o monitoramento, análise e resposta a ocorrências de fogo em áreas naturais. O sistema integra dados geoespaciais, informações do Painel do Fogo (SIPAM), limites administrativos, Unidades de Conservação e recursos de operação em campo, oferecendo uma plataforma moderna para acompanhamento de eventos em tempo quase real.
+O **GeoFogo Ceará** é uma aplicação web (PWA) desenvolvida para apoiar o monitoramento, análise e resposta a ocorrências de fogo em áreas sensíveis. O sistema integra dados geoespaciais, informações do Painel do Fogo (SIPAM), limites administrativos e recursos de operação em campo, oferecendo uma plataforma moderna para acompanhamento de eventos em tempo quase real.
 
 ---
 
 # Objetivos
 
 * Monitorar eventos de fogo no Estado do Ceará.
-* Identificar incêndios próximos às Unidades de Conservação.
-* Auxiliar o planejamento operacional do Corpo de Bombeiros e demais órgãos ambientais.
-* Disponibilizar uma aplicação utilizável tanto em computadores quanto em dispositivos móveis (PWA).
+* Identificar incêndios próximos às áreas sensíveis.
+* Auxiliar o planejamento operacional do Corpo de Bombeiros.
+* Disponibilizar uma aplicação utilizável tanto em computadores quanto em dispositivos móveis (PWA/APK).
 * Permitir operação em campo com suporte a funcionamento offline.
 
 ---
 
 # Principais funcionalidades
 
-* 🗺️ Mapa interativo utilizando MapLibre GL.
-* 🔥 Visualização de eventos de fogo provenientes do SIPAM.
-* 🌳 Camada de Unidades de Conservação do Ceará.
-* 🏙️ Limites municipais do Estado.
-* 🚒 Camadas operacionais para apoio ao atendimento.
-* 📍 Centralização automática de eventos.
-* ⚠️ Geração de alertas por proximidade entre focos de incêndio e Unidades de Conservação.
-* 💾 Armazenamento local utilizando IndexedDB.
-* 📡 Sincronização inteligente de dados.
-* 📱 Instalação como Progressive Web App (PWA).
-* 🧭 Modo Campo para utilização em operações externas.
+* Mapa interativo utilizando MapLibre GL.
+* Visualização de eventos de fogo provenientes do SIPAM.
+* Camada de Unidades de Conservação do Ceará.
+* Camadas operacionais para apoio ao atendimento.
+* Geração de alertas por proximidade entre Eventos de Fogo e áreassensíveis.
+* Armazenamento local utilizando IndexedDB.
+* Sincronização inteligente de dados.
+* Instalação como Progressive Web App (PWA).
+* Modo Campo para utilização em operações externas.
 
 ---
 
@@ -80,9 +78,9 @@ Principais módulos:
 O sistema utiliza dados públicos provenientes de diferentes fontes geoespaciais, entre elas:
 
 * Painel do Fogo (SIPAM)
-* Municípios do Estado do Ceará
-* Unidades de Conservação
-* Limite oficial do Estado do Ceará
+* MapLibre GL
+* AccuWeather
+* IBGE
 
 As camadas são sincronizadas automaticamente e armazenadas localmente para melhorar desempenho e disponibilidade offline.
 
@@ -189,7 +187,6 @@ Planejado para as próximas versões:
 * Exportação de relatórios.
 * Integração com dados meteorológicos.
 * Integração com novas fontes geoespaciais.
-* Expansão para outros estados brasileiros.
 
 ---
 
@@ -201,28 +198,18 @@ A definição da licença será realizada após a conclusão da versão estável
 
 # Progresso
 
-Limpeza final da arquitetura
-      ~~remover arquivos mortos~~;
-      ~~padronizar nomes~~;
-      ~~eliminar código duplicado~~.
-Melhorar a experiência do usuário
-      tela de carregamento;
-      mensagens de sincronização;
-      indicadores offline/online;
-      tratamento elegante de erros.
-Otimizar o mapa
-      renderização mais rápida;
-      clusters quando houver muitos eventos;
-      popups mais ricos.
-Aprimorar o sistema de alertas
-      alerta por distância configurável;
-      severidade;
-      notificações.
-Preparar a versão 1.0
-      documentação;
-      testes;
-      APK;
-      publicação.
+Resumo do progresso
+Área	                                    Estado
+Eventos redundantes do MapView	      Concluído
+Timers e retries do MapView	            Concluído
+Restauração após troca de estilo	      Revisada
+Responsabilidade do MapController	      Confirmada
+Simplificação de instalação de camadas	Concluída
+Commits e push	                        Concluídos
+Teste manual completo	                  Pendente
+Auditoria do AppCore	                  Pendente
+Auditoria do SyncEngine	                  Pendente
+Validação offline/cold start	            Pendente
 
 git add .
 git commit -m "PWA"

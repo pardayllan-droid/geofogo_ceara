@@ -1,0 +1,1047 @@
+1-/**
+2- * LayerManager
+3- *
+4- * Gerencia todas as fontes e camadas operacionais do mapa.
+5- *
+6- * Responsabilidades:
+7- * - registrar definições de camadas;
+8- * - preservar dados GeoJSON em memória;
+9- * - criar sources e layers no MapLibre;
+10- * - separar propriedades paint por tipo de layer;
+11- * - restaurar as camadas após troca de estilo;
+12- * - controlar visibilidade e opacidade;
+13- * - registrar interações de clique;
+14- * - informar falhas ao ErrorManager.
+15- *
+16- * Nenhum componente React deve chamar diretamente:
+17: * - map.addSource();
+18: * - map.addLayer();
+19: * - map.removeLayer();
+20- * - source.setData().
+21- */
+22-
+23-import {
+24-  EventBus,
+25-  EVENTS,
+26-} from '../core/EventBus';
+27-
+28-import { ErrorManager } from '../core/ErrorManager';
+29-
+30-const EMPTY_FEATURE_COLLECTION = {
+31:  type: 'FeatureCollection',
+32-  features: [],
+33-};
+34-
+35-/**
+36- * Prefixos permitidos para cada tipo de layer do MapLibre.
+37- */
+38-const PAINT_PREFIXES = {
+39-  fill: ['fill-'],
+40-  line: ['line-'],
+41-  circle: ['circle-'],
+42-  symbol: ['icon-', 'text-'],
+43-  heatmap: ['heatmap-'],
+44-  raster: ['raster-'],
+45-  hillshade: ['hillshade-'],
+46-  background: ['background-'],
+47-};
+48-
+49-/**
+50- * Retorna apenas as propriedades paint compatíveis
+51- * com o tipo de layer informado.
+52- */
+53-function filterPaintByType(
+54-  paint = {},
+55-  layerType,
+56-) {
+57-  if (
+58-    !paint ||
+59-    typeof paint !== 'object' ||
+60-    Array.isArray(paint)
+61-  ) {
+62-    return {};
+63-  }
+64-
+65-  const prefixes =
+66-    PAINT_PREFIXES[layerType] || [];
+67-
+68-  return Object.fromEntries(
+69-    Object.entries(paint).filter(([key]) =>
+70-      prefixes.some((prefix) =>
+71-        key.startsWith(prefix),
+72-      ),
+73-    ),
+74-  );
+75-}
+76-
+77-/**
+78- * Retorna apenas propriedades layout apropriadas.
+79- *
+80- * Propriedades específicas de símbolos são mantidas
+81- * apenas para layers do tipo symbol.
+82- */
+83-function normalizeLayout(
+84-  layout = {},
+85-  layerType,
+86-  visible = true,
+87-) {
+88-  const normalized = {
+89-    visibility: visible
+90-      ? 'visible'
+91-      : 'none',
+--
+385-
+386-      return Boolean(
+387-        style &&
+388-          Number(style.version) === 8 &&
+389-          Array.isArray(style.layers),
+390-      );
+391-    } catch {
+392-      return false;
+393-    }
+394-  }
+395-
+396-  /**
+397-   * Normaliza valores aceitos pelo MapLibre.
+398-   */
+399-  _normalizeGeoJSON(data) {
+400-    if (
+401-      !data ||
+402-      typeof data !== 'object'
+403-    ) {
+404-      return {
+405:        type: 'FeatureCollection',
+406-        features: [],
+407-      };
+408-    }
+409-
+410-    if (
+411-      data.type === 'FeatureCollection' &&
+412-      Array.isArray(data.features)
+413-    ) {
+414-      return data;
+415-    }
+416-
+417-    if (data.type === 'Feature') {
+418-      return {
+419:        type: 'FeatureCollection',
+420-        features: [data],
+421-      };
+422-    }
+423-
+424-    if (
+425-      typeof data.type === 'string' &&
+426-      Array.isArray(data.coordinates)
+427-    ) {
+428-      return {
+429:        type: 'FeatureCollection',
+430-        features: [
+431-          {
+432:            type: 'Feature',
+433-            properties: {},
+434-            geometry: data,
+435-          },
+436-        ],
+437-      };
+438-    }
+439-
+440-    console.warn(
+441-      '[LayerManager] GeoJSON inválido recebido:',
+442-      data,
+443-    );
+444-
+445-    return {
+446:      type: 'FeatureCollection',
+447-      features: [],
+448-    };
+449-  }
+450-
+451-  /**
+452-   * Identifica o tipo de layer MapLibre com base
+453-   * na definição arquitetural.
+454-   */
+455-  _resolveMapLayerType(definition) {
+456-    if (definition.mapLayerType) {
+457-      return definition.mapLayerType;
+458-    }
+459-
+460-    const geometryType = String(
+461-      definition.geometryType || '',
+462-    ).toLowerCase();
+463-
+464-    switch (geometryType) {
+465-      case 'point':
+466-      case 'multipoint':
+467-        return definition.symbol
+468-          ? 'symbol'
+469-          : 'circle';
+470-
+471-      case 'linestring':
+472-      case 'multilinestring':
+473-      case 'line':
+474-        return 'line';
+475-
+476-      case 'polygon':
+477-      case 'multipolygon':
+478-      case 'fill':
+479-      default:
+480-        return 'fill';
+481-    }
+482-  }
+483-
+484-  /**
+485-   * Monta a configuração básica de uma layer.
+486-   */
+487-  _createBaseLayerConfig(
+488-    definition,
+489-    sourceId,
+490-    layerType,
+491-  ) {
+492-    const config = {
+493-      id: definition.id,
+494-      source: sourceId,
+495:      type: layerType,
+496-
+497-      minzoom:
+498-        definition.minZoom ??
+499-        definition.minzoom ??
+500-        0,
+501-
+502-      maxzoom:
+503-        definition.maxZoom ??
+504-        definition.maxzoom ??
+505-        24,
+506-
+507-      layout: normalizeLayout(
+508-        definition.layout,
+509-        layerType,
+510-        definition.visible !== false,
+511-      ),
+512-
+513-      paint: filterPaintByType(
+514-        definition.paint,
+515-        layerType,
+516-      ),
+517-    };
+518-
+519-    if (definition.filter) {
+520-      config.filter = definition.filter;
+521-    }
+522-
+523-    if (definition.sourceLayer) {
+524-      config['source-layer'] =
+525-        definition.sourceLayer;
+526-    }
+527-
+528-    return config;
+529-  }
+530-
+531-  /**
+532-   * Monta a layer de contorno para polígonos.
+533-   */
+534-  _createOutlineLayerConfig(
+535-    definition,
+536-    sourceId,
+537-  ) {
+538-    const linePaint =
+539-      filterPaintByType(
+540-        definition.paint,
+541-        'line',
+542-      );
+543-
+544-    if (
+545-      Object.keys(linePaint).length === 0
+546-    ) {
+547-      return null;
+548-    }
+549-
+550-    const outlineConfig = {
+551-      id: `${definition.id}-outline`,
+552-      source: sourceId,
+553:      type: 'line',
+554-
+555-      minzoom:
+556-        definition.minZoom ??
+557-        definition.minzoom ??
+558-        0,
+559-
+560-      maxzoom:
+561-        definition.maxZoom ??
+562-        definition.maxzoom ??
+563-        24,
+564-
+565-      layout: normalizeLayout(
+566-        definition.layout,
+567-        'line',
+568-        definition.visible !== false,
+569-      ),
+570-
+571-      paint: linePaint,
+572-    };
+573-
+574-    if (definition.filter) {
+575-      outlineConfig.filter =
+576-        definition.filter;
+577-    }
+578-
+579-    if (definition.sourceLayer) {
+580-      outlineConfig['source-layer'] =
+581-        definition.sourceLayer;
+582-    }
+583-
+584-    return outlineConfig;
+585-  }
+586-
+587-  /**
+588-   * Armazena e cria ou atualiza uma source.
+589-   */
+590:  addSource(sourceId, data) {
+591-    const normalizedData =
+592-      this._normalizeGeoJSON(data);
+593-
+594-    /*
+595-     * O dado é preservado mesmo quando
+596-     * o estilo ainda não está pronto.
+597-     */
+598-    this._sources.set(sourceId, {
+599:      type: 'geojson',
+600-      data: normalizedData,
+601-    });
+602-
+603-    if (!this._canUseMap()) {
+604-      return false;
+605-    }
+606-
+607-    try {
+608-      const existingSource =
+609-        this._map.getSource(sourceId);
+610-
+611-      if (existingSource?.setData) {
+612-        existingSource.setData(
+613-          normalizedData,
+614-        );
+615-      } else if (!existingSource) {
+616:        this._map.addSource(sourceId, {
+617:          type: 'geojson',
+618-          data: normalizedData,
+619-        });
+620-      }
+621-
+622-      return Boolean(
+623-        this._map.getSource(sourceId),
+624-      );
+625-    } catch (error) {
+626-      console.error(
+627-        `[LayerManager] Falha na source "${sourceId}":`,
+628-        error,
+629-      );
+630-
+631-      ErrorManager.report(
+632-        'layer',
+633-        error,
+634-        {
+635:          operation: 'addSource',
+636-          sourceId,
+637-          featureCount:
+638-            countFeatures(normalizedData),
+639-        },
+640-      );
+641-
+642-      return false;
+643-    }
+644-  }
+645-
+646-  /**
+647-   * Cria a layer principal e, quando necessário,
+648-   * a layer de contorno.
+649-   */
+650:  addLayerToMap(definition) {
+651-    if (!this._canUseMap()) {
+652-      return false;
+653-    }
+654-
+655-    if (!definition?.id) {
+656-      const error = new Error(
+657-        'Definição de camada inexistente ou sem ID.',
+658-      );
+659-
+660-      ErrorManager.report(
+661-        'layer',
+662-        error,
+663-        {
+664:          operation: 'addLayerToMap',
+665-        },
+666-      );
+667-
+668-      return false;
+669-    }
+670-
+671-    const sourceId =
+672-      `src-${definition.id}`;
+673-
+674-    const storedSource =
+675-      this._sources.get(sourceId);
+676-
+677-    try {
+678-      if (!this._map.getSource(sourceId)) {
+679-        const sourceData =
+680-          storedSource?.data ||
+681-          EMPTY_FEATURE_COLLECTION;
+682-
+683-        const sourceAdded =
+684:          this.addSource(
+685-            sourceId,
+686-            sourceData,
+687-          );
+688-
+689-        if (!sourceAdded) {
+690-          throw new Error(
+691-            `Não foi possível criar a source "${sourceId}".`,
+692-          );
+693-        }
+694-      }
+695-
+696-      const layerType =
+697-        this._resolveMapLayerType(
+698-          definition,
+699-        );
+700-
+701-      /*
+702-       * Agora cada tipo recebe somente propriedades
+703-       * paint compatíveis:
+704-       *
+705-       * fill   -> fill-*
+706-       * line   -> line-*
+707-       * circle -> circle-*
+708-       */
+709-      if (!this._map.getLayer(definition.id)) {
+710-        const mainLayerConfig =
+711-          this._createBaseLayerConfig(
+712-            definition,
+713-            sourceId,
+714-            layerType,
+715-          );
+716-
+717:        this._map.addLayer(
+718-          mainLayerConfig,
+719-        );
+720-      }
+721-
+722-      /*
+723-       * Polígonos podem possuir uma segunda layer
+724-       * exclusiva para o contorno.
+725-       */
+726-      if (layerType === 'fill') {
+727-        const outlineConfig =
+728-          this._createOutlineLayerConfig(
+729-            definition,
+730-            sourceId,
+731-          );
+732-
+733-        if (
+734-          outlineConfig &&
+735-          !this._map.getLayer(
+736-            outlineConfig.id,
+737-          )
+738-        ) {
+739:          this._map.addLayer(
+740-            outlineConfig,
+741-          );
+742-        }
+743-      }
+744-
+745-      if (definition.interactive) {
+746-        this._attachClickHandler(
+747-          definition,
+748-        );
+749-      }
+750-
+751-      this._applyOpacity(
+752-        definition.id,
+753-      );
+754-
+755-      definition.loading = false;
+756-      definition.error = null;
+757-
+758-      return Boolean(
+759-        this._map.getLayer(
+760-          definition.id,
+761-        ),
+762-      );
+763-    } catch (error) {
+764-      console.error(
+765-        `[LayerManager] Falha ao adicionar a camada "${definition.id}":`,
+766-        error,
+767-      );
+768-
+769-      this.setError(
+770-        definition.id,
+771-        error,
+772-        {
+773:          operation: 'addLayerToMap',
+774-          sourceId,
+775-          geometryType:
+776-            definition.geometryType,
+777-        },
+778-      );
+779-
+780-      return false;
+781-    }
+782-  }
+783-
+784-  /**
+785-   * Atualiza os dados associados a uma camada.
+786-   *
+787-   * O GeoJSON é sempre armazenado, mesmo que
+788-   * o mapa ainda não esteja pronto.
+789-   */
+790-  updateLayerData(layerId, geoJSON) {
+791-    const definition =
+792-      this._layers.get(layerId);
+793-
+794-    if (!definition) {
+795-      const error = new Error(
+796-        `Camada não registrada: ${layerId}`,
+797-      );
+798-
+799-      console.error(
+800-        '[LayerManager]',
+801-        error.message,
+802-      );
+803-
+804-      ErrorManager.report(
+805-        'layer',
+806-        error,
+807-        {
+808-          operation:
+809-            'updateLayerData',
+810-          layerId,
+811-        },
+812-      );
+813-
+814-      return false;
+815-    }
+816-
+817-    const sourceId =
+818-      `src-${layerId}`;
+819-
+820-    const normalizedData =
+821-      this._normalizeGeoJSON(
+822-        geoJSON,
+823-      );
+824-
+825-    /*
+826-     * Preserva o dado imediatamente.
+827-     */
+828-    this._sources.set(sourceId, {
+829:      type: 'geojson',
+830-      data: normalizedData,
+831-    });
+832-
+833-    definition.loading = true;
+834-
+835-    if (!this._canUseMap()) {
+836-      return false;
+837-    }
+838-
+839-    try {
+840-      const existingSource =
+841-        this._map.getSource(sourceId);
+842-
+843-      if (existingSource?.setData) {
+844-        existingSource.setData(
+845-          normalizedData,
+846-        );
+847-      } else {
+848:        this._map.addSource(sourceId, {
+849:          type: 'geojson',
+850-          data: normalizedData,
+851-        });
+852-      }
+853-
+854-      if (
+855-        !this._map.getLayer(layerId)
+856-      ) {
+857-        const added =
+858:          this.addLayerToMap(
+859-            definition,
+860-          );
+861-
+862-        if (!added) {
+863-          return false;
+864-        }
+865-      } else if (
+866-        definition.interactive &&
+867-        !this._clickHandlers.has(
+868-          definition.id,
+869-        )
+870-      ) {
+871-        this._attachClickHandler(
+872-          definition,
+873-        );
+874-      }
+875-
+876-      definition.lastUpdated =
+877-        Date.now();
+878-
+879-      definition.loading = false;
+880-      definition.error = null;
+881-
+882-      EventBus.emit(
+883-        EVENTS.LAYER_DATA_UPDATED,
+884-        {
+885-          layerId,
+886-          data: normalizedData,
+887-          featureCount:
+888-            countFeatures(normalizedData),
+889-        },
+890-      );
+891-
+892-      return true;
+893-    } catch (error) {
+894-      this.setError(
+895-        layerId,
+896-        error,
+897-        {
+898-          operation:
+899-            'updateLayerData',
+900-          sourceId,
+901-          featureCount:
+902-            countFeatures(normalizedData),
+903-        },
+904-      );
+905-
+906-      return false;
+907-    }
+908-  }
+909-
+910-  /**
+911-   * Recria todas as sources e layers depois
+912-   * de uma troca de estilo.
+913-   */
+914-  restoreAllLayers() {
+915-    if (
+916-      !this._map ||
+917-      this._restoring
+918-    ) {
+--
+938-        const sourceId =
+939-          `src-${definition.id}`;
+940-
+941-        const storedSource =
+942-          this._sources.get(sourceId);
+943-
+944-        /*
+945-         * Não cria uma source para uma camada
+946-         * que nunca recebeu dados.
+947-         */
+948-        if (!storedSource) {
+949-          continue;
+950-        }
+951-
+952-        try {
+953-          if (
+954-            !this._map.getSource(
+955-              sourceId,
+956-            )
+957-          ) {
+958:            this._map.addSource(
+959-              sourceId,
+960-              {
+961:                type: 'geojson',
+962-                data:
+963-                  storedSource.data ||
+964-                  EMPTY_FEATURE_COLLECTION,
+965-              },
+966-            );
+967-          } else {
+968-            const mapSource =
+969-              this._map.getSource(
+970-                sourceId,
+971-              );
+972-
+973-            mapSource?.setData?.(
+974-              storedSource.data ||
+975-              EMPTY_FEATURE_COLLECTION,
+976-            );
+977-          }
+978-
+979-          const added =
+980:            this.addLayerToMap(
+981-              definition,
+982-            );
+983-
+984-          if (!added) {
+985-            failedCount += 1;
+986-            continue;
+987-          }
+988-
+989-          this.setVisibility(
+990-            definition.id,
+991-            definition.visible !== false,
+992-            false,
+993-          );
+994-
+995-          this._applyOpacity(
+996-            definition.id,
+997-          );
+998-
+999-          restoredCount += 1;
+1000-        } catch (error) {
+1001-          failedCount += 1;
+1002-
+1003-          this.setError(
+1004-            definition.id,
+1005-            error,
+1006-            {
+1007-              operation:
+1008-                'restoreAllLayers',
+1009-            },
+1010-          );
+1011-        }
+1012-      }
+1013-
+1014-      return failedCount === 0;
+1015-    } finally {
+1016-      this._restoring = false;
+1017-
+1018-      console.info(
+1019-        '[LayerManager] Restauração concluída:',
+1020-        {
+1021-          restoredCount,
+1022-          failedCount,
+1023-        },
+1024-      );
+1025-    }
+1026-  }
+1027-
+1028-  /**
+1029-   * Remove um handler de clique e cursor.
+1030-   */
+1031-  _detachClickHandler(layerId) {
+1032-    const registration =
+1033-      this._clickHandlers.get(
+1034-        layerId,
+1035-      );
+1036-
+1037-    if (!registration) {
+1038-      return;
+1039-    }
+1040-
+--
+1214-    if (!definition) {
+1215-      return false;
+1216-    }
+1217-
+1218-    definition.visible =
+1219-      Boolean(visible);
+1220-
+1221-    if (this._canUseMap()) {
+1222-      const mapLayerIds = [
+1223-        layerId,
+1224-        `${layerId}-outline`,
+1225-      ];
+1226-
+1227-      mapLayerIds.forEach(
+1228-        (mapLayerId) => {
+1229-          if (
+1230-            this._map.getLayer(
+1231-              mapLayerId,
+1232-            )
+1233-          ) {
+1234:            this._map.setLayoutProperty(
+1235-              mapLayerId,
+1236-              'visibility',
+1237-              visible
+1238-                ? 'visible'
+1239-                : 'none',
+1240-            );
+1241-          }
+1242-        },
+1243-      );
+1244-    }
+1245-
+1246-    if (emitEvent) {
+1247-      EventBus.emit(
+1248-        EVENTS.LAYER_VISIBILITY_CHANGED,
+1249-        {
+1250-          layerId,
+1251-          visible:
+1252-            Boolean(visible),
+1253-        },
+1254-      );
+1255-    }
+1256-
+1257-    return true;
+1258-  }
+1259-
+1260-  /**
+1261-   * Aplica a opacidade relativa definida pelo usuário.
+1262-   */
+1263-  _applyOpacity(layerId) {
+1264-    const definition =
+1265-      this._layers.get(layerId);
+1266-
+1267-    if (
+1268-      !definition ||
+1269-      !this._canUseMap()
+1270-    ) {
+1271-      return;
+1272-    }
+1273-
+1274-    const opacity =
+1275-      Number.isFinite(
+1276-        definition.opacity,
+1277-      )
+1278-        ? Math.min(
+1279-            1,
+1280-            Math.max(
+1281-              0,
+1282-              definition.opacity,
+1283-            ),
+1284-          )
+1285-        : 1;
+1286-
+1287-    const layerIds = [
+1288-      layerId,
+1289-      `${layerId}-outline`,
+1290-    ];
+1291-
+1292-    layerIds.forEach(
+1293-      (mapLayerId) => {
+1294-        const mapLayer =
+1295-          this._map.getLayer(
+1296-            mapLayerId,
+1297-          );
+1298-
+1299-        if (!mapLayer) {
+1300-          return;
+1301-        }
+1302-
+1303-        try {
+1304-          if (
+1305-            mapLayer.type === 'fill'
+1306-          ) {
+1307-            const originalOpacity =
+1308-              definition.paint?.[
+1309-                'fill-opacity'
+1310-              ] ?? 0.5;
+1311-
+1312:            this._map.setPaintProperty(
+1313-              mapLayerId,
+1314-              'fill-opacity',
+1315-              opacity *
+1316-                originalOpacity,
+1317-            );
+1318-          }
+1319-
+1320-          if (
+1321-            mapLayer.type === 'line'
+1322-          ) {
+1323-            const originalOpacity =
+1324-              definition.paint?.[
+1325-                'line-opacity'
+1326-              ] ?? 0.8;
+1327-
+1328:            this._map.setPaintProperty(
+1329-              mapLayerId,
+1330-              'line-opacity',
+1331-              opacity *
+1332-                originalOpacity,
+1333-            );
+1334-          }
+1335-
+1336-          if (
+1337-            mapLayer.type === 'circle'
+1338-          ) {
+1339-            const originalOpacity =
+1340-              definition.paint?.[
+1341-                'circle-opacity'
+1342-              ] ?? 1;
+1343-
+1344:            this._map.setPaintProperty(
+1345-              mapLayerId,
+1346-              'circle-opacity',
+1347-              opacity *
+1348-                originalOpacity,
+1349-            );
+1350-
+1351-            if (
+1352-              definition.paint?.[
+1353-                'circle-stroke-opacity'
+1354-              ] !== undefined
+1355-            ) {
+1356:              this._map.setPaintProperty(
+1357-                mapLayerId,
+1358-                'circle-stroke-opacity',
+1359-                opacity *
+1360-                  definition.paint[
+1361-                    'circle-stroke-opacity'
+1362-                  ],
+1363-              );
+1364-            }
+1365-          }
+1366-
+1367-          if (
+1368-            mapLayer.type === 'symbol'
+1369-          ) {
+1370-            if (
+1371-              definition.paint?.[
+1372-                'icon-opacity'
+1373-              ] !== undefined
+1374-            ) {
+1375:              this._map.setPaintProperty(
+1376-                mapLayerId,
+1377-                'icon-opacity',
+1378-                opacity *
+1379-                  definition.paint[
+1380-                    'icon-opacity'
+1381-                  ],
+1382-              );
+1383-            }
+1384-
+1385-            if (
+1386-              definition.paint?.[
+1387-                'text-opacity'
+1388-              ] !== undefined
+1389-            ) {
+1390:              this._map.setPaintProperty(
+1391-                mapLayerId,
+1392-                'text-opacity',
+1393-                opacity *
+1394-                  definition.paint[
+1395-                    'text-opacity'
+1396-                  ],
+1397-              );
+1398-            }
+1399-          }
+1400-        } catch (error) {
+1401-          console.warn(
+1402-            `[LayerManager] Não foi possível aplicar opacidade em "${mapLayerId}":`,
+1403-            error,
+1404-          );
+1405-        }
+1406-      },
+1407-    );
+1408-  }
+1409-
+1410-  /**
+1411-   * Define a opacidade relativa de uma camada.
+1412-   */
+1413-  setOpacity(layerId, opacity) {
+1414-    const definition =
+1415-      this._layers.get(layerId);
+1416-
+1417-    if (!definition) {
+1418-      return false;
+1419-    }
+1420-
+1421-    const numericOpacity =
+1422-      Number(opacity);
+1423-
+1424-    definition.opacity =
+1425-      Math.min(
+1426-        1,
+1427-        Math.max(
+1428-          0,
+1429-          Number.isFinite(
+1430-            numericOpacity,
+1431-          )
+1432-            ? numericOpacity
+1433-            : 1,
+1434-        ),
+1435-      );
+1436-
+1437-    this._applyOpacity(layerId);
+1438-
+1439-    return true;
+1440-  }
+1441-
+1442-  /**
+1443-   * Remove uma camada, seu contorno, sua source
+1444-   * e seu registro.
+1445-   */
+1446:  removeLayer(layerId) {
+1447-    const definition =
+1448-      this._layers.get(layerId);
+1449-
+1450-    if (!definition) {
+1451-      return false;
+1452-    }
+1453-
+1454-    this._detachClickHandler(
+1455-      layerId,
+1456-    );
+1457-
+1458-    if (this._canUseMap()) {
+1459-      [
+1460-        `${layerId}-outline`,
+1461-        layerId,
+1462-      ].forEach((mapLayerId) => {
+1463-        try {
+1464-          if (
+1465-            this._map.getLayer(
+1466-              mapLayerId,
+1467-            )
+1468-          ) {
+1469:            this._map.removeLayer(
+1470-              mapLayerId,
+1471-            );
+1472-          }
+1473-        } catch (error) {
+1474-          console.warn(
+1475-            `[LayerManager] Falha ao remover "${mapLayerId}":`,
+1476-            error,
+1477-          );
+1478-        }
+1479-      });
+1480-
+1481-      const sourceId =
+1482-        `src-${layerId}`;
+1483-
+1484-      try {
+1485-        if (
+1486-          this._map.getSource(
+1487-            sourceId,
+1488-          )
+1489-        ) {
+1490-          this._map.removeSource(
+1491-            sourceId,
+1492-          );
+1493-        }
+1494-      } catch (error) {
+1495-        console.warn(
+1496-          `[LayerManager] Falha ao remover source "${sourceId}":`,
+1497-          error,
+1498-        );
+1499-      }
+1500-    }
+1501-
+1502-    this._layers.delete(layerId);
+1503-
+1504-    this._sources.delete(
+1505-      `src-${layerId}`,
+1506-    );
+1507-
+1508-    return true;
+1509-  }
+1510-
+1511-  /**
+1512-   * Define estado de erro para uma camada.
+1513-   */
+1514-  setError(
+1515-    layerId,
+1516-    error,
+1517-    context = {},
+1518-  ) {
+1519-    const normalizedError =
+1520-      error instanceof Error
+1521-        ? error
+1522-        : new Error(
+1523-            error?.message ||
+1524-            String(error),
+1525-          );
+1526-
+1527-    const definition =
+1528-      this._layers.get(layerId);
+1529-

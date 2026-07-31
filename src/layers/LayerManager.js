@@ -752,6 +752,12 @@ class LayerManagerImpl {
         definition.id,
       );
 
+      /*
+      * Camadas de incêndio devem permanecer acima
+      * de municípios, UCs e demais polígonos.
+      */
+      this.bringFireLayersToFront();
+
       definition.loading = false;
       definition.error = null;
 
@@ -1011,6 +1017,12 @@ class LayerManagerImpl {
         }
       }
 
+      /*
+       * A troca de estilo pode alterar a ordem das camadas.
+       * Reposiciona as camadas de incêndio após a restauração.
+       */
+      this.bringFireLayersToFront();
+      
       return failedCount === 0;
     } finally {
       this._restoring = false;
@@ -1255,6 +1267,61 @@ class LayerManagerImpl {
     }
 
     return true;
+  }
+
+  /**
+   * Move as camadas relacionadas aos incêndios para o topo
+   * do estilo ativo.
+   *
+   * A ordem final será:
+   * - buffer de alertas;
+   * - polígonos dos eventos;
+   * - contorno dos eventos;
+   * - centroides;
+   * - frentes de fogo.
+   */
+  bringFireLayersToFront() {
+    if (!this._canUseMap()) {
+      return false;
+    }
+
+    const layerIds = [
+      'alert-buffers',
+      'alert-buffers-outline',
+      'fire-events',
+      'fire-events-outline',
+      'fire-events-markers',
+      'fire-fronts',
+    ];
+
+    let movedCount = 0;
+
+    layerIds.forEach((layerId) => {
+      try {
+        if (
+          this._map.getLayer(
+            layerId,
+          )
+        ) {
+          /*
+          * Sem beforeId, o MapLibre move a camada
+          * para o topo do estilo.
+          */
+          this._map.moveLayer(
+            layerId,
+          );
+
+          movedCount += 1;
+        }
+      } catch (error) {
+        console.warn(
+          `[LayerManager] Não foi possível mover "${layerId}" para o topo:`,
+          error,
+        );
+      }
+    });
+
+    return movedCount > 0;
   }
 
   /**

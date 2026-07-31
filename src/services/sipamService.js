@@ -257,6 +257,65 @@ async function fetchWfs(
       error,
     );
 
+   /*
+    * Quando existe cache válido, a indisponibilidade
+    * temporária do SIPAM não deve gerar erro crítico
+    * na interface.
+    */
+    if (cached) {
+      console.warn(
+        `[SIPAM] Não foi possível atualizar "${typeName}". ` +
+          'Usando os últimos dados armazenados.',
+        error,
+      );
+
+      EventBus.emit(
+        EVENTS.SYNC_PROGRESS,
+        {
+          message:
+            `Não foi possível atualizar ${typeName}. ` +
+            'Usando os últimos dados armazenados.',
+          typeName,
+          source: 'cache',
+          cached: true,
+        },
+      );
+
+      return cached;
+    }
+
+    /*
+    * Sem resposta remota e sem cache, agora existe
+    * uma falha real que precisa aparecer na interface.
+    */
+    /*
+    * Se existe cache válido, a falha temporária do SIPAM
+    * não deve ser exibida como erro crítico.
+    */
+    if (cached) {
+      console.warn(
+        `[SIPAM] Falha ao atualizar "${typeName}". ` +
+          'Usando dados armazenados.',
+        error,
+      );
+
+      EventBus.emit(
+        EVENTS.SYNC_PROGRESS,
+        {
+          message:
+            `Usando dados armazenados de ${typeName}.`,
+          typeName,
+          source: 'cache',
+          cached: true,
+        },
+      );
+
+      return cached;
+    }
+
+    /*
+    * Sem resposta do SIPAM e sem cache, existe uma falha real.
+    */
     ErrorManager.report(
       'sipam',
       error,
@@ -265,24 +324,11 @@ async function fetchWfs(
         typeName,
         bbox,
         url,
-        cachedAvailable:
-          Boolean(cached),
+        cachedAvailable: false,
       },
     );
 
-    if (cached) {
-      EventBus.emit(
-        EVENTS.SYNC_PROGRESS,
-        {
-          message:
-            `Usando dados armazenados de ${typeName}.`,
-        },
-      );
-
-      return cached;
-    }
-
-    return EMPTY_FEATURE_COLLECTION;
+    throw error;
   }
 }
 
