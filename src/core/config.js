@@ -1,6 +1,8 @@
 /**
  * ConfigManager — configurações centralizadas do GeoFogo Ceará.
- * Valores podem ser sobrescritos por variáveis de ambiente (.env) ou persistidos em IndexedDB.
+ *
+ * As configurações externas são fornecidas por variáveis de ambiente
+ * durante o build do Vite.
  */
 
 const DEFAULT_CONFIG = {
@@ -14,17 +16,18 @@ const DEFAULT_CONFIG = {
 
 const ENV = {
   openWeatherApiKey:
-    import.meta.env.VITE_OPENWEATHER_API_KEY ||
-    'c1211a512109fdf1f7d6c93a9e551ca8',
+    import.meta.env.VITE_OPENWEATHER_API_KEY || '',
+
   openWeatherBaseUrl:
     import.meta.env.VITE_OPENWEATHER_BASE_URL ||
     'https://api.openweathermap.org/data/2.5/forecast',
+
   sipamWfsUrl:
     import.meta.env.VITE_SIPAM_WFS_URL ||
     'https://panorama.sipam.gov.br/geoserver/painel_do_fogo/ows',
+
   sipamApiKey:
-    import.meta.env.VITE_SIPAM_API_KEY ||
-    '478858a2-3ab4-43c1-87a9-ed06a177d196',
+    import.meta.env.VITE_SIPAM_API_KEY || '',
 };
 
 const CEARA_STATE_CODE = '23';
@@ -48,17 +51,34 @@ export const config = {
 export async function loadUserOverrides(db) {
   try {
     const stored = await db.get('settings', 'config');
+
     if (stored?.data) {
       Object.assign(config, stored.data);
     }
   } catch (err) {
-    console.error('[config] loadUserOverrides falhou:', err);
+    console.error(
+      '[config] loadUserOverrides falhou:',
+      err,
+    );
   }
 }
 
-export async function saveUserOverrides(db, overrides) {
-  const merged = { ...config, ...overrides };
+export async function saveUserOverrides(
+  db,
+  overrides,
+) {
+  const merged = {
+    ...config,
+    ...overrides,
+  };
+
   Object.assign(config, overrides);
-  await db.put('settings', merged, 'config');
+
+  await db.put(
+    'settings',
+    merged,
+    'config',
+  );
+
   return merged;
 }
