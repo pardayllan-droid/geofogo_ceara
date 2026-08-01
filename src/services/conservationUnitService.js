@@ -45,6 +45,14 @@ function hasFeatures(data) {
   );
 }
 
+/**
+ * Normaliza uma Unidade de Conservação.
+ *
+ * Além dos campos específicos de UC, adiciona campos
+ * genéricos de Área Sensível. Esses aliases permitirão
+ * integrar futuramente hospitais, escolas, áreas urbanizadas
+ * e outras áreas críticas sem alterar toda a aplicação.
+ */
 function normalizeFeature(
   feature,
   index,
@@ -52,47 +60,102 @@ function normalizeFeature(
   const properties =
     feature?.properties || {};
 
+  const sensitiveName =
+    properties.sensitive_name ??
+    properties.nome_uc ??
+    properties.nome_unidade_conservacao ??
+    properties.nome_unidade ??
+    properties.nm_uc ??
+    properties.nome ??
+    properties.name ??
+    properties.NOME_UC ??
+    properties.NOME ??
+    'Unidade de Conservação';
+
+  const sensitiveCategory =
+    properties.sensitive_category ??
+    properties.categoria ??
+    properties.category ??
+    properties.CATEGORIA ??
+    null;
+
+  const sensitiveSphere =
+    properties.esfera ??
+    properties.sphere ??
+    properties.ESFERA ??
+    null;
+
+  const sensitiveManager =
+    properties.org_gestor ??
+    properties.orgao_gestor ??
+    properties.orgao ??
+    properties.gestor ??
+    null;
+
+  const sensitiveMunicipality =
+    properties.municipio ??
+    properties.municipios ??
+    properties.nome_municipio ??
+    null;
+
+  const sensitiveId =
+    feature?.id ??
+    properties.id ??
+    properties.cd_cnuc ??
+    properties.codigo_cnuc ??
+    properties.uc_id ??
+    `cnuc-ce-${index + 1}`;
+
   return {
     type: 'Feature',
 
     id:
-      feature?.id ??
-      properties.cd_cnuc ??
-      properties.uc_id ??
-      `cnuc-ce-${index + 1}`,
+      sensitiveId,
 
     properties: {
       ...properties,
 
+      /*
+       * Campos específicos de Unidade de Conservação.
+       */
       nome_uc:
-        properties.nome_uc ??
-        properties.nome ??
-        'Unidade de Conservação',
+        sensitiveName,
 
-      esfera:
-        properties.esfera ??
-        null,
+      nome:
+        sensitiveName,
+
+      name:
+        sensitiveName,
+
+      nome_unidade_conservacao:
+        sensitiveName,
 
       categoria:
-        properties.categoria ??
-        null,
+        sensitiveCategory,
+
+      category:
+        sensitiveCategory,
+
+      esfera:
+        sensitiveSphere,
 
       grupo:
         properties.grupo ??
+        properties.group ??
         null,
 
       org_gestor:
-        properties.org_gestor ??
-        properties.orgao_gestor ??
-        null,
+        sensitiveManager,
+
+      orgao_gestor:
+        sensitiveManager,
 
       municipio:
-        properties.municipio ??
-        properties.municipios ??
-        null,
+        sensitiveMunicipality,
 
       uf:
         properties.uf ??
+        properties.sigla_uf ??
         'CE',
 
       ha_total:
@@ -106,6 +169,33 @@ function normalizeFeature(
         null,
 
       fonte:
+        properties.fonte ??
+        'CNUC/MMA',
+
+      /*
+       * Campos genéricos de Área Sensível.
+       *
+       * No futuro, outros serviços poderão produzir os
+       * mesmos campos para hospitais, escolas, áreas
+       * urbanizadas, terras indígenas, reservatórios etc.
+       */
+      sensitive_id:
+        String(sensitiveId),
+
+      sensitive_type:
+        'conservation-unit',
+
+      sensitive_label:
+        'Unidade de Conservação',
+
+      sensitive_name:
+        sensitiveName,
+
+      sensitive_category:
+        sensitiveCategory,
+
+      sensitive_source:
+        properties.fonte ??
         'CNUC/MMA',
     },
 

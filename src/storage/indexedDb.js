@@ -4,12 +4,13 @@
  */
 
 const DB_NAME = 'geofogo-ceara';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const STORES = {
   boundary: 'boundary',
   municipalities: 'municipalities',
   conservationUnits: 'conservationUnits',
+  indigenousLands: 'indigenousLands',
   fireEvents: 'fireEvents',
   fireFronts: 'fireFronts',
   weather: 'weather',

@@ -645,6 +645,12 @@ export default function MapView({
       );
 
       updateLayer(
+        'indigenous-lands',
+        AppCore.indigenousLands ||
+          EMPTY_FEATURE_COLLECTION,
+      );
+
+      updateLayer(
         'fire-events',
         AppCore.fireEvents ||
           EMPTY_FEATURE_COLLECTION,

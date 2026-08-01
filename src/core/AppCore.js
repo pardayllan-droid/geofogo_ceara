@@ -17,13 +17,12 @@ import { LayerManager } from '../layers/LayerManager';
 import { SyncEngine } from '../sync/SyncEngine';
 import { loadCearaBoundary, loadMunicipalities, computeBbox, getBoundaryPolygon } from '../services/municipalityService';
 import { loadConservationUnits } from '../services/conservationUnitService';
+import { loadIndigenousLands, getCachedIndigenousLands } from '../services/indigenousLandService';
 import { loadFireEvents, loadFireFronts, getCachedFireEvents, getCachedFireFronts } from '../services/sipamService';
 import { computeAlerts, getCachedAlerts } from '../alerts/AlertEngine';
 import { filterByBoundary, computeArea, representativePoint, findNearby } from '../spatial/SpatialEngine';
 import { enrichFireEventsWithMunicipalities } from '../services/fireEventEnrichmentService';
-import {
-  enrichFireEventsAge,
-} from '../utils/fireEventAge';
+import { enrichFireEventsAge } from '../utils/fireEventAge';
 
 class AppCoreImpl {
   constructor() {
@@ -32,6 +31,7 @@ class AppCoreImpl {
     this.cearaBbox = null;
     this.municipalities = null;
     this.conservationUnits = null;
+    this.indigenousLands = null;
     this.fireEvents = null;
     this.fireFronts = null;
     this.alerts = [];
@@ -70,6 +70,12 @@ class AppCoreImpl {
     if (cachedUCs?.data) {
       this.conservationUnits = cachedUCs.data;
     }
+
+    const cachedIndigenousLands =
+      await getCachedIndigenousLands();
+
+    this.indigenousLands =
+      cachedIndigenousLands;
 
     const cachedFireEvents =
   await getCachedFireEvents();
@@ -205,6 +211,68 @@ class AppCoreImpl {
         return true;
       },
     };
+
+    if (this.cearaBbox) {
+      phase2.indigenousLands = {
+        label:
+          'Terras Indígenas',
+
+        module:
+          'sipam',
+
+        allowEmpty:
+          true,
+
+        fn:
+          async ({
+            signal,
+          } = {}) => {
+            const raw =
+              await loadIndigenousLands(
+                this.cearaBbox,
+                {
+                  signal,
+                },
+              );
+
+            const boundaryPoly =
+              getBoundaryPolygon(
+                this.cearaBoundary,
+              );
+
+            const filtered =
+              boundaryPoly &&
+              raw?.features?.length
+                ? filterByBoundary(
+                    raw,
+                    boundaryPoly,
+                  )
+                : raw;
+
+            this.indigenousLands =
+              filtered;
+
+            return filtered;
+          },
+
+        validate:
+          (data) => {
+            if (
+              data?.type !==
+                'FeatureCollection' ||
+              !Array.isArray(
+                data.features,
+              )
+            ) {
+              return (
+                'As Terras Indígenas retornaram um GeoJSON inválido.'
+              );
+            }
+
+            return true;
+          },
+      };
+    }
 
     if (this.cearaBbox) {
       phase2.fireEvents = {
@@ -347,6 +415,7 @@ class AppCoreImpl {
   _updateStats() {
     const events = this.fireEvents?.features || [];
     const ucs = this.conservationUnits?.features || [];
+    const indigenousLands = this.indigenousLands?.features || [];
     const alerts = this.alerts || [];
 
     const totalArea = events.reduce((sum, f) => sum + computeArea(f), 0);
@@ -378,6 +447,7 @@ class AppCoreImpl {
       largestEvent,
       lastUpdated: Date.now(),
       fromCache: !navigator.onLine,
+      indigenousLandsCount: indigenousLands.length,
     };
 
     return this.stats;

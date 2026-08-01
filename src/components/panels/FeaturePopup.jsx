@@ -269,6 +269,10 @@ export default function FeaturePopup({
     layerId ===
     'conservation-units';
 
+  const indigenousLand =
+    layerId ===
+    'indigenous-lands';
+
   const municipality =
     layerId ===
     'municipalities';
@@ -476,6 +480,10 @@ export default function FeaturePopup({
               <Shield className="h-4 w-4 shrink-0 text-green-600" />
             )}
 
+            {indigenousLand && (
+              <Shield className="h-4 w-4 shrink-0 text-purple-600" />
+            )}
+
             {municipality && (
               <MapPin className="h-4 w-4 shrink-0 text-blue-500" />
             )}
@@ -511,6 +519,14 @@ export default function FeaturePopup({
 
           {conservationUnit && (
             <ConservationUnitDetails
+              properties={
+                properties
+              }
+            />
+          )}
+
+          {indigenousLand && (
+            <IndigenousLandDetails
               properties={
                 properties
               }
@@ -673,11 +689,26 @@ function FireEventDetails({
           <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-green-300">
             <Shield className="h-3.5 w-3.5" />
 
-            UC mais próxima
+            Área sensível mais próxima
           </div>
 
           <p className="text-xs font-medium">
             {firstValue([
+              nearestConservationUnit
+                .feature
+                ?.properties
+                ?.sensitive_name,
+
+              nearestConservationUnit
+                .feature
+                ?.properties
+                ?.nome_uc,
+
+              nearestConservationUnit
+                .feature
+                ?.properties
+                ?.nome_unidade_conservacao,
+
               nearestConservationUnit
                 .feature
                 ?.properties
@@ -687,7 +718,7 @@ function FireEventDetails({
                 .feature
                 ?.properties
                 ?.name,
-            ]) || '—'}
+            ]) || 'Unidade de Conservação sem nome'}
           </p>
 
           <p className="mt-1 text-[11px] text-muted-foreground">
@@ -760,6 +791,119 @@ function ConservationUnitDetails({
           '—'
         }
         icon={MapPin}
+      />
+    </div>
+  );
+}
+
+function IndigenousLandDetails({
+  properties,
+}) {
+  const area =
+    Number(
+      properties
+        .indigenous_area_ha ??
+      properties.superficie,
+    );
+
+  return (
+    <div className="space-y-2">
+      <DetailRow
+        label="Terra Indígena"
+        value={
+          properties
+            .sensitive_name ||
+          properties
+            .indigenous_land_name ||
+          properties
+            .terrai_nom ||
+          properties.nome ||
+          '—'
+        }
+        icon={Shield}
+      />
+
+      <DetailRow
+        label="Etnia"
+        value={
+          properties
+            .indigenous_people ||
+          properties
+            .etnia_nome ||
+          '—'
+        }
+      />
+
+      <DetailRow
+        label="Municípios"
+        value={
+          properties
+            .indigenous_municipalities ||
+          properties
+            .municipio_ ||
+          properties.municipio ||
+          '—'
+        }
+        icon={MapPin}
+      />
+
+      <DetailRow
+        label="Fase"
+        value={
+          properties
+            .indigenous_legal_phase ||
+          properties
+            .fase_ti ||
+          '—'
+        }
+      />
+
+      <DetailRow
+        label="Modalidade"
+        value={
+          properties
+            .indigenous_modality ||
+          properties
+            .modalidade ||
+          '—'
+        }
+      />
+
+      <DetailRow
+        label="Superfície"
+        value={
+          Number.isFinite(area)
+            ? `${area.toLocaleString(
+                'pt-BR',
+                {
+                  maximumFractionDigits:
+                    2,
+                },
+              )} ha`
+            : '—'
+        }
+      />
+
+      <DetailRow
+        label="Atualização da fonte"
+        value={
+          formatDate(
+            properties
+              .indigenous_updated_at ||
+            properties
+              .data_atual,
+          )
+        }
+      />
+
+      <DetailRow
+        label="Fonte"
+        value={
+          properties
+            .sensitive_source ||
+          properties.fonte ||
+          'FUNAI/SIPAM'
+        }
       />
     </div>
   );

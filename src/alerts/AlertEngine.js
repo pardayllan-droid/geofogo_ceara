@@ -31,7 +31,19 @@ export async function computeAlerts(fireEvents, conservationUnits, limitKm = con
     const eventId = event.id || event.properties?.id || event.properties?.identificador || `evt-${alerts.length}`;
 
     for (const uc of conservationUnits.features) {
-      const ucId = uc.id || uc.properties?.id || uc.properties?.nome || `uc-${alerts.length}`;
+      const ucId =
+        uc.id ||
+        uc.properties
+          ?.sensitive_id ||
+        uc.properties
+          ?.cd_cnuc ||
+        uc.properties
+          ?.id ||
+        uc.properties
+          ?.nome_uc ||
+        uc.properties
+          ?.nome ||
+        `uc-${alerts.length}`;
       const key = alertId(eventId, ucId);
 
       let distance;
@@ -64,8 +76,26 @@ export async function computeAlerts(fireEvents, conservationUnits, limitKm = con
         eventId,
         ucId,
         eventName: event.properties?.municipio || event.properties?.municipality || event.properties?.nome || 'Evento sem município identificado',
-        ucName: uc.properties?.nome || uc.properties?.name || 'UC sem nome',
-        ucCategory: uc.properties?.categoria || uc.properties?.category || '—',
+        ucName:
+          uc.properties
+            ?.sensitive_name ||
+          uc.properties
+            ?.nome_uc ||
+          uc.properties
+            ?.nome_unidade_conservacao ||
+          uc.properties
+            ?.nome ||
+          uc.properties
+            ?.name ||
+          'Unidade de Conservação sem nome',
+        ucCategory:
+          uc.properties
+            ?.sensitive_category ||
+          uc.properties
+            ?.categoria ||
+          uc.properties
+            ?.category ||
+          '—',
         ucGroup: uc.properties?.grupo || '—',
         municipio: event.properties?.municipio || event.properties?.municipality || '—',
         distance,

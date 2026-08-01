@@ -1156,3 +1156,7 @@ Versão 1.0 (em desenvolvimento)
 © 2026
 
 </p>
+
+pkill -f vite
+pkill -f node
+npm run dev
