@@ -1157,13 +1157,6 @@ Versão 1.0 (em desenvolvimento)
 
 </p>
 
-<<<<<<< HEAD
-
-
-
-
-=======
->>>>>>> 4d1b84f (Adiciona terras indigenas)
 pkill -f vite
 pkill -f node
 npm run dev
