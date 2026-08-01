@@ -458,13 +458,87 @@ class AppCoreImpl {
   }
 
   getFireEventMarkers() {
-    if (!this.fireEvents?.features?.length) return { type: 'FeatureCollection', features: [] };
-    const markers = this.fireEvents.features.map((f) => {
-      const pt = representativePoint(f);
-      pt.properties = { ...f.properties, _originalId: f.id };
-      return pt;
-    });
-    return { type: 'FeatureCollection', features: markers };
+    if (
+      !this.fireEvents
+        ?.features
+        ?.length
+    ) {
+      return {
+        type:
+          'FeatureCollection',
+
+        features: [],
+      };
+    }
+
+    const markers =
+      this.fireEvents.features
+        .map(
+          (eventFeature) => {
+            const point =
+              representativePoint(
+                eventFeature,
+              );
+
+            if (!point) {
+              return null;
+            }
+
+            const eventId =
+              eventFeature.id ??
+              eventFeature
+                .properties
+                ?.id_evento ??
+              eventFeature
+                .properties
+                ?.id ??
+              null;
+
+            return {
+              ...point,
+
+              /*
+              * O ID do marcador não precisa ser igual
+              * ao do polígono, mas mantém a referência.
+              */
+              id:
+                eventId !== null
+                  ? `marker-${eventId}`
+                  : undefined,
+
+              properties: {
+                ...eventFeature
+                  .properties,
+
+                /*
+                * Referências usadas para recuperar
+                * a geometria original.
+                */
+                _originalId:
+                  eventFeature.id ??
+                  null,
+
+                _eventId:
+                  eventId,
+
+                _sourceLayer:
+                  'fire-events',
+
+                _isEventMarker:
+                  true,
+              },
+            };
+          },
+        )
+        .filter(Boolean);
+
+    return {
+      type:
+        'FeatureCollection',
+
+      features:
+        markers,
+    };
   }
 
   findNearestUC(eventFeature) {

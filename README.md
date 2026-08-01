@@ -1157,6 +1157,10 @@ Versão 1.0 (em desenvolvimento)
 
 </p>
 
+
+
+
+
 pkill -f vite
 pkill -f node
 npm run dev

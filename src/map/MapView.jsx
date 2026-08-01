@@ -529,6 +529,232 @@ function focusMapOnFeature(
   }
 }
 
+const FIRE_EVENT_MARKER_IMAGES = {
+  'fire-event-pin-red':
+    '#ff2323',
+
+  'fire-event-pin-orange':
+    '#ff9e17',
+
+  'fire-event-pin-pink':
+    '#ffb1b0',
+
+  'fire-event-pin-gray':
+    '#c8c8c8',
+};
+
+/**
+ * Desenha um marcador no formato de pino.
+ *
+ * A imagem é gerada em resolução dupla para
+ * permanecer nítida em telas de alta densidade.
+ */
+function createFireEventPinImage(
+  fillColor,
+) {
+  const pixelRatio = 2;
+
+  const displayWidth = 42;
+  const displayHeight = 56;
+
+  const canvas =
+    document.createElement(
+      'canvas',
+    );
+
+  canvas.width =
+    displayWidth *
+    pixelRatio;
+
+  canvas.height =
+    displayHeight *
+    pixelRatio;
+
+  const context =
+    canvas.getContext(
+      '2d',
+    );
+
+  if (!context) {
+    return null;
+  }
+
+  context.scale(
+    pixelRatio,
+    pixelRatio,
+  );
+
+  /*
+   * Sombra do marcador.
+   */
+  context.save();
+
+  context.shadowColor =
+    'rgba(0, 0, 0, 0.35)';
+
+  context.shadowBlur =
+    4;
+
+  context.shadowOffsetX =
+    1;
+
+  context.shadowOffsetY =
+    3;
+
+  /*
+   * Formato de gota/pino.
+   */
+  context.beginPath();
+
+  context.moveTo(
+    21,
+    53,
+  );
+
+  context.bezierCurveTo(
+    18,
+    46,
+    7,
+    34,
+    7,
+    21,
+  );
+
+  context.bezierCurveTo(
+    7,
+    10,
+    13,
+    4,
+    21,
+    4,
+  );
+
+  context.bezierCurveTo(
+    29,
+    4,
+    35,
+    10,
+    35,
+    21,
+  );
+
+  context.bezierCurveTo(
+    35,
+    34,
+    24,
+    46,
+    21,
+    53,
+  );
+
+  context.closePath();
+
+  context.fillStyle =
+    fillColor;
+
+  context.fill();
+
+  context.lineWidth =
+    2;
+
+  context.strokeStyle =
+    'rgba(120, 0, 20, 0.55)';
+
+  context.stroke();
+
+  context.restore();
+
+  /*
+   * Círculo branco interno.
+   */
+  context.beginPath();
+
+  context.arc(
+    21,
+    20,
+    6,
+    0,
+    Math.PI * 2,
+  );
+
+  context.fillStyle =
+    '#ffffff';
+
+  context.fill();
+
+  context.lineWidth =
+    1.5;
+
+  context.strokeStyle =
+    'rgba(0, 0, 0, 0.12)';
+
+  context.stroke();
+
+  return {
+    imageData:
+      context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ),
+
+    pixelRatio,
+  };
+}
+
+/**
+ * Garante que os ícones existam no estilo atual.
+ *
+ * map.setStyle() remove imagens personalizadas,
+ * então esta função deve ser chamada sempre que as
+ * camadas operacionais forem reinstaladas.
+ */
+function ensureFireEventMarkerImages(
+  map,
+) {
+  if (!map?.addImage) {
+    return false;
+  }
+
+  for (
+    const [
+      imageId,
+      fillColor,
+    ] of Object.entries(
+      FIRE_EVENT_MARKER_IMAGES,
+    )
+  ) {
+    if (
+      map.hasImage?.(
+        imageId,
+      )
+    ) {
+      continue;
+    }
+
+    const marker =
+      createFireEventPinImage(
+        fillColor,
+      );
+
+    if (!marker) {
+      continue;
+    }
+
+    map.addImage(
+      imageId,
+      marker.imageData,
+      {
+        pixelRatio:
+          marker.pixelRatio,
+      },
+    );
+  }
+
+  return true;
+}
+
 export default function MapView({
   baseMapId,
   onReady,
@@ -735,14 +961,14 @@ export default function MapView({
         try {
           LayerManager.setMap(map);
 
-         /*
-          * Atualiza os dados e cria sources ou layers
-          * que ainda não estejam presentes no mapa.
-          *
-          * updateLayerData() já preserva os dados,
-          * cria a source, cria a layer e executa setData()
-          * quando os elementos já existem.
+          /*
+          * Imagens personalizadas precisam existir antes
+          * da criação da layer symbol.
           */
+          ensureFireEventMarkerImages(
+            map,
+          );
+
           updateAllLayerData();
 
           try {

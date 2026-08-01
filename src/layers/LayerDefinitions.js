@@ -243,22 +243,61 @@ export const LAYER_DEFINITIONS = [
     markerColor: '#ef4444',
   },
   {
-    id: 'fire-events-markers',
-    title: 'Centroide dos eventos',
-    group: LAYER_GROUPS.FIRE,
-    sourceType: 'geojson',
-    geometryType: 'point',
-    defaultVisible: true,
-    minZoom: 5,
-    maxZoom: 22,
-    zIndex: 51,
-    opacity: 1,
-    cachePolicy: 'network-first',
-    interactive: true,
-    derivedFrom: 'fire-events',
-    paint: {
-      'circle-radius': 6,
-      'circle-color': [
+    id:
+      'fire-events-markers',
+
+    title:
+      'Marcadores dos eventos',
+
+    group:
+      LAYER_GROUPS.FIRE,
+
+    sourceType:
+      'geojson',
+
+    geometryType:
+      'point',
+
+    /*
+    * Força o MapLibre a criar uma layer symbol,
+    * e não uma layer circle.
+    */
+    mapLayerType:
+      'symbol',
+
+    symbol:
+      true,
+
+    defaultVisible:
+      true,
+
+    minZoom:
+      5,
+
+    maxZoom:
+      22,
+
+    zIndex:
+      51,
+
+    opacity:
+      1,
+
+    cachePolicy:
+      'network-first',
+
+    interactive:
+      true,
+
+    derivedFrom:
+      'fire-events',
+
+    layout: {
+      /*
+      * Escolhe um marcador da mesma cor usada
+      * na classificação temporal do evento.
+      */
+      'icon-image': [
         'match',
 
         [
@@ -267,43 +306,152 @@ export const LAYER_DEFINITIONS = [
         ],
 
         'up-to-24h',
-        '#ff2323',
+        'fire-event-pin-red',
 
         '24-to-48h',
-        '#ff9e17',
+        'fire-event-pin-orange',
 
         '48-to-96h',
-        '#ffb1b0',
+        'fire-event-pin-pink',
 
         'over-96h',
-        '#c8c8c8',
+        'fire-event-pin-gray',
 
-        '#c8c8c8',
+        'fire-event-pin-gray',
       ],
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 1.5,
-      'circle-stroke-opacity': 0.9,
+
+      'icon-size':
+        0.72,
+
+      /*
+      * A ponta inferior do marcador representa
+      * a coordenada real do evento.
+      */
+      'icon-anchor':
+        'bottom',
+
+      'icon-allow-overlap':
+        true,
+
+      'icon-ignore-placement':
+        true,
+    },
+
+    paint: {
+      'icon-opacity':
+        1,
     },
   },
   {
-    id: 'fire-fronts',
-    title: 'Frentes de fogo',
-    group: LAYER_GROUPS.FIRE,
-    sourceType: 'geojson',
-    geometryType: 'point',
-    defaultVisible: true,
-    minZoom: 7,
-    maxZoom: 22,
-    zIndex: 52,
-    opacity: 1,
-    cachePolicy: 'network-first',
-    interactive: true,
+    id:
+      'fire-fronts',
+
+    title:
+      'Frentes de fogo',
+
+    group:
+      LAYER_GROUPS.FIRE,
+
+    sourceType:
+      'geojson',
+
+    /*
+    * A camada mv_deteccoes_classificadas
+    * retorna Polygon.
+    */
+    geometryType:
+      'polygon',
+
+    defaultVisible:
+      false,
+
+    minZoom:
+      5,
+
+    maxZoom:
+      22,
+
+    zIndex:
+      45,
+
+    opacity:
+      1,
+
+    cachePolicy:
+      'network-first',
+
+    interactive:
+      true,
+
     paint: {
-      'circle-radius': 4,
-      'circle-color': '#fbbf24',
-      'circle-stroke-color': '#dc2626',
-      'circle-stroke-width': 1,
-      'circle-stroke-opacity': 0.8,
+      /*
+      * Classificação oficial do SIPAM:
+      *
+      * 2 = detecção entre 6 e 12 horas
+      * 1 = detecção entre 12 e 24 horas
+      * 0 = detecção há mais de 24 horas
+      */
+      'fill-color': [
+        'match',
+
+        [
+          'to-number',
+          [
+            'get',
+            'classe',
+          ],
+        ],
+
+        2,
+        '#d96b0b',
+
+        1,
+        '#e9ad18',
+
+        0,
+        '#808080',
+
+        /*
+        * Fallback para feição sem classe válida.
+        */
+        '#808080',
+      ],
+
+      'fill-opacity':
+        0.78,
+
+      /*
+      * O contorno segue a mesma classificação,
+      * utilizando tons um pouco mais escuros.
+      */
+      'line-color': [
+        'match',
+
+        [
+          'to-number',
+          [
+            'get',
+            'classe',
+          ],
+        ],
+
+        2,
+        '#a94700',
+
+        1,
+        '#b98100',
+
+        0,
+        '#5f5f5f',
+
+        '#5f5f5f',
+      ],
+
+      'line-width':
+        1.2,
+
+      'line-opacity':
+        0.95,
     },
   },
   {

@@ -317,7 +317,11 @@ export function useGeoFogo() {
 
       EventBus.on(
         'layer:click',
-        ({ feature, layerId } = {}) => {
+
+        ({
+          feature,
+          layerId,
+        } = {}) => {
           if (
             !mountedRef.current ||
             !feature
@@ -325,6 +329,175 @@ export function useGeoFogo() {
             return;
           }
 
+          const findOriginalFireEvent =
+            ({
+              originalId,
+              eventId,
+            }) => {
+              return (
+                AppCore.fireEvents
+                  ?.features
+                  ?.find(
+                    (candidate) => {
+                      const candidateId =
+                        candidate?.id;
+
+                      const candidateEventId =
+                        candidate
+                          ?.properties
+                          ?.id_evento ??
+                        candidate
+                          ?.properties
+                          ?.id;
+
+                      if (
+                        originalId !==
+                          undefined &&
+                        originalId !==
+                          null &&
+                        String(candidateId) ===
+                          String(originalId)
+                      ) {
+                        return true;
+                      }
+
+                      if (
+                        eventId !==
+                          undefined &&
+                        eventId !==
+                          null &&
+                        String(
+                          candidateEventId,
+                        ) ===
+                          String(eventId)
+                      ) {
+                        return true;
+                      }
+
+                      return false;
+                    },
+                  ) ||
+                null
+              );
+            };
+
+          /*
+          * O marcador é somente uma representação visual.
+          * O popup deve sempre receber o polígono original.
+          */
+          if (
+            layerId ===
+            'fire-events-markers'
+          ) {
+            const properties =
+              feature.properties ||
+              {};
+
+            const originalEvent =
+              findOriginalFireEvent({
+                originalId:
+                  properties
+                    ._originalId,
+
+                eventId:
+                  properties
+                    ._eventId ??
+                  properties
+                    .id_evento ??
+                  properties.id,
+              });
+
+            if (originalEvent) {
+              setSelectedFeature({
+                feature:
+                  originalEvent,
+
+                layerId:
+                  'fire-events',
+              });
+
+              return;
+            }
+
+            console.warn(
+              '[useGeoFogo] Evento original do marcador não encontrado:',
+              {
+                originalId:
+                  properties
+                    ._originalId,
+
+                eventId:
+                  properties
+                    ._eventId ??
+                  properties
+                    .id_evento ??
+                  properties.id,
+              },
+            );
+
+            return;
+          }
+
+          /*
+          * A frente de fogo também é somente uma representação
+          * associada a um evento.
+          *
+          * Ao clicar nela, utilizamos id_evento para localizar
+          * o polígono original do evento.
+          */
+          if (
+            layerId ===
+            'fire-fronts'
+          ) {
+            const properties =
+              feature.properties ||
+              {};
+
+            const eventId =
+              properties.id_evento;
+
+            const originalEvent =
+              findOriginalFireEvent({
+                eventId,
+              });
+
+            if (originalEvent) {
+              setSelectedFeature({
+                feature:
+                  originalEvent,
+
+                layerId:
+                  'fire-events',
+              });
+
+              return;
+            }
+
+            console.warn(
+              '[useGeoFogo] Evento relacionado à frente de fogo não encontrado:',
+              {
+                frontId:
+                  feature.id ??
+                  properties
+                    .id_agrupamento,
+
+                eventId,
+
+                classe:
+                  properties.classe,
+
+                intervalo:
+                  properties.intervalo,
+              },
+            );
+
+            return;
+          }
+
+          /*
+          * Demais camadas continuam abrindo suas próprias
+          * feições normalmente.
+          */
           setSelectedFeature({
             feature,
             layerId,
