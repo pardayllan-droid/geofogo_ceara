@@ -7,7 +7,7 @@
 
 const DEFAULT_CONFIG = {
   alertDistanceKm: 3,
-  fireRefreshMinutes: 15,
+  fireRefreshMinutes: 60,
   weatherCacheMinutes: 45,
   sipamMaxFeatures: 500,
   defaultBaseMap: 'standard',

@@ -400,10 +400,60 @@ class SyncEngineImpl {
             signal,
           );
 
-          results[key] = data;
-          completed.push(key);
+          results[key] =
+            data;
 
-          this._setState('syncing', {
+          completed.push(
+            key,
+          );
+
+          /**
+           * A função da tarefa já atribuiu os novos dados ao
+           * AppCore. Avisamos imediatamente os consumidores para
+           * que as camadas afetadas possam ser atualizadas sem
+           * aguardar o restante da sincronização.
+           *
+           * O SyncEngine não conhece IDs específicos do mapa.
+           * Ele apenas repassa affectedLayers, declarado pela
+           * própria tarefa.
+           */
+          EventBus.emit(
+            EVENTS.SYNC_TASK_COMPLETED,
+            {
+              taskKey:
+                key,
+
+              label,
+
+              affectedLayers:
+                Array.isArray(
+                  task?.affectedLayers,
+                )
+                  ? [
+                      ...task
+                        .affectedLayers,
+                    ]
+                  : [],
+
+              completed: [
+                ...completed,
+              ],
+
+              failed: [
+                ...failed,
+              ],
+
+              currentIndex:
+                index + 1,
+
+              total:
+                taskEntries.length,
+            },
+          );
+
+          this._setState(
+            'syncing',
+            {
             message: `${label} atualizado.`,
             current: key,
             currentLabel: label,

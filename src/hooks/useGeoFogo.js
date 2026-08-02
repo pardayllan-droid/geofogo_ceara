@@ -24,10 +24,12 @@ import { EventBus, EVENTS } from '../core/EventBus';
 import { SyncEngine } from '../sync/SyncEngine';
 import { FieldController } from '../field/FieldController';
 import { ErrorManager } from '../core/ErrorManager';
+
 import {
   config,
   saveUserOverrides,
 } from '../core/config';
+
 import { db } from '../storage/indexedDb';
 import { computeAlerts } from '../alerts/AlertEngine';
 
@@ -52,8 +54,11 @@ export function useGeoFogo() {
   const [stats, setStats] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [errors, setErrors] = useState([]);
-  const [selectedFeature, setSelectedFeature] =
-    useState(null);
+
+  const [
+    selectedFeature,
+    setSelectedFeature,
+  ] = useState(null);
 
   const [fieldState, setFieldState] = useState(
     FieldController.getState(),
@@ -68,7 +73,26 @@ export function useGeoFogo() {
   const syncPromiseRef = useRef(null);
 
   /**
-   * Atualiza no React o estado mantido pelos controladores.
+   * Horário em que a tentativa de sincronização mais
+   * recente terminou.
+   *
+   * Usado para evitar consultas automáticas
+   * desnecessárias.
+   */
+  const lastSyncFinishedAtRef =
+    useRef(0);
+
+  /**
+   * Impede que a rotina automática seja executada antes
+   * da inicialização e da primeira tentativa de
+   * sincronização.
+   */
+  const initialSyncCompletedRef =
+    useRef(false);
+
+  /**
+   * Atualiza no React o estado mantido pelos
+   * controladores.
    */
   const refreshApplicationState =
     useCallback(() => {
@@ -80,90 +104,125 @@ export function useGeoFogo() {
         ...LayerManager.getAllLayers(),
       ]);
 
-      setStats(AppCore.getStats());
-      setAlerts(AppCore.alerts || []);
-      setErrors(ErrorManager.all());
-      setSyncState(SyncEngine.state);
+      setStats(
+        AppCore.getStats(),
+      );
+
+      setAlerts(
+        AppCore.alerts || [],
+      );
+
+      setErrors(
+        ErrorManager.all(),
+      );
+
+      setSyncState(
+        SyncEngine.state,
+      );
     }, []);
 
   /**
    * Executa uma sincronização.
    *
-   * Evita sincronizações simultâneas e garante que o estado syncing
-   * seja encerrado mesmo quando ocorrer uma exceção.
+   * Evita sincronizações simultâneas e garante que o
+   * estado syncing seja encerrado mesmo quando ocorrer
+   * uma exceção.
    */
-  const handleSync = useCallback(async () => {
-    if (syncPromiseRef.current) {
-      return syncPromiseRef.current;
-    }
-
-    const syncPromise = (async () => {
-      if (mountedRef.current) {
-        setSyncing(true);
-        setSyncMessage(
-          'Preparando sincronização...',
-        );
+  const handleSync =
+    useCallback(async () => {
+      if (syncPromiseRef.current) {
+        return syncPromiseRef.current;
       }
 
-      try {
-        const result =
-          await AppCore.syncAll();
+      const syncPromise =
+        (async () => {
+          if (mountedRef.current) {
+            setSyncing(true);
 
-        if (mountedRef.current) {
-          setSyncState(
-            SyncEngine.state || 'success',
-          );
-        }
+            setSyncMessage(
+              'Preparando sincronização...',
+            );
+          }
 
-        return result;
-      } catch (error) {
-        console.error(
-          '[useGeoFogo] Falha na sincronização:',
-          error,
-        );
+          try {
+            const result =
+              await AppCore.syncAll();
 
-        ErrorManager.report(
-          'sync',
-          error,
-          {
-            origin:
-              'useGeoFogo.handleSync',
-          },
-        );
+            if (mountedRef.current) {
+              setSyncState(
+                SyncEngine.state ||
+                  'success',
+              );
+            }
 
-        if (mountedRef.current) {
-          setSyncState('error');
+            return result;
+          } catch (error) {
+            console.error(
+              '[useGeoFogo] Falha na sincronização:',
+              error,
+            );
 
-          setSyncMessage(
-            error?.message ||
-              'Não foi possível concluir a sincronização.',
-          );
-        }
+            ErrorManager.report(
+              'sync',
+              error,
+              {
+                origin:
+                  'useGeoFogo.handleSync',
+              },
+            );
 
-        return null;
-      } finally {
-        if (mountedRef.current) {
-          setSyncing(false);
-          refreshApplicationState();
-        }
+            if (mountedRef.current) {
+              setSyncState(
+                'error',
+              );
 
-        syncPromiseRef.current = null;
-      }
-    })();
+              setSyncMessage(
+                error?.message ||
+                  'Não foi possível concluir a sincronização.',
+              );
+            }
 
-    syncPromiseRef.current = syncPromise;
+            return null;
+          } finally {
+            /**
+             * Registra o término da tentativa, inclusive
+             * quando alguma fonte falha.
+             *
+             * Isso evita repetição contínua em conexão
+             * instável.
+             */
+            lastSyncFinishedAtRef.current =
+              Date.now();
 
-    return syncPromise;
-  }, [refreshApplicationState]);
+            if (mountedRef.current) {
+              setSyncing(false);
+
+              refreshApplicationState();
+            }
+
+            syncPromiseRef.current =
+              null;
+          }
+        })();
+
+      syncPromiseRef.current =
+        syncPromise;
+
+      return syncPromise;
+    }, [
+      refreshApplicationState,
+    ]);
 
   /**
    * Subscriptions.
    *
-   * Os listeners são registrados antes de AppCore.initialize() para
-   * que nenhum evento inicial seja perdido.
+   * Os listeners são registrados antes de
+   * AppCore.initialize() para que nenhum evento inicial
+   * seja perdido.
    */
   useEffect(() => {
-    mountedRef.current = true;
+    mountedRef.current =
+      true;
 
     const subscriptions = [
       EventBus.on(
@@ -174,7 +233,10 @@ export function useGeoFogo() {
           }
 
           setSyncing(true);
-          setSyncState('syncing');
+
+          setSyncState(
+            'syncing',
+          );
         },
       ),
 
@@ -185,16 +247,45 @@ export function useGeoFogo() {
             return;
           }
 
-          const { state, message } =
-            payload;
+          const {
+            state,
+            message,
+          } = payload;
 
           if (state) {
-            setSyncState(state);
+            setSyncState(
+              state,
+            );
           }
 
           if (message) {
-            setSyncMessage(message);
+            setSyncMessage(
+              message,
+            );
           }
+        },
+      ),
+
+      EventBus.on(
+        EVENTS.SYNC_TASK_COMPLETED,
+        ({
+          label,
+        } = {}) => {
+          if (!mountedRef.current) {
+            return;
+          }
+
+          if (label) {
+            setSyncMessage(
+              `${label} atualizado.`,
+            );
+          }
+
+          /**
+           * Atualiza estatísticas e estado React assim
+           * que uma tarefa individual termina.
+           */
+          refreshApplicationState();
         },
       ),
 
@@ -206,7 +297,11 @@ export function useGeoFogo() {
           }
 
           setSyncing(false);
-          setSyncState('success');
+
+          setSyncState(
+            'success',
+          );
+
           setSyncMessage(
             'Sincronização concluída.',
           );
@@ -225,7 +320,8 @@ export function useGeoFogo() {
           setSyncing(false);
 
           setSyncState(
-            SyncEngine.state || 'error',
+            SyncEngine.state ||
+              'error',
           );
 
           setSyncMessage(
@@ -246,12 +342,18 @@ export function useGeoFogo() {
 
       EventBus.on(
         EVENTS.CONNECTION_CHANGED,
-        ({ online: isOnline } = {}) => {
+        ({
+          online: isOnline,
+        } = {}) => {
           if (!mountedRef.current) {
             return;
           }
 
-          setOnline(Boolean(isOnline));
+          setOnline(
+            Boolean(
+              isOnline,
+            ),
+          );
         },
       ),
 
@@ -268,7 +370,7 @@ export function useGeoFogo() {
         },
       ),
 
-      /*
+      /**
        * Este listener atualiza apenas a interface.
        * Ele não chama novamente updateLayerData().
        */
@@ -283,7 +385,9 @@ export function useGeoFogo() {
             ...LayerManager.getAllLayers(),
           ]);
 
-          setStats(AppCore.getStats());
+          setStats(
+            AppCore.getStats(),
+          );
         },
       ),
 
@@ -295,12 +399,17 @@ export function useGeoFogo() {
           }
 
           setAlerts(
-            Array.isArray(updatedAlerts)
+            Array.isArray(
+              updatedAlerts,
+            )
               ? updatedAlerts
-              : AppCore.alerts || [],
+              : AppCore.alerts ||
+                  [],
           );
 
-          setStats(AppCore.getStats());
+          setStats(
+            AppCore.getStats(),
+          );
         },
       ),
 
@@ -311,7 +420,9 @@ export function useGeoFogo() {
             return;
           }
 
-          setErrors(ErrorManager.all());
+          setErrors(
+            ErrorManager.all(),
+          );
         },
       ),
 
@@ -338,7 +449,9 @@ export function useGeoFogo() {
                 AppCore.fireEvents
                   ?.features
                   ?.find(
-                    (candidate) => {
+                    (
+                      candidate,
+                    ) => {
                       const candidateId =
                         candidate?.id;
 
@@ -355,8 +468,12 @@ export function useGeoFogo() {
                           undefined &&
                         originalId !==
                           null &&
-                        String(candidateId) ===
-                          String(originalId)
+                        String(
+                          candidateId,
+                        ) ===
+                          String(
+                            originalId,
+                          )
                       ) {
                         return true;
                       }
@@ -369,7 +486,9 @@ export function useGeoFogo() {
                         String(
                           candidateEventId,
                         ) ===
-                          String(eventId)
+                          String(
+                            eventId,
+                          )
                       ) {
                         return true;
                       }
@@ -381,10 +500,13 @@ export function useGeoFogo() {
               );
             };
 
-          /*
-          * O marcador é somente uma representação visual.
-          * O popup deve sempre receber o polígono original.
-          */
+          /**
+           * O marcador é somente uma representação
+           * visual.
+           *
+           * O popup deve sempre receber o polígono
+           * original.
+           */
           if (
             layerId ===
             'fire-events-markers'
@@ -438,13 +560,13 @@ export function useGeoFogo() {
             return;
           }
 
-          /*
-          * A frente de fogo também é somente uma representação
-          * associada a um evento.
-          *
-          * Ao clicar nela, utilizamos id_evento para localizar
-          * o polígono original do evento.
-          */
+          /**
+           * A frente de fogo também é somente uma
+           * representação associada a um evento.
+           *
+           * Ao clicar nela, utilizamos id_evento para
+           * localizar o polígono original.
+           */
           if (
             layerId ===
             'fire-fronts'
@@ -494,10 +616,10 @@ export function useGeoFogo() {
             return;
           }
 
-          /*
-          * Demais camadas continuam abrindo suas próprias
-          * feições normalmente.
-          */
+          /**
+           * Demais camadas continuam abrindo suas
+           * próprias feições normalmente.
+           */
           setSelectedFeature({
             feature,
             layerId,
@@ -507,24 +629,33 @@ export function useGeoFogo() {
     ];
 
     const fieldUnsubscribe =
-      FieldController.subscribe((state) => {
-        if (mountedRef.current) {
-          setFieldState(state);
-        }
-      });
+      FieldController.subscribe(
+        (state) => {
+          if (mountedRef.current) {
+            setFieldState(
+              state,
+            );
+          }
+        },
+      );
 
     return () => {
-      mountedRef.current = false;
+      mountedRef.current =
+        false;
 
       subscriptions.forEach(
-        (unsubscribe) => {
+        (
+          unsubscribe,
+        ) => {
           unsubscribe?.();
         },
       );
 
       fieldUnsubscribe?.();
     };
-  }, [refreshApplicationState]);
+  }, [
+    refreshApplicationState,
+  ]);
 
   /**
    * Inicialização única da aplicação.
@@ -534,7 +665,8 @@ export function useGeoFogo() {
       return;
     }
 
-    initializedRef.current = true;
+    initializedRef.current =
+      true;
 
     const initializeApplication =
       async () => {
@@ -564,13 +696,23 @@ export function useGeoFogo() {
           }
 
           refreshApplicationState();
+
           setReady(true);
 
-          /*
-           * A interface fica pronta com o cache antes da tentativa de
-           * sincronização remota.
+          /**
+           * A interface fica pronta com o cache antes
+           * da tentativa de sincronização remota.
            */
           await handleSync();
+
+          /**
+           * A primeira tentativa terminou.
+           *
+           * A partir daqui, a rotina automática pode
+           * verificar o intervalo configurado.
+           */
+          initialSyncCompletedRef.current =
+            true;
         } catch (error) {
           console.error(
             '[useGeoFogo] Falha durante a inicialização:',
@@ -587,14 +729,18 @@ export function useGeoFogo() {
           );
 
           if (mountedRef.current) {
-            /*
-             * Mesmo com falha de rede ou armazenamento, liberamos a
-             * interface para que o mapa-base continue utilizável e o
-             * usuário possa tentar sincronizar novamente.
+            /**
+             * Mesmo com falha de rede ou armazenamento,
+             * liberamos a interface para que o mapa-base
+             * continue utilizável.
              */
             setReady(true);
+
             setSyncing(false);
-            setSyncState('error');
+
+            setSyncState(
+              'error',
+            );
 
             setSyncMessage(
               error?.message ||
@@ -603,6 +749,13 @@ export function useGeoFogo() {
 
             refreshApplicationState();
           }
+
+          /**
+           * Uma falha inicial não deve bloquear para
+           * sempre as próximas tentativas automáticas.
+           */
+          initialSyncCompletedRef.current =
+            true;
         }
       };
 
@@ -612,107 +765,297 @@ export function useGeoFogo() {
     refreshApplicationState,
   ]);
 
-  const toggleLayer = useCallback(
-    (layerId, visible) => {
-      LayerManager.setVisibility(
-        layerId,
-        visible,
+  /**
+   * Sincronização automática dos dados dinâmicos.
+   *
+   * Regras:
+   * - executa a cada config.fireRefreshMinutes;
+   * - só executa quando a página está visível e online;
+   * - não permite sincronizações simultâneas;
+   * - ao voltar do segundo plano, só sincroniza quando
+   *   o intervalo mínimo já tiver transcorrido.
+   *
+   * As camadas estáticas continuam protegidas pelo
+   * CachePolicy dentro do AppCore.syncAll().
+   */
+  useEffect(() => {
+    const configuredMinutes =
+      Number(
+        config.fireRefreshMinutes,
       );
 
-      setLayers([
-        ...LayerManager.getAllLayers(),
-      ]);
-    },
-    [],
-  );
+    const refreshMinutes =
+      Number.isFinite(
+        configuredMinutes,
+      ) &&
+      configuredMinutes > 0
+        ? configuredMinutes
+        : 60;
 
-  const setLayerOpacity = useCallback(
-    (layerId, opacity) => {
-      LayerManager.setOpacity(
-        layerId,
-        opacity,
-      );
+    const refreshIntervalMs =
+      refreshMinutes *
+      60 *
+      1000;
 
-      setLayers([
-        ...LayerManager.getAllLayers(),
-      ]);
-    },
-    [],
-  );
+    const isRefreshDue =
+      () => {
+        const lastFinishedAt =
+          Number(
+            lastSyncFinishedAtRef.current,
+          );
 
-  const setAlertDistance =
-    useCallback(async (kilometers) => {
-      const numericDistance =
-        Number(kilometers);
+        if (
+          !Number.isFinite(
+            lastFinishedAt,
+          ) ||
+          lastFinishedAt <= 0
+        ) {
+          return true;
+        }
 
-      if (
-        !Number.isFinite(numericDistance) ||
-        numericDistance < 0
-      ) {
-        throw new Error(
-          'A distância do alerta deve ser um número maior ou igual a zero.',
+        return (
+          Date.now() -
+            lastFinishedAt >=
+          refreshIntervalMs
         );
-      }
+      };
 
-      try {
-        await saveUserOverrides(db, {
-          alertDistanceKm:
-            numericDistance,
-        });
+    const runAutomaticSync =
+      async (
+        reason,
+      ) => {
+        if (
+          !mountedRef.current ||
+          !initialSyncCompletedRef.current ||
+          syncPromiseRef.current ||
+          navigator.onLine ===
+            false ||
+          document.visibilityState ===
+            'hidden' ||
+          !isRefreshDue()
+        ) {
+          return;
+        }
 
-        EventBus.emit(
-          EVENTS.CONFIG_CHANGED,
+        console.info(
+          '[useGeoFogo] Iniciando sincronização automática:',
           {
-            alertDistanceKm:
-              numericDistance,
+            reason,
+
+            refreshMinutes,
+
+            lastSyncFinishedAt:
+              lastSyncFinishedAtRef.current
+                ? new Date(
+                    lastSyncFinishedAtRef.current,
+                  ).toISOString()
+                : null,
           },
         );
 
+        await handleSync();
+      };
+
+    /**
+     * O intervalo funciona enquanto a página permanece
+     * aberta e ativa.
+     */
+    const intervalId =
+      window.setInterval(
+        () => {
+          runAutomaticSync(
+            'interval',
+          );
+        },
+        refreshIntervalMs,
+      );
+
+    /**
+     * Navegadores móveis podem suspender timers em
+     * segundo plano.
+     *
+     * Ao retornar, verificamos se o intervalo venceu.
+     */
+    const handleVisibilityChange =
+      () => {
         if (
-          AppCore.fireEvents &&
-          AppCore.conservationUnits
+          document.visibilityState ===
+          'visible'
         ) {
+          runAutomaticSync(
+            'visibilitychange',
+          );
+        }
+      };
 
-          AppCore.alerts =
-            await computeAlerts(
-              AppCore.fireEvents,
-              AppCore.conservationUnits,
-              numericDistance,
-            );
+    /**
+     * Cobre restauração da página pelo cache de navegação
+     * do navegador.
+     */
+    const handlePageShow =
+      () => {
+        runAutomaticSync(
+          'pageshow',
+        );
+      };
 
-          EventBus.emit(
-            EVENTS.ALERTS_UPDATED,
-            AppCore.alerts,
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    );
+
+    window.addEventListener(
+      'pageshow',
+      handlePageShow,
+    );
+
+    return () => {
+      window.clearInterval(
+        intervalId,
+      );
+
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      );
+
+      window.removeEventListener(
+        'pageshow',
+        handlePageShow,
+      );
+    };
+  }, [
+    handleSync,
+  ]);
+
+  const toggleLayer =
+    useCallback(
+      (
+        layerId,
+        visible,
+      ) => {
+        LayerManager.setVisibility(
+          layerId,
+          visible,
+        );
+
+        setLayers([
+          ...LayerManager.getAllLayers(),
+        ]);
+      },
+      [],
+    );
+
+  const setLayerOpacity =
+    useCallback(
+      (
+        layerId,
+        opacity,
+      ) => {
+        LayerManager.setOpacity(
+          layerId,
+          opacity,
+        );
+
+        setLayers([
+          ...LayerManager.getAllLayers(),
+        ]);
+      },
+      [],
+    );
+
+  const setAlertDistance =
+    useCallback(
+      async (
+        kilometers,
+      ) => {
+        const numericDistance =
+          Number(
+            kilometers,
+          );
+
+        if (
+          !Number.isFinite(
+            numericDistance,
+          ) ||
+          numericDistance < 0
+        ) {
+          throw new Error(
+            'A distância do alerta deve ser um número maior ou igual a zero.',
           );
         }
 
-        refreshApplicationState();
-      } catch (error) {
-        ErrorManager.report(
-          'spatial',
-          error,
-          {
-            operation:
-              'setAlertDistance',
-            kilometers:
-              numericDistance,
-          },
+        try {
+          await saveUserOverrides(
+            db,
+            {
+              alertDistanceKm:
+                numericDistance,
+            },
+          );
+
+          EventBus.emit(
+            EVENTS.CONFIG_CHANGED,
+            {
+              alertDistanceKm:
+                numericDistance,
+            },
+          );
+
+          if (
+            AppCore.fireEvents &&
+            AppCore.sensitiveAreas
+          ) {
+            AppCore.alerts =
+              await computeAlerts(
+                AppCore.fireEvents,
+                AppCore.sensitiveAreas,
+                numericDistance,
+              );
+
+            EventBus.emit(
+              EVENTS.ALERTS_UPDATED,
+              AppCore.alerts,
+            );
+          }
+
+          refreshApplicationState();
+        } catch (error) {
+          ErrorManager.report(
+            'spatial',
+            error,
+            {
+              operation:
+                'setAlertDistance',
+
+              kilometers:
+                numericDistance,
+            },
+          );
+
+          throw error;
+        }
+      },
+      [
+        refreshApplicationState,
+      ],
+    );
+
+  const changeBaseMap =
+    useCallback(
+      (
+        id,
+      ) => {
+        if (!id) {
+          return;
+        }
+
+        setBaseMapId(
+          id,
         );
-
-        throw error;
-      }
-    }, [refreshApplicationState]);
-
-  const changeBaseMap = useCallback(
-    (id) => {
-      if (!id) {
-        return;
-      }
-
-      setBaseMapId(id);
-    },
-    [],
-  );
+      },
+      [],
+    );
 
   const startFieldMode =
     useCallback(async () => {
@@ -759,7 +1102,9 @@ export function useGeoFogo() {
   const toggleRecording =
     useCallback(() => {
       try {
-        if (FieldController.recording) {
+        if (
+          FieldController.recording
+        ) {
           FieldController.pauseRecording();
         } else {
           FieldController.startRecording();
@@ -780,36 +1125,43 @@ export function useGeoFogo() {
       }
     }, []);
 
-  const addFieldPoint = useCallback(
-    (label, observation) => {
-      try {
-        FieldController.addPoint(
-          label,
-          observation,
-        );
+  const addFieldPoint =
+    useCallback(
+      (
+        label,
+        observation,
+      ) => {
+        try {
+          FieldController.addPoint(
+            label,
+            observation,
+          );
 
-        setFieldState(
-          FieldController.getState(),
-        );
-      } catch (error) {
-        ErrorManager.report(
-          'field',
-          error,
-          {
-            operation:
-              'addFieldPoint',
-          },
-        );
+          setFieldState(
+            FieldController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'addFieldPoint',
+            },
+          );
 
-        throw error;
-      }
-    },
-    [],
-  );
+          throw error;
+        }
+      },
+      [],
+    );
 
-  const closePopup = useCallback(() => {
-    setSelectedFeature(null);
-  }, []);
+  const closePopup =
+    useCallback(() => {
+      setSelectedFeature(
+        null,
+      );
+    }, []);
 
   return {
     ready,
@@ -831,7 +1183,9 @@ export function useGeoFogo() {
     baseMaps:
       LayerRegistry.getBaseMaps(),
 
-    sync: handleSync,
+    sync:
+      handleSync,
+
     toggleLayer,
     setLayerOpacity,
     setAlertDistance,
@@ -841,6 +1195,7 @@ export function useGeoFogo() {
     toggleRecording,
     addFieldPoint,
     closePopup,
+
     config,
   };
 }

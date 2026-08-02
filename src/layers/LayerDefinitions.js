@@ -382,7 +382,7 @@ export const LAYER_DEFINITIONS = [
 
     interactive:
       true,
-
+      
     paint: {
       /*
       * Classificação oficial do SIPAM:

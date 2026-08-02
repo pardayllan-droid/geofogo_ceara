@@ -1,33 +1,115 @@
 /**
- * Regras de criticidade de alertas — valores centralizados.
- * Não espalhar valores fixos em componentes.
+ * Regras de criticidade dos alertas.
+ *
+ * Os valores ficam centralizados neste arquivo para evitar
+ * limites fixos espalhados pelos componentes.
  */
+
 export const CRITICALITY = {
-  INFO: 'Informativo',
-  ATENCAO: 'Atenção',
-  ALTO: 'Alto',
-  CRITICO: 'Crítico',
+  INFO:
+    'Informativo',
+
+  ATENCAO:
+    'Atenção',
+
+  ALTO:
+    'Alto',
+
+  CRITICO:
+    'Crítico',
 };
 
 export const CRITICALITY_COLORS = {
-  [CRITICALITY.INFO]: '#3b82f6',
-  [CRITICALITY.ATENCAO]: '#f59e0b',
-  [CRITICALITY.ALTO]: '#f97316',
-  [CRITICALITY.CRITICO]: '#dc2626',
+  [CRITICALITY.INFO]:
+    '#3b82f6',
+
+  [CRITICALITY.ATENCAO]:
+    '#f59e0b',
+
+  [CRITICALITY.ALTO]:
+    '#f97316',
+
+  [CRITICALITY.CRITICO]:
+    '#dc2626',
 };
 
-export function classifyAlert(distanceMeters, intersectsUC) {
-  if (intersectsUC) return CRITICALITY.CRITICO;
-  if (distanceMeters <= 500) return CRITICALITY.CRITICO;
-  if (distanceMeters <= 1000) return CRITICALITY.ALTO;
-  if (distanceMeters <= 3000) return CRITICALITY.ATENCAO;
-  return null; // fora do limite → sem alerta
+/**
+ * Classificação usando o limite operacional padrão
+ * de três quilômetros.
+ */
+export function classifyAlert(
+  distanceMeters,
+  intersectsSensitiveArea,
+) {
+  if (
+    intersectsSensitiveArea
+  ) {
+    return CRITICALITY.CRITICO;
+  }
+
+  if (
+    distanceMeters <= 500
+  ) {
+    return CRITICALITY.CRITICO;
+  }
+
+  if (
+    distanceMeters <= 1000
+  ) {
+    return CRITICALITY.ALTO;
+  }
+
+  if (
+    distanceMeters <= 3000
+  ) {
+    return CRITICALITY.ATENCAO;
+  }
+
+  return null;
 }
 
-export function classifyWithLimit(distanceMeters, intersectsUC, limitKm) {
-  if (intersectsUC) return CRITICALITY.CRITICO;
-  if (distanceMeters <= 500) return CRITICALITY.CRITICO;
-  if (distanceMeters <= 1000) return CRITICALITY.ALTO;
-  if (distanceMeters <= limitKm * 1000) return CRITICALITY.ATENCAO;
+/**
+ * Classificação usando distância máxima configurável.
+ */
+export function classifyWithLimit(
+  distanceMeters,
+  intersectsSensitiveArea,
+  limitKm,
+) {
+  if (
+    intersectsSensitiveArea
+  ) {
+    return CRITICALITY.CRITICO;
+  }
+
+  if (
+    distanceMeters <= 500
+  ) {
+    return CRITICALITY.CRITICO;
+  }
+
+  if (
+    distanceMeters <= 1000
+  ) {
+    return CRITICALITY.ALTO;
+  }
+
+  const numericLimitKm =
+    Number(
+      limitKm,
+    );
+
+  if (
+    Number.isFinite(
+      numericLimitKm,
+    ) &&
+    numericLimitKm >= 0 &&
+    distanceMeters <=
+      numericLimitKm *
+      1000
+  ) {
+    return CRITICALITY.ATENCAO;
+  }
+
   return null;
 }

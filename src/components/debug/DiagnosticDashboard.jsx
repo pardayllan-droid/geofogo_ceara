@@ -3,11 +3,15 @@
  *
  * Visão resumida e amigável do diagnóstico do GeoFogo Ceará.
  *
- * - abre dentro do painel lateral, como os demais painéis;
- * - apresenta informações em cartões;
- * - atualiza automaticamente a cada 15 segundos;
- * - mantém acesso ao relatório técnico completo;
- * - não altera AppCore, SyncEngine, LayerManager ou serviços.
+ * Exibe:
+ * - estado da aplicação;
+ * - sincronização automática;
+ * - validade dos caches estáticos;
+ * - dados carregados;
+ * - Áreas Sensíveis;
+ * - estado real das camadas no MapLibre;
+ * - erros registrados;
+ * - acesso ao relatório técnico completo.
  */
 
 import {
@@ -24,8 +28,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock3,
   Database,
   FileText,
+  HardDrive,
   Map,
   RefreshCw,
   Server,
@@ -35,31 +41,59 @@ import {
   XCircle,
 } from 'lucide-react';
 
-import { AppCore } from '../../core/AppCore';
-import { ErrorManager } from '../../core/ErrorManager';
-import { LayerManager } from '../../layers/LayerManager';
+import {
+  AppCore,
+} from '../../core/AppCore';
+
+import {
+  config,
+} from '../../core/config';
+
+import {
+  describeCacheStatus,
+  formatCacheDuration,
+} from '../../core/CachePolicy';
+
+import {
+  ErrorManager,
+} from '../../core/ErrorManager';
+
+import {
+  LayerManager,
+} from '../../layers/LayerManager';
 
 import DiagnosticPanel from './DiagnosticPanel';
 
-const AUTO_REFRESH_INTERVAL_MS = 15000;
+const AUTO_REFRESH_INTERVAL_MS =
+  15000;
 
-function countFeatures(data) {
+function countFeatures(
+  data,
+) {
   if (!data) {
     return 0;
   }
 
   if (
-    data.type === 'FeatureCollection' &&
-    Array.isArray(data.features)
+    data.type ===
+      'FeatureCollection' &&
+    Array.isArray(
+      data.features,
+    )
   ) {
     return data.features.length;
   }
 
-  if (data.type === 'Feature') {
+  if (
+    data.type ===
+    'Feature'
+  ) {
     return 1;
   }
 
-  if (Array.isArray(data)) {
+  if (
+    Array.isArray(data)
+  ) {
     return data.length;
   }
 
@@ -71,7 +105,11 @@ function getErrors() {
     const fromAll =
       ErrorManager.all?.();
 
-    if (Array.isArray(fromAll)) {
+    if (
+      Array.isArray(
+        fromAll,
+      )
+    ) {
       return fromAll;
     }
 
@@ -125,9 +163,14 @@ function getLayerRuntime(
 ) {
   if (!map) {
     return {
-      exists: false,
-      visible: false,
-      rendered: 0,
+      exists:
+        false,
+
+      visible:
+        false,
+
+      rendered:
+        0,
     };
   }
 
@@ -139,9 +182,14 @@ function getLayerRuntime(
 
     if (!layer) {
       return {
-        exists: false,
-        visible: false,
-        rendered: 0,
+        exists:
+          false,
+
+        visible:
+          false,
+
+        rendered:
+          0,
       };
     }
 
@@ -149,9 +197,11 @@ function getLayerRuntime(
       map.getLayoutProperty?.(
         layerId,
         'visibility',
-      ) || 'visible';
+      ) ||
+      'visible';
 
-    let rendered = 0;
+    let rendered =
+      0;
 
     try {
       rendered =
@@ -162,7 +212,8 @@ function getLayerRuntime(
               layerId,
             ],
           },
-        )?.length || 0;
+        )?.length ||
+        0;
     } catch {
       try {
         rendered =
@@ -172,25 +223,68 @@ function getLayerRuntime(
                 layerId,
               ],
             },
-          )?.length || 0;
+          )?.length ||
+          0;
       } catch {
-        rendered = -1;
+        rendered =
+          -1;
       }
     }
 
     return {
-      exists: true,
+      exists:
+        true,
+
       visible:
-        visibility !== 'none',
+        visibility !==
+        'none',
+
       rendered,
     };
   } catch {
     return {
-      exists: false,
-      visible: false,
-      rendered: 0,
+      exists:
+        false,
+
+      visible:
+        false,
+
+      rendered:
+        0,
     };
   }
+}
+
+function getCacheSummary() {
+  const records =
+    AppCore.cacheRecords ||
+    {};
+
+  return {
+    boundary:
+      describeCacheStatus(
+        records.boundary,
+        'boundary',
+      ),
+
+    municipalities:
+      describeCacheStatus(
+        records.municipalities,
+        'municipalities',
+      ),
+
+    conservationUnits:
+      describeCacheStatus(
+        records.conservationUnits,
+        'conservationUnits',
+      ),
+
+    indigenousLands:
+      describeCacheStatus(
+        records.indigenousLands,
+        'indigenousLands',
+      ),
+  };
 }
 
 function collectSummary({
@@ -203,9 +297,14 @@ function collectSummary({
     LayerManager.getMap?.() ||
     null;
 
-  let styleLoaded = false;
-  let zoom = null;
-  let center = null;
+  let styleLoaded =
+    false;
+
+  let zoom =
+    null;
+
+  let center =
+    null;
 
   if (map) {
     try {
@@ -214,7 +313,8 @@ function collectSummary({
           map.isStyleLoaded?.(),
         );
     } catch {
-      styleLoaded = false;
+      styleLoaded =
+        false;
     }
 
     try {
@@ -222,7 +322,8 @@ function collectSummary({
         map.getZoom?.() ??
         null;
     } catch {
-      zoom = null;
+      zoom =
+        null;
     }
 
     try {
@@ -233,12 +334,14 @@ function collectSummary({
         center = {
           longitude:
             currentCenter.lng,
+
           latitude:
             currentCenter.lat,
         };
       }
     } catch {
-      center = null;
+      center =
+        null;
     }
   }
 
@@ -249,9 +352,48 @@ function collectSummary({
       window.matchMedia?.(
         '(display-mode: standalone)',
       )?.matches ||
-        window.navigator
-          ?.standalone === true,
+      window.navigator
+        ?.standalone ===
+        true,
     );
+
+  const stats =
+    AppCore.getStats?.() ||
+    null;
+
+  const sensitiveSummary =
+    AppCore
+      .getSensitiveAreaSummary
+      ?.() ||
+    {
+      total:
+        countFeatures(
+          AppCore.sensitiveAreas,
+        ),
+
+      byType:
+        {},
+    };
+
+  const refreshMinutes =
+    Number(
+      config.fireRefreshMinutes,
+    ) ||
+    60;
+
+  const lastUpdated =
+    Number(
+      stats?.lastUpdated,
+    ) ||
+    null;
+
+  const nextDynamicRefresh =
+    lastUpdated
+      ? lastUpdated +
+        refreshMinutes *
+          60 *
+          1000
+      : null;
 
   return {
     collectedAt:
@@ -272,7 +414,9 @@ function collectSummary({
       installed,
 
       syncing:
-        Boolean(syncing),
+        Boolean(
+          syncing,
+        ),
 
       syncState:
         syncState ||
@@ -281,7 +425,16 @@ function collectSummary({
       syncMessage:
         syncMessage ||
         'Sem mensagem de sincronização.',
+
+      refreshMinutes,
+
+      lastUpdated,
+
+      nextDynamicRefresh,
     },
+
+    cache:
+      getCacheSummary(),
 
     data: {
       boundary:
@@ -298,6 +451,17 @@ function collectSummary({
         countFeatures(
           AppCore.conservationUnits,
         ),
+
+      indigenousLands:
+        countFeatures(
+          AppCore.indigenousLands,
+        ),
+
+      sensitiveAreas:
+        sensitiveSummary.total,
+
+      sensitiveAreasByType:
+        sensitiveSummary.byType,
 
       fireEvents:
         countFeatures(
@@ -319,12 +483,14 @@ function collectSummary({
 
     map: {
       connected:
-        Boolean(map),
+        Boolean(
+          map,
+        ),
 
       ready:
         Boolean(
           map &&
-            LayerManager.isReady?.(),
+          LayerManager.isReady?.(),
         ),
 
       styleLoaded,
@@ -360,6 +526,12 @@ function collectSummary({
           map,
           'conservation-units',
         ),
+
+      indigenousLands:
+        getLayerRuntime(
+          map,
+          'indigenous-lands',
+        ),
     },
 
     errors:
@@ -368,32 +540,85 @@ function collectSummary({
     device: {
       language:
         typeof navigator !==
-        'undefined'
+          'undefined'
           ? navigator.language
           : 'não disponível',
 
       userAgent:
         typeof navigator !==
-        'undefined'
+          'undefined'
           ? navigator.userAgent
           : 'não disponível',
     },
   };
 }
 
-function formatTime(value) {
+function formatTime(
+  value,
+) {
   if (!value) {
     return 'Não disponível';
   }
 
   try {
-    return value.toLocaleTimeString(
+    const date =
+      value instanceof Date
+        ? value
+        : new Date(
+            value,
+          );
+
+    if (
+      Number.isNaN(
+        date.getTime(),
+      )
+    ) {
+      return 'Não disponível';
+    }
+
+    return date.toLocaleTimeString(
       'pt-BR',
       {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+        hour:
+          '2-digit',
+
+        minute:
+          '2-digit',
+
+        second:
+          '2-digit',
       },
+    );
+  } catch {
+    return 'Não disponível';
+  }
+}
+
+function formatDateTime(
+  value,
+) {
+  if (!value) {
+    return 'Não disponível';
+  }
+
+  try {
+    const date =
+      value instanceof Date
+        ? value
+        : new Date(
+            value,
+          );
+
+    if (
+      Number.isNaN(
+        date.getTime(),
+      )
+    ) {
+      return 'Não disponível';
+    }
+
+    return date.toLocaleString(
+      'pt-BR',
     );
   } catch {
     return 'Não disponível';
@@ -405,9 +630,15 @@ function formatNumber(
   digits = 2,
 ) {
   const numeric =
-    Number(value);
+    Number(
+      value,
+    );
 
-  if (!Number.isFinite(numeric)) {
+  if (
+    !Number.isFinite(
+      numeric,
+    )
+  ) {
     return '—';
   }
 
@@ -423,84 +654,124 @@ function formatNumber(
 function getStatusAppearance(
   status,
 ) {
-  if (status === 'success') {
+  if (
+    status ===
+    'success'
+  ) {
     return {
-      label: 'Concluída',
+      label:
+        'Concluída',
+
       className:
         'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300',
-      icon: CheckCircle2,
-    };
-  }
 
-  if (status === 'partial') {
-    return {
-      label: 'Parcial',
-      className:
-        'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-      icon: AlertTriangle,
-    };
-  }
-
-  if (status === 'error') {
-    return {
-      label: 'Erro',
-      className:
-        'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',
-      icon: XCircle,
+      icon:
+        CheckCircle2,
     };
   }
 
   if (
-    status === 'running' ||
-    status === 'syncing'
+    status ===
+    'partial'
   ) {
     return {
-      label: 'Em andamento',
+      label:
+        'Parcial',
+
+      className:
+        'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+
+      icon:
+        AlertTriangle,
+    };
+  }
+
+  if (
+    status ===
+    'error'
+  ) {
+    return {
+      label:
+        'Erro',
+
+      className:
+        'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',
+
+      icon:
+        XCircle,
+    };
+  }
+
+  if (
+    status ===
+      'running' ||
+    status ===
+      'syncing'
+  ) {
+    return {
+      label:
+        'Em andamento',
+
       className:
         'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-      icon: RefreshCw,
+
+      icon:
+        RefreshCw,
     };
   }
 
   return {
     label:
-      status || 'Desconhecida',
+      status ||
+      'Desconhecida',
+
     className:
       'border-border bg-muted/40 text-muted-foreground',
-    icon: AlertCircle,
+
+    icon:
+      AlertCircle,
   };
 }
 
 export default function DiagnosticDashboard({
   onSync,
   syncing = false,
-  syncState = 'desconhecido',
-  syncMessage = '',
+  syncState =
+    'desconhecido',
+  syncMessage =
+    '',
 }) {
   const [
     summary,
     setSummary,
-  ] = useState(null);
+  ] = useState(
+    null,
+  );
 
   const [
     fullReportOpen,
     setFullReportOpen,
-  ] = useState(false);
+  ] = useState(
+    false,
+  );
 
   const collect =
-    useCallback(() => {
-      setSummary(
-        collectSummary({
-          syncState,
-          syncing,
-          syncMessage,
-        }),
-      );
-    }, [
-      syncState,
-      syncing,
-      syncMessage,
-    ]);
+    useCallback(
+      () => {
+        setSummary(
+          collectSummary({
+            syncState,
+            syncing,
+            syncMessage,
+          }),
+        );
+      },
+      [
+        syncState,
+        syncing,
+        syncMessage,
+      ],
+    );
 
   useEffect(() => {
     collect();
@@ -516,17 +787,21 @@ export default function DiagnosticDashboard({
         interval,
       );
     };
-  }, [collect]);
+  }, [
+    collect,
+  ]);
 
   const statusAppearance =
     useMemo(
       () =>
         getStatusAppearance(
-          summary?.application
+          summary
+            ?.application
             ?.syncState,
         ),
       [
-        summary?.application
+        summary
+          ?.application
           ?.syncState,
       ],
     );
@@ -548,14 +823,34 @@ export default function DiagnosticDashboard({
 
   const latestError =
     summary.errors[
-      summary.errors.length - 1
+      summary.errors.length -
+        1
     ];
 
   const latestErrorMessage =
     latestError?.message ||
-    latestError?.error?.message ||
+    latestError?.error
+      ?.message ||
     latestError?.detail ||
     null;
+
+  const conservationCount =
+    summary.data
+      .sensitiveAreasByType
+      ?.[
+        'conservation-unit'
+      ] ??
+    summary.data
+      .conservationUnits;
+
+  const indigenousCount =
+    summary.data
+      .sensitiveAreasByType
+      ?.[
+        'indigenous-land'
+      ] ??
+    summary.data
+      .indigenousLands;
 
   return (
     <>
@@ -583,7 +878,9 @@ export default function DiagnosticDashboard({
 
             <button
               type="button"
-              onClick={collect}
+              onClick={
+                collect
+              }
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               title="Atualizar diagnóstico"
               aria-label="Atualizar diagnóstico"
@@ -615,14 +912,17 @@ export default function DiagnosticDashboard({
                   }`}
                 />
 
-                {statusAppearance.label}
+                {
+                  statusAppearance.label
+                }
               </div>
             </div>
 
             <StatusRow
               label="Inicializada"
               ok={
-                summary.application
+                summary
+                  .application
                   .initialized
               }
             />
@@ -646,7 +946,8 @@ export default function DiagnosticDashboard({
             <StatusRow
               label="Modo instalado"
               ok={
-                summary.application
+                summary
+                  .application
                   .installed
               }
               neutralWhenFalse
@@ -654,7 +955,8 @@ export default function DiagnosticDashboard({
 
             <div className="mt-3 rounded-lg bg-muted/50 p-2">
               <div className="flex items-center gap-2">
-                {summary.application
+                {summary
+                  .application
                   .online ? (
                   <Wifi className="h-3.5 w-3.5 text-green-500" />
                 ) : (
@@ -662,7 +964,8 @@ export default function DiagnosticDashboard({
                 )}
 
                 <span className="text-xs font-medium">
-                  {summary.application
+                  {summary
+                    .application
                     .online
                     ? 'Online'
                     : 'Offline'}
@@ -671,11 +974,50 @@ export default function DiagnosticDashboard({
 
               <p className="mt-1 break-words text-[10px] leading-relaxed text-muted-foreground">
                 {
-                  summary.application
+                  summary
+                    .application
                     .syncMessage
                 }
               </p>
             </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-3 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <Clock3 className="h-4 w-4 text-amber-500" />
+
+              <h3 className="text-xs font-semibold uppercase tracking-wide">
+                Atualização automática
+              </h3>
+            </div>
+
+            <InfoRow
+              label="Intervalo"
+              value={`${summary.application.refreshMinutes} min`}
+            />
+
+            <InfoRow
+              label="Última atualização"
+              value={formatDateTime(
+                summary
+                  .application
+                  .lastUpdated,
+              )}
+            />
+
+            <InfoRow
+              label="Próxima prevista"
+              value={formatDateTime(
+                summary
+                  .application
+                  .nextDynamicRefresh,
+              )}
+            />
+
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+              Eventos e frentes são atualizados automaticamente. As camadas
+              estáticas seguem a validade definida no CachePolicy.
+            </p>
           </section>
 
           <section className="rounded-xl border border-border bg-card p-3 shadow-sm">
@@ -705,10 +1047,24 @@ export default function DiagnosticDashboard({
               />
 
               <MetricCard
-                label="UCs"
+                label="Áreas Sensíveis"
                 value={
                   summary.data
-                    .conservationUnits
+                    .sensitiveAreas
+                }
+              />
+
+              <MetricCard
+                label="UCs"
+                value={
+                  conservationCount
+                }
+              />
+
+              <MetricCard
+                label="Terras Indígenas"
+                value={
+                  indigenousCount
                 }
               />
 
@@ -737,16 +1093,56 @@ export default function DiagnosticDashboard({
                 }
                 warning={
                   summary.data
-                    .alerts > 0
+                    .alerts >
+                  0
                 }
               />
             </div>
           </section>
 
           <AccordionSection
+            title="Validade do cache"
+            icon={HardDrive}
+            defaultOpen
+          >
+            <div className="space-y-2">
+              <CacheRow
+                label="Limite do Ceará"
+                cache={
+                  summary.cache
+                    .boundary
+                }
+              />
+
+              <CacheRow
+                label="Municípios"
+                cache={
+                  summary.cache
+                    .municipalities
+                }
+              />
+
+              <CacheRow
+                label="Unidades de Conservação"
+                cache={
+                  summary.cache
+                    .conservationUnits
+                }
+              />
+
+              <CacheRow
+                label="Terras Indígenas"
+                cache={
+                  summary.cache
+                    .indigenousLands
+                }
+              />
+            </div>
+          </AccordionSection>
+
+          <AccordionSection
             title="Mapa e renderização"
             icon={Map}
-            defaultOpen
           >
             <div className="space-y-2">
               <InfoRow
@@ -759,7 +1155,8 @@ export default function DiagnosticDashboard({
               <InfoRow
                 label="Longitude"
                 value={formatNumber(
-                  summary.map.center
+                  summary.map
+                    .center
                     ?.longitude,
                   5,
                 )}
@@ -768,7 +1165,8 @@ export default function DiagnosticDashboard({
               <InfoRow
                 label="Latitude"
                 value={formatNumber(
-                  summary.map.center
+                  summary.map
+                    .center
                     ?.latitude,
                   5,
                 )}
@@ -779,21 +1177,24 @@ export default function DiagnosticDashboard({
               <RuntimeRow
                 label="Eventos"
                 runtime={
-                  summary.map.events
+                  summary.map
+                    .events
                 }
               />
 
               <RuntimeRow
                 label="Marcadores"
                 runtime={
-                  summary.map.markers
+                  summary.map
+                    .markers
                 }
               />
 
               <RuntimeRow
                 label="Frentes"
                 runtime={
-                  summary.map.fronts
+                  summary.map
+                    .fronts
                 }
               />
 
@@ -812,24 +1213,39 @@ export default function DiagnosticDashboard({
                     .conservationUnits
                 }
               />
+
+              <RuntimeRow
+                label="Terras Indígenas"
+                runtime={
+                  summary.map
+                    .indigenousLands
+                }
+              />
             </div>
           </AccordionSection>
 
           <AccordionSection
             title={`Erros (${summary.errors.length})`}
             icon={
-              summary.errors.length > 0
+              summary.errors
+                .length >
+              0
                 ? AlertTriangle
                 : CheckCircle2
             }
             defaultOpen={
-              summary.errors.length > 0
+              summary.errors
+                .length >
+              0
             }
             warning={
-              summary.errors.length > 0
+              summary.errors
+                .length >
+              0
             }
           >
-            {summary.errors.length ===
+            {summary.errors
+              .length ===
             0 ? (
               <div className="flex items-center gap-2 rounded-lg bg-green-500/10 p-2 text-xs text-green-700 dark:text-green-300">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -845,14 +1261,15 @@ export default function DiagnosticDashboard({
                   </p>
                 </div>
 
-                {summary.errors.length >
+                {summary.errors
+                  .length >
                   1 && (
                   <p className="text-[10px] text-muted-foreground">
                     Existem outros{' '}
                     {summary.errors
-                      .length - 1}{' '}
-                    registros no relatório
-                    completo.
+                      .length -
+                      1}{' '}
+                    registros no relatório completo.
                   </p>
                 )}
               </div>
@@ -861,7 +1278,9 @@ export default function DiagnosticDashboard({
 
           <AccordionSection
             title="Dispositivo"
-            icon={Smartphone}
+            icon={
+              Smartphone
+            }
           >
             <div className="space-y-2">
               <InfoRow
@@ -890,7 +1309,9 @@ export default function DiagnosticDashboard({
           <div className="space-y-2 pb-3">
             <button
               type="button"
-              onClick={onSync}
+              onClick={
+                onSync
+              }
               disabled={
                 syncing ||
                 typeof onSync !==
@@ -914,7 +1335,9 @@ export default function DiagnosticDashboard({
             <button
               type="button"
               onClick={() =>
-                setFullReportOpen(true)
+                setFullReportOpen(
+                  true,
+                )
               }
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-xs font-medium transition-colors hover:bg-accent"
             >
@@ -930,11 +1353,19 @@ export default function DiagnosticDashboard({
         <DiagnosticPanel
           open
           onClose={() =>
-            setFullReportOpen(false)
+            setFullReportOpen(
+              false,
+            )
           }
-          syncState={syncState}
-          syncing={syncing}
-          syncMessage={syncMessage}
+          syncState={
+            syncState
+          }
+          syncing={
+            syncing
+          }
+          syncMessage={
+            syncMessage
+          }
         />
       )}
     </>
@@ -944,7 +1375,8 @@ export default function DiagnosticDashboard({
 function StatusRow({
   label,
   ok,
-  neutralWhenFalse = false,
+  neutralWhenFalse =
+    false,
 }) {
   return (
     <div className="flex items-center justify-between border-b border-border/60 py-2 last:border-b-0">
@@ -974,8 +1406,10 @@ function StatusRow({
 function MetricCard({
   label,
   value,
-  emphasized = false,
-  warning = false,
+  emphasized =
+    false,
+  warning =
+    false,
 }) {
   let className =
     'border-border bg-muted/35';
@@ -1005,6 +1439,119 @@ function MetricCard({
   );
 }
 
+function CacheRow({
+  label,
+  cache,
+}) {
+  const status =
+    cache?.status ||
+    'invalid';
+
+  const appearance = {
+    fresh: {
+      label:
+        'Válido',
+
+      className:
+        'text-green-600 dark:text-green-400',
+
+      icon:
+        CheckCircle2,
+    },
+
+    stale: {
+      label:
+        'Vencido',
+
+      className:
+        'text-amber-600 dark:text-amber-400',
+
+      icon:
+        AlertTriangle,
+    },
+
+    missing: {
+      label:
+        'Ausente',
+
+      className:
+        'text-red-600 dark:text-red-400',
+
+      icon:
+        XCircle,
+    },
+
+    invalid: {
+      label:
+        'Inválido',
+
+      className:
+        'text-red-600 dark:text-red-400',
+
+      icon:
+        AlertCircle,
+    },
+  }[status];
+
+  const Icon =
+    appearance.icon;
+
+  return (
+    <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-[11px] font-medium">
+          {label}
+        </span>
+
+        <span
+          className={`flex shrink-0 items-center gap-1 text-[10px] font-semibold ${appearance.className}`}
+        >
+          <Icon className="h-3 w-3" />
+
+          {
+            appearance.label
+          }
+        </span>
+      </div>
+
+      <div className="mt-1.5 space-y-1">
+        <InfoRow
+          label="Atualizado"
+          value={formatDateTime(
+            cache?.updatedAt,
+          )}
+        />
+
+        <InfoRow
+          label="Idade"
+          value={formatCacheDuration(
+            cache?.ageMs,
+          )}
+        />
+
+        <InfoRow
+          label="Validade"
+          value={formatCacheDuration(
+            cache?.policy
+              ?.maxAgeMs,
+          )}
+        />
+
+        {status ===
+          'fresh' && (
+          <InfoRow
+            label="Expira em"
+            value={formatCacheDuration(
+              cache
+                ?.remainingMs,
+            )}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function InfoRow({
   label,
   value,
@@ -1015,8 +1562,9 @@ function InfoRow({
         {label}
       </span>
 
-      <span className="max-w-[55%] truncate text-right text-[11px] font-medium">
-        {value ?? '—'}
+      <span className="max-w-[58%] truncate text-right text-[11px] font-medium">
+        {value ??
+          '—'}
       </span>
     </div>
   );
@@ -1044,7 +1592,8 @@ function RuntimeRow({
 
       <div className="text-right">
         <p className="text-sm font-bold">
-          {runtime.rendered < 0
+          {runtime.rendered <
+          0
             ? '—'
             : runtime.rendered}
         </p>
@@ -1061,11 +1610,17 @@ function AccordionSection({
   title,
   icon: Icon,
   children,
-  defaultOpen = false,
-  warning = false,
+  defaultOpen =
+    false,
+  warning =
+    false,
 }) {
-  const [open, setOpen] =
-    useState(defaultOpen);
+  const [
+    open,
+    setOpen,
+  ] = useState(
+    defaultOpen,
+  );
 
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -1073,11 +1628,16 @@ function AccordionSection({
         type="button"
         onClick={() =>
           setOpen(
-            (current) => !current,
+            (
+              current,
+            ) =>
+              !current,
           )
         }
         className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-accent/50"
-        aria-expanded={open}
+        aria-expanded={
+          open
+        }
       >
         <div className="flex min-w-0 items-center gap-2">
           <Icon

@@ -66,7 +66,9 @@ import {
   computeArea,
 } from '../../spatial/SpatialEngine';
 
-function isFireLayer(layerId) {
+function isFireLayer(
+  layerId,
+) {
   return (
     layerId ===
       'fire-events' ||
@@ -110,6 +112,7 @@ function getFeaturePoint(
           Number(
             coordinates[0],
           ),
+
           Number(
             coordinates[1],
           ),
@@ -117,11 +120,6 @@ function getFeaturePoint(
       }
     }
 
-    /*
-     * pointOnFeature funciona para Polygon,
-     * MultiPolygon, linhas e coleções, e retorna
-     * um ponto localizado sobre a geometria.
-     */
     return turf.pointOnFeature(
       feature,
     );
@@ -145,7 +143,9 @@ function getFeatureCoordinates(
   feature,
 ) {
   const point =
-    getFeaturePoint(feature);
+    getFeaturePoint(
+      feature,
+    );
 
   const coordinates =
     point?.geometry
@@ -155,16 +155,21 @@ function getFeatureCoordinates(
     !Array.isArray(
       coordinates,
     ) ||
-    coordinates.length < 2
+    coordinates.length <
+      2
   ) {
     return null;
   }
 
   const longitude =
-    Number(coordinates[0]);
+    Number(
+      coordinates[0],
+    );
 
   const latitude =
-    Number(coordinates[1]);
+    Number(
+      coordinates[1],
+    );
 
   if (
     !Number.isFinite(
@@ -186,11 +191,15 @@ function getFeatureCoordinates(
 function firstValue(
   values,
 ) {
-  for (const value of values) {
+  for (
+    const value
+    of values
+  ) {
     if (
       value !== undefined &&
       value !== null &&
-      String(value).trim() !== ''
+      String(value).trim() !==
+        ''
     ) {
       return value;
     }
@@ -213,21 +222,84 @@ function getMunicipalityName(
   );
 }
 
+function getSensitiveAreaLabel(
+  properties,
+) {
+  const type =
+    properties
+      ?.sensitive_type;
+
+  return (
+    firstValue([
+      properties
+        ?.sensitive_label,
+
+      type ===
+        'indigenous-land'
+        ? 'Terra Indígena'
+        : null,
+
+      type ===
+        'conservation-unit'
+        ? 'Unidade de Conservação'
+        : null,
+    ]) ||
+    'Área Sensível'
+  );
+}
+
+function getSensitiveAreaName(
+  properties,
+) {
+  return (
+    firstValue([
+      properties
+        ?.sensitive_name,
+
+      properties
+        ?.nome_uc,
+
+      properties
+        ?.nome_unidade_conservacao,
+
+      properties
+        ?.indigenous_land_name,
+
+      properties
+        ?.terrai_nom,
+
+      properties?.nome,
+      properties?.name,
+    ]) ||
+    'Área Sensível sem nome'
+  );
+}
+
 function formatPersistence(
   value,
 ) {
   const numeric =
-    Number(value);
+    Number(
+      value,
+    );
 
-  if (!Number.isFinite(numeric)) {
+  if (
+    !Number.isFinite(
+      numeric,
+    )
+  ) {
     return '—';
   }
 
   const rounded =
-    Number.isInteger(numeric)
+    Number.isInteger(
+      numeric,
+    )
       ? numeric
       : Number(
-          numeric.toFixed(1),
+          numeric.toFixed(
+            1,
+          ),
         );
 
   return `${rounded} ${
@@ -241,29 +313,42 @@ export default function FeaturePopup({
   selectedFeature,
   onClose,
 }) {
-  const [weather, setWeather] =
-    useState(null);
+  const [
+    weather,
+    setWeather,
+  ] = useState(
+    null,
+  );
 
   const [
     weatherLoading,
     setWeatherLoading,
-  ] = useState(false);
+  ] = useState(
+    false,
+  );
 
   const [
     downloadError,
     setDownloadError,
-  ] = useState('');
+  ] = useState(
+    '',
+  );
 
   const {
     feature,
     layerId,
-  } = selectedFeature || {};
+  } =
+    selectedFeature ||
+    {};
 
   const properties =
-    feature?.properties || {};
+    feature?.properties ||
+    {};
 
   const fireEvent =
-    isFireLayer(layerId);
+    isFireLayer(
+      layerId,
+    );
 
   const conservationUnit =
     layerId ===
@@ -283,11 +368,14 @@ export default function FeaturePopup({
         getFeatureCoordinates(
           feature,
         ),
-      [feature],
+      [
+        feature,
+      ],
     );
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled =
+      false;
 
     async function loadWeather() {
       if (
@@ -297,8 +385,13 @@ export default function FeaturePopup({
         return;
       }
 
-      setWeather(null);
-      setWeatherLoading(true);
+      setWeather(
+        null,
+      );
+
+      setWeatherLoading(
+        true,
+      );
 
       try {
         const result =
@@ -354,7 +447,8 @@ export default function FeaturePopup({
     loadWeather();
 
     return () => {
-      cancelled = true;
+      cancelled =
+        true;
     };
   }, [
     fireEvent,
@@ -384,7 +478,9 @@ export default function FeaturePopup({
         handleEscape,
       );
     };
-  }, [onClose]);
+  }, [
+    onClose,
+  ]);
 
   if (!feature) {
     return null;
@@ -395,29 +491,40 @@ export default function FeaturePopup({
       ? getMunicipalityName(
           properties,
         )
-      : firstValue([
-          properties.nome,
-          properties.municipio,
-          properties.name,
-          properties.Nome,
-        ]) ||
-        'Feição';
+      : conservationUnit ||
+          indigenousLand
+        ? getSensitiveAreaName(
+            properties,
+          )
+        : firstValue([
+            properties.nome,
+            properties.municipio,
+            properties.name,
+            properties.Nome,
+          ]) ||
+          'Feição';
 
   function handleKmlDownload() {
-    setDownloadError('');
+    setDownloadError(
+      '',
+    );
 
     try {
       const datePart =
         properties.dt_maxima
           ? String(
               properties.dt_maxima,
-            ).slice(0, 10)
+            ).slice(
+              0,
+              10,
+            )
           : 'sem-data';
 
       downloadFeatureAsKml(
         feature,
         {
-          name: title,
+          name:
+            title,
 
           fileName:
             `evento-${title}-${datePart}`,
@@ -466,7 +573,9 @@ export default function FeaturePopup({
         role="dialog"
         aria-modal="true"
         aria-label={`Detalhes: ${title}`}
-        onClick={(event) =>
+        onClick={(
+          event,
+        ) =>
           event.stopPropagation()
         }
       >
@@ -551,7 +660,9 @@ export default function FeaturePopup({
 
           {weather && (
             <WeatherBlock
-              weather={weather}
+              weather={
+                weather
+              }
             />
           )}
 
@@ -587,22 +698,34 @@ function FireEventDetails({
   properties,
   coordinates,
 }) {
-  let area = null;
+  let area =
+    null;
 
   try {
     area =
-      computeArea(feature);
+      computeArea(
+        feature,
+      );
   } catch {
     area =
       Number(
-        properties.area_total_evento,
+        properties
+          .area_total_evento,
       );
   }
 
-  const nearestConservationUnit =
-    AppCore.findNearestUC?.(
-      feature,
-    );
+  const nearestSensitiveArea =
+    AppCore
+      .findNearestSensitiveArea
+      ?.(
+        feature,
+      );
+
+  const nearestProperties =
+    nearestSensitiveArea
+      ?.feature
+      ?.properties ||
+    {};
 
   const firstDetection =
     firstValue([
@@ -630,13 +753,16 @@ function FireEventDetails({
 
       <DetailRow
         label="Área"
-        value={formatArea(area)}
+        value={formatArea(
+          area,
+        )}
       />
 
       <DetailRow
         label="Persistência"
         value={formatPersistence(
-          properties.persistencia_dias,
+          properties
+            .persistencia_dias,
         )}
         icon={Timer}
       />
@@ -644,7 +770,8 @@ function FireEventDetails({
       <DetailRow
         label="Detecções"
         value={formatNumber(
-          properties.qtd_deteccoes,
+          properties
+            .qtd_deteccoes,
         )}
         icon={Flame}
       />
@@ -684,49 +811,45 @@ function FireEventDetails({
         }
       />
 
-      {nearestConservationUnit && (
-        <div className="mt-3 rounded-lg border border-green-500/20 bg-green-500/10 p-3">
-          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-green-700 dark:text-green-300">
+      {nearestSensitiveArea && (
+        <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
             <Shield className="h-3.5 w-3.5" />
 
-            Área sensível mais próxima
+            Área Sensível mais próxima
           </div>
 
-          <p className="text-xs font-medium">
-            {firstValue([
-              nearestConservationUnit
-                .feature
-                ?.properties
-                ?.sensitive_name,
-
-              nearestConservationUnit
-                .feature
-                ?.properties
-                ?.nome_uc,
-
-              nearestConservationUnit
-                .feature
-                ?.properties
-                ?.nome_unidade_conservacao,
-
-              nearestConservationUnit
-                .feature
-                ?.properties
-                ?.nome,
-
-              nearestConservationUnit
-                .feature
-                ?.properties
-                ?.name,
-            ]) || 'Unidade de Conservação sem nome'}
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {getSensitiveAreaLabel(
+              nearestProperties,
+            )}
           </p>
+
+          <p className="mt-0.5 text-xs font-medium">
+            {getSensitiveAreaName(
+              nearestProperties,
+            )}
+          </p>
+
+          {nearestProperties
+            .sensitive_category && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {
+                nearestProperties
+                  .sensitive_category
+              }
+            </p>
+          )}
 
           <p className="mt-1 text-[11px] text-muted-foreground">
             Distância:{' '}
-            {formatDistance(
-              nearestConservationUnit
-                .distance,
-            )}
+            {nearestSensitiveArea
+              .distance === 0
+              ? 'Interseção'
+              : formatDistance(
+                  nearestSensitiveArea
+                    .distance,
+                )}
           </p>
         </div>
       )}
@@ -740,17 +863,28 @@ function ConservationUnitDetails({
   return (
     <div className="space-y-2">
       <DetailRow
+        label="Tipo"
+        value={
+          getSensitiveAreaLabel(
+            properties,
+          )
+        }
+      />
+
+      <DetailRow
         label="Nome"
         value={
-          properties.nome ||
-          properties.name ||
-          '—'
+          getSensitiveAreaName(
+            properties,
+          )
         }
       />
 
       <DetailRow
         label="Categoria"
         value={
+          properties
+            .sensitive_category ||
           properties.categoria ||
           properties.category ||
           '—'
@@ -778,6 +912,9 @@ function ConservationUnitDetails({
       <DetailRow
         label="Órgão gestor"
         value={
+          properties
+            .sensitive_manager ||
+          properties.org_gestor ||
           properties.orgao_gestor ||
           properties.orgao ||
           '—'
@@ -787,10 +924,23 @@ function ConservationUnitDetails({
       <DetailRow
         label="Município"
         value={
+          properties
+            .sensitive_municipality ||
           properties.municipio ||
+          properties.municipios ||
           '—'
         }
         icon={MapPin}
+      />
+
+      <DetailRow
+        label="Fonte"
+        value={
+          properties
+            .sensitive_source ||
+          properties.fonte ||
+          'CNUC/MMA'
+        }
       />
     </div>
   );
@@ -802,6 +952,8 @@ function IndigenousLandDetails({
   const area =
     Number(
       properties
+        .sensitive_area_ha ??
+      properties
         .indigenous_area_ha ??
       properties.superficie,
     );
@@ -809,16 +961,20 @@ function IndigenousLandDetails({
   return (
     <div className="space-y-2">
       <DetailRow
+        label="Tipo"
+        value={
+          getSensitiveAreaLabel(
+            properties,
+          )
+        }
+      />
+
+      <DetailRow
         label="Terra Indígena"
         value={
-          properties
-            .sensitive_name ||
-          properties
-            .indigenous_land_name ||
-          properties
-            .terrai_nom ||
-          properties.nome ||
-          '—'
+          getSensitiveAreaName(
+            properties,
+          )
         }
         icon={Shield}
       />
@@ -827,9 +983,10 @@ function IndigenousLandDetails({
         label="Etnia"
         value={
           properties
-            .indigenous_people ||
+            .sensitive_people ||
           properties
-            .etnia_nome ||
+            .indigenous_people ||
+          properties.etnia_nome ||
           '—'
         }
       />
@@ -838,9 +995,10 @@ function IndigenousLandDetails({
         label="Municípios"
         value={
           properties
-            .indigenous_municipalities ||
+            .sensitive_municipality ||
           properties
-            .municipio_ ||
+            .indigenous_municipalities ||
+          properties.municipio_ ||
           properties.municipio ||
           '—'
         }
@@ -851,9 +1009,10 @@ function IndigenousLandDetails({
         label="Fase"
         value={
           properties
-            .indigenous_legal_phase ||
+            .sensitive_category ||
           properties
-            .fase_ti ||
+            .indigenous_legal_phase ||
+          properties.fase_ti ||
           '—'
         }
       />
@@ -863,8 +1022,7 @@ function IndigenousLandDetails({
         value={
           properties
             .indigenous_modality ||
-          properties
-            .modalidade ||
+          properties.modalidade ||
           '—'
         }
       />
@@ -872,7 +1030,9 @@ function IndigenousLandDetails({
       <DetailRow
         label="Superfície"
         value={
-          Number.isFinite(area)
+          Number.isFinite(
+            area,
+          )
             ? `${area.toLocaleString(
                 'pt-BR',
                 {
@@ -886,14 +1046,11 @@ function IndigenousLandDetails({
 
       <DetailRow
         label="Atualização da fonte"
-        value={
-          formatDate(
-            properties
-              .indigenous_updated_at ||
-            properties
-              .data_atual,
-          )
-        }
+        value={formatDate(
+          properties
+            .indigenous_updated_at ||
+            properties.data_atual,
+        )}
       />
 
       <DetailRow
@@ -952,7 +1109,8 @@ function WeatherBlock({
     );
 
   const windValue =
-    windDirection === '—'
+    windDirection ===
+      '—'
       ? windSpeed
       : `${windSpeed} ${windDirection}`;
 

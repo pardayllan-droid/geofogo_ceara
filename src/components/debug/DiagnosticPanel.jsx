@@ -35,6 +35,8 @@ import {
 } from 'lucide-react';
 
 import { AppCore } from '../../core/AppCore';
+import { config } from '../../core/config';
+import { describeCacheStatus, formatCacheDuration } from '../../core/CachePolicy';
 import { ErrorManager } from '../../core/ErrorManager';
 import { LayerManager } from '../../layers/LayerManager';
 
@@ -678,6 +680,12 @@ function collectDiagnosticData({
         map,
         'conservation-units',
       ),
+
+    indigenousLands:
+    getLayerRuntimeInfo(
+      map,
+      'indigenous-lands',
+    ),
   };
 
   const sourceSamples = {
@@ -758,6 +766,74 @@ function collectDiagnosticData({
     }
   }
 
+  const stats =
+    AppCore.getStats?.() ||
+    null;
+
+  const sensitiveSummary =
+    AppCore
+      .getSensitiveAreaSummary
+      ?.() ||
+    {
+      total:
+        countFeatures(
+          AppCore.sensitiveAreas,
+        ),
+
+      byType:
+        {},
+    };
+
+  const cacheRecords =
+    AppCore.cacheRecords ||
+    {};
+
+  const cache = {
+    boundary:
+      describeCacheStatus(
+        cacheRecords.boundary,
+        'boundary',
+      ),
+
+    municipalities:
+      describeCacheStatus(
+        cacheRecords.municipalities,
+        'municipalities',
+      ),
+
+    conservationUnits:
+      describeCacheStatus(
+        cacheRecords.conservationUnits,
+        'conservationUnits',
+      ),
+
+    indigenousLands:
+      describeCacheStatus(
+        cacheRecords.indigenousLands,
+        'indigenousLands',
+      ),
+  };
+
+  const refreshMinutes =
+    Number(
+      config.fireRefreshMinutes,
+    ) ||
+    60;
+
+  const lastUpdated =
+    Number(
+      stats?.lastUpdated,
+    ) ||
+    null;
+
+  const nextDynamicRefresh =
+    lastUpdated
+      ? lastUpdated +
+        refreshMinutes *
+          60 *
+          1000
+      : null;
+
   return {
     generatedAt:
       new Date(),
@@ -823,6 +899,17 @@ function collectDiagnosticData({
           AppCore.conservationUnits,
         ),
 
+      indigenousLands:
+        countFeatures(
+          AppCore.indigenousLands,
+        ),
+
+      sensitiveAreas:
+        sensitiveSummary.total,
+
+      sensitiveAreasByType:
+        sensitiveSummary.byType,
+
       fireEvents:
         countFeatures(
           AppCore.fireEvents,
@@ -841,6 +928,14 @@ function collectDiagnosticData({
               .length
           : 0,
     },
+
+    synchronization: {
+      refreshMinutes,
+      lastUpdated,
+      nextDynamicRefresh,
+    },
+
+    cache,
 
     map: {
       connected:
@@ -1235,6 +1330,21 @@ function buildReport(
     `Alertas: ${diagnostic.appCore.alerts}`,
   );
 
+  lines.push(
+    `Terras Indígenas: ${diagnostic.appCore.indigenousLands}`,
+  );
+
+  lines.push(
+    `Áreas Sensíveis: ${diagnostic.appCore.sensitiveAreas}`,
+  );
+
+  lines.push(
+    `Áreas Sensíveis por tipo: ${safeJson(
+      diagnostic.appCore.sensitiveAreasByType,
+      '{}',
+    )}`,
+  );
+
   lines.push('');
   lines.push(
     'ESTADO DO MAPA',
@@ -1338,6 +1448,76 @@ function buildReport(
     },
   );
 
+  lines.push('');
+  lines.push(
+    'SINCRONIZAÇÃO AUTOMÁTICA',
+  );
+
+  lines.push(
+    `Intervalo: ${diagnostic.synchronization.refreshMinutes} minutos`,
+  );
+
+  lines.push(
+    `Última atualização: ${formatDateTime(
+      diagnostic.synchronization.lastUpdated,
+    )}`,
+  );
+
+  lines.push(
+    `Próxima atualização prevista: ${formatDateTime(
+      diagnostic.synchronization.nextDynamicRefresh,
+    )}`,
+  );
+
+  lines.push('');
+  lines.push(
+    'VALIDADE DO CACHE',
+  );
+
+  for (
+    const [
+      key,
+      cache,
+    ]
+    of Object.entries(
+      diagnostic.cache,
+    )
+  ) {
+    lines.push(
+      `${cache.label || key}`,
+    );
+
+    lines.push(
+      `- estado: ${cache.status}`,
+    );
+
+    lines.push(
+      `- atualizado em: ${formatDateTime(
+        cache.updatedAt,
+      )}`,
+    );
+
+    lines.push(
+      `- idade: ${formatCacheDuration(
+        cache.ageMs,
+      )}`,
+    );
+
+    lines.push(
+      `- validade: ${formatCacheDuration(
+        cache.policy?.maxAgeMs,
+      )}`,
+    );
+
+    lines.push(
+      `- expira em: ${formatCacheDuration(
+        cache.remainingMs,
+      )}`,
+    );
+
+    lines.push('');
+  }
+
   lines.push(
     'RENDERIZAÇÃO REAL DO MAPLIBRE',
   );
@@ -1390,6 +1570,14 @@ function buildReport(
     'conservation-units',
     diagnostic.runtime
       .conservationUnits,
+  );
+
+  appendRuntimeLayer(
+    lines,
+    'Terras Indígenas',
+    'indigenous-lands',
+    diagnostic.runtime
+      .indigenousLands,
   );
 
   lines.push(
