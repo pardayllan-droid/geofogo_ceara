@@ -100,6 +100,10 @@ import {
   summarizeSensitiveAreas,
 } from '../sensitive/SensitiveAreaRegistry';
 
+import {
+  Perf,
+} from '../utils/PerformanceMonitor';
+
 const EMPTY_FEATURE_COLLECTION = {
   type:
     'FeatureCollection',
@@ -354,8 +358,27 @@ class AppCoreImpl {
         this.cearaBoundary,
       );
 
+    Perf.start(
+      'Cache: leitura de eventos',
+    );
+
     const cachedFireEvents =
       await getCachedFireEvents();
+
+    Perf.end(
+      'Cache: leitura de eventos',
+      {
+        features:
+          cachedFireEvents
+            ?.features
+            ?.length ||
+          0,
+      },
+    );
+
+    Perf.start(
+      'Cache: filtro territorial de eventos',
+    );
 
     /**
      * Sem o limite do Ceará, não exibimos o cache bruto.
@@ -367,6 +390,27 @@ class AppCoreImpl {
             boundaryPoly,
           )
         : createEmptyFeatureCollection();
+
+    Perf.end(
+      'Cache: filtro territorial de eventos',
+      {
+        before:
+          cachedFireEvents
+            ?.features
+            ?.length ||
+          0,
+
+        after:
+          cachedEventsInsideCeara
+            ?.features
+            ?.length ||
+          0,
+      },
+    );
+
+    Perf.start(
+      'Cache: enriquecimento dos eventos',
+    );
 
     const cachedEventsWithMunicipality =
       enrichFireEventsWithMunicipalities(
@@ -384,8 +428,38 @@ class AppCoreImpl {
         cachedEventsWithAge,
       );
 
+    Perf.end(
+      'Cache: enriquecimento dos eventos',
+      {
+        features:
+          this.fireEvents
+            ?.features
+            ?.length ||
+          0,
+      },
+    );
+
+    Perf.start(
+      'Cache: leitura de frentes',
+    );
+
     const cachedFireFronts =
       await getCachedFireFronts();
+
+    Perf.end(
+      'Cache: leitura de frentes',
+      {
+        features:
+          cachedFireFronts
+            ?.features
+            ?.length ||
+          0,
+      },
+    );
+
+    Perf.start(
+      'Cache: processamento das frentes',
+    );
 
     const cachedFrontsInsideCeara =
       boundaryPoly
@@ -399,6 +473,23 @@ class AppCoreImpl {
       sortFireFrontsForRendering(
         cachedFrontsInsideCeara,
       );
+
+    Perf.end(
+      'Cache: processamento das frentes',
+      {
+        before:
+          cachedFireFronts
+            ?.features
+            ?.length ||
+          0,
+
+        after:
+          this.fireFronts
+            ?.features
+            ?.length ||
+          0,
+      },
+    );
 
     this.alerts =
       await getCachedAlerts();
@@ -414,7 +505,7 @@ class AppCoreImpl {
     );
   }
 
-  /**
+    /**
    * Sincroniza os dados.
    *
    * forceStaticRefresh:
@@ -759,6 +850,10 @@ class AppCoreImpl {
         fn: async ({
           signal,
         } = {}) => {
+          Perf.start(
+            'Eventos: consulta SIPAM',
+          );
+
           const raw =
             await loadFireEvents(
               this.cearaBbox,
@@ -766,6 +861,21 @@ class AppCoreImpl {
                 signal,
               },
             );
+
+          Perf.end(
+            'Eventos: consulta SIPAM',
+            {
+              features:
+                raw
+                  ?.features
+                  ?.length ||
+                0,
+            },
+          );
+
+          Perf.start(
+            'Eventos: filtro territorial',
+          );
 
           const boundaryPoly =
             getBoundaryPolygon(
@@ -780,6 +890,27 @@ class AppCoreImpl {
                 )
               : raw;
 
+          Perf.end(
+            'Eventos: filtro territorial',
+            {
+              before:
+                raw
+                  ?.features
+                  ?.length ||
+                0,
+
+              after:
+                filtered
+                  ?.features
+                  ?.length ||
+                0,
+            },
+          );
+
+          Perf.start(
+            'Eventos: enriquecimento municipal',
+          );
+
           /**
            * Identifica espacialmente o município de
            * cada evento antes de recalcular:
@@ -793,6 +924,21 @@ class AppCoreImpl {
               this.municipalities,
             );
 
+          Perf.end(
+            'Eventos: enriquecimento municipal',
+            {
+              features:
+                enrichedWithMunicipality
+                  ?.features
+                  ?.length ||
+                0,
+            },
+          );
+
+          Perf.start(
+            'Eventos: idade e ordenação',
+          );
+
           const enriched =
             enrichFireEventsAge(
               enrichedWithMunicipality,
@@ -802,6 +948,17 @@ class AppCoreImpl {
             sortFireEventsForRendering(
               enriched,
             );
+
+          Perf.end(
+            'Eventos: idade e ordenação',
+            {
+              features:
+                orderedEvents
+                  ?.features
+                  ?.length ||
+                0,
+            },
+          );
 
           this.fireEvents =
             orderedEvents;
@@ -848,6 +1005,10 @@ class AppCoreImpl {
         fn: async ({
           signal,
         } = {}) => {
+          Perf.start(
+            'Frentes: consulta SIPAM',
+          );
+
           const raw =
             await loadFireFronts(
               this.cearaBbox,
@@ -855,6 +1016,21 @@ class AppCoreImpl {
                 signal,
               },
             );
+
+          Perf.end(
+            'Frentes: consulta SIPAM',
+            {
+              features:
+                raw
+                  ?.features
+                  ?.length ||
+                0,
+            },
+          );
+
+          Perf.start(
+            'Frentes: filtro e ordenação',
+          );
 
           const boundaryPoly =
             getBoundaryPolygon(
@@ -874,6 +1050,23 @@ class AppCoreImpl {
             sortFireFrontsForRendering(
               filtered,
             );
+
+          Perf.end(
+            'Frentes: filtro e ordenação',
+            {
+              before:
+                raw
+                  ?.features
+                  ?.length ||
+                0,
+
+              after:
+                orderedFronts
+                  ?.features
+                  ?.length ||
+                0,
+            },
+          );
 
           this.fireFronts =
             orderedFronts;
@@ -925,22 +1118,42 @@ class AppCoreImpl {
      */
     this._rebuildSensitiveAreas();
 
-    /**
-     * Nesta etapa, mantemos o AlertEngine usando UCs.
-     *
-     * A migração para todas as Áreas Sensíveis será feita
-     * somente depois de validarmos esta coleção derivada.
-     */
     if (
       this.fireEvents &&
       this.sensitiveAreas
     ) {
+      Perf.start(
+        'Alertas: cálculo espacial',
+      );
+
       this.alerts =
         await computeAlerts(
           this.fireEvents,
           this.sensitiveAreas,
           config.alertDistanceKm,
         );
+
+      Perf.end(
+        'Alertas: cálculo espacial',
+        {
+          fireEvents:
+            this.fireEvents
+              ?.features
+              ?.length ||
+            0,
+
+          sensitiveAreas:
+            this.sensitiveAreas
+              ?.features
+              ?.length ||
+            0,
+
+          alerts:
+            this.alerts
+              ?.length ||
+            0,
+        },
+      );
     }
 
     this._updateStats();
@@ -956,7 +1169,7 @@ class AppCoreImpl {
     return result;
   }
 
-  /**
+    /**
    * Reconstrói a coleção unificada de Áreas Sensíveis.
    *
    * Não realiza consultas e não modifica as coleções
@@ -1152,15 +1365,6 @@ class AppCoreImpl {
 
   /**
    * Localiza a Área Sensível mais próxima.
-   *
-   * O resultado segue o formato retornado por findNearby:
-   *
-   * {
-   *   feature,
-   *   distance
-   * }
-   *
-   * distance é retornada em metros.
    */
   findNearestSensitiveArea(
     eventFeature,
@@ -1259,9 +1463,6 @@ class AppCoreImpl {
       }
     }
 
-    /**
-     * Áreas Sensíveis que possuem ao menos um alerta ativo.
-     */
     const threatenedSensitiveAreaIds =
       new Set(
         alerts
@@ -1278,12 +1479,6 @@ class AppCoreImpl {
           ),
       );
 
-    /**
-     * Eventos distintos que intersectam alguma Área Sensível.
-     *
-     * Contamos eventos, e não alertas, porque um mesmo evento
-     * pode intersectar mais de uma área.
-     */
     const eventsInsideSensitiveAreaIds =
       new Set(
         alerts
@@ -1302,9 +1497,6 @@ class AppCoreImpl {
           ),
       );
 
-    /**
-     * Quantidade de alertas por tipo de Área Sensível.
-     */
     const alertsBySensitiveAreaType =
       {};
 
@@ -1326,9 +1518,6 @@ class AppCoreImpl {
         1;
     }
 
-    /**
-     * Quantidade de Áreas Sensíveis ameaçadas por tipo.
-     */
     const threatenedSensitiveAreaIdsByType =
       {};
 
@@ -1431,9 +1620,6 @@ class AppCoreImpl {
       ucsCount:
         conservationUnits.length,
 
-      /**
-       * Campos definitivos.
-       */
       threatenedSensitiveAreas:
         threatenedSensitiveAreaIds.size,
 
@@ -1444,12 +1630,6 @@ class AppCoreImpl {
 
       threatenedSensitiveAreasByType,
 
-      /**
-       * Campos legados mantidos temporariamente.
-       *
-       * Agora eles representam somente Unidades de Conservação,
-       * e não o total de todas as Áreas Sensíveis.
-       */
       threatenedUCs:
         threatenedSensitiveAreasByType[
           'conservation-unit'
@@ -1496,9 +1676,6 @@ class AppCoreImpl {
       indigenousLandsCount:
         indigenousLands.length,
 
-      /**
-       * Novos campos genéricos.
-       */
       sensitiveAreasCount:
         sensitiveSummary.total,
 
@@ -1507,6 +1684,17 @@ class AppCoreImpl {
     };
 
     return this.stats;
+  }
+
+  /**
+   * Recalcula imediatamente as estatísticas com os dados
+   * atuais mantidos pelo AppCore.
+   *
+   * Deve ser chamado quando alertas ou outras coleções
+   * forem alterados fora de uma sincronização completa.
+   */
+  refreshStats() {
+    return this._updateStats();
   }
 
   getStats() {
@@ -1598,10 +1786,6 @@ class AppCoreImpl {
 
   /**
    * Método legado mantido para compatibilidade.
-   *
-   * O popup e o AlertEngine ainda podem utilizá-lo
-   * enquanto a migração para Áreas Sensíveis não for
-   * concluída.
    */
   findNearestUC(
     eventFeature,

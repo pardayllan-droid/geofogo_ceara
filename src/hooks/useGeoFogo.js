@@ -33,6 +33,8 @@ import {
 import { db } from '../storage/indexedDb';
 import { computeAlerts } from '../alerts/AlertEngine';
 
+import { Perf } from '../utils/PerformanceMonitor';
+
 export function useGeoFogo() {
   const [ready, setReady] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -398,17 +400,32 @@ export function useGeoFogo() {
             return;
           }
 
-          setAlerts(
+          const normalizedAlerts =
             Array.isArray(
               updatedAlerts,
             )
               ? updatedAlerts
               : AppCore.alerts ||
-                  [],
+                [];
+
+          /**
+           * computeAlerts emite ALERTS_UPDATED antes de retornar
+           * ao chamador. Portanto, sincronizamos explicitamente
+           * a coleção do AppCore antes de recalcular os números
+           * mostrados na aba Resumo.
+           */
+          AppCore.alerts =
+            normalizedAlerts;
+
+          const updatedStats =
+            AppCore.refreshStats();
+
+          setAlerts(
+            normalizedAlerts,
           );
 
           setStats(
-            AppCore.getStats(),
+            updatedStats,
           );
         },
       ),
@@ -670,14 +687,26 @@ export function useGeoFogo() {
 
     const initializeApplication =
       async () => {
+        Perf.reset();
+
         try {
           setSyncMessage(
             'Inicializando o GeoFogo Ceará...',
           );
 
+          Perf.start(
+            'Inicialização do núcleo',
+          );
+
           await AppCore.initialize();
 
-          if (!mountedRef.current) {
+          Perf.end(
+            'Inicialização do núcleo',
+          );
+
+          if (
+            !mountedRef.current
+          ) {
             return;
           }
 
@@ -689,31 +718,62 @@ export function useGeoFogo() {
             'Carregando dados armazenados...',
           );
 
+          Perf.start(
+            'Carregamento do cache',
+          );
+
           await AppCore.loadCachedData();
 
-          if (!mountedRef.current) {
+          Perf.end(
+            'Carregamento do cache',
+          );
+
+          if (
+            !mountedRef.current
+          ) {
             return;
           }
 
           refreshApplicationState();
 
-          setReady(true);
-
           /**
-           * A interface fica pronta com o cache antes
-           * da tentativa de sincronização remota.
+           * Neste ponto a aplicação já está utilizável
+           * com os dados armazenados.
            */
+          setReady(
+            true,
+          );
+
+          Perf.start(
+            'Sincronização remota completa',
+          );
+
           await handleSync();
 
-          /**
-           * A primeira tentativa terminou.
-           *
-           * A partir daqui, a rotina automática pode
-           * verificar o intervalo configurado.
-           */
+          Perf.end(
+            'Sincronização remota completa',
+          );
+
           initialSyncCompletedRef.current =
             true;
+
+          Perf.report();
         } catch (error) {
+          /**
+           * Encerra medições que possam ter ficado abertas.
+           */
+          Perf.cancel(
+            'Inicialização do núcleo',
+          );
+
+          Perf.cancel(
+            'Carregamento do cache',
+          );
+
+          Perf.cancel(
+            'Sincronização remota completa',
+          );
+
           console.error(
             '[useGeoFogo] Falha durante a inicialização:',
             error,
@@ -728,15 +788,16 @@ export function useGeoFogo() {
             },
           );
 
-          if (mountedRef.current) {
-            /**
-             * Mesmo com falha de rede ou armazenamento,
-             * liberamos a interface para que o mapa-base
-             * continue utilizável.
-             */
-            setReady(true);
+          if (
+            mountedRef.current
+          ) {
+            setReady(
+              true,
+            );
 
-            setSyncing(false);
+            setSyncing(
+              false,
+            );
 
             setSyncState(
               'error',
@@ -750,12 +811,10 @@ export function useGeoFogo() {
             refreshApplicationState();
           }
 
-          /**
-           * Uma falha inicial não deve bloquear para
-           * sempre as próximas tentativas automáticas.
-           */
           initialSyncCompletedRef.current =
             true;
+
+          Perf.report();
         }
       };
 
@@ -1012,6 +1071,15 @@ export function useGeoFogo() {
                 AppCore.sensitiveAreas,
                 numericDistance,
               );
+
+            /**
+             * computeAlerts já emite ALERTS_UPDATED, mas nessa emissão
+             * o retorno ainda não havia sido atribuído a AppCore.alerts.
+             *
+             * Recalculamos e emitimos novamente para garantir que todos
+             * os consumidores recebam o estado final consolidado.
+             */
+            AppCore.refreshStats();
 
             EventBus.emit(
               EVENTS.ALERTS_UPDATED,
