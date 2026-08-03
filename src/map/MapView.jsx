@@ -1955,6 +1955,78 @@ export default function MapView({
   );
 
   /**
+   * Restaura exatamente o enquadramento inicial do Ceará.
+   *
+   * Usa a mesma função executada após a primeira instalação
+   * bem-sucedida das camadas territoriais.
+   */
+  useEffect(
+    () => {
+      const handleResetInitialView =
+        () => {
+          const map =
+            mapRef.current;
+
+          if (!map) {
+            console.warn(
+              '[MapView] O mapa ainda não está disponível para restaurar a vista inicial.',
+            );
+
+            return;
+          }
+
+          if (
+            !AppCore.cearaBoundary
+              ?.features
+              ?.length
+          ) {
+            console.warn(
+              '[MapView] O limite do Ceará não está disponível para restaurar a vista inicial.',
+            );
+
+            return;
+          }
+
+          try {
+            map.resize();
+
+            const restored =
+              fitToCeara(
+                map,
+                AppCore.cearaBoundary,
+              );
+
+            if (!restored) {
+              console.warn(
+                '[MapView] Não foi possível restaurar o enquadramento inicial do Ceará.',
+              );
+            }
+          } catch (error) {
+            ErrorManager.report(
+              'map',
+              error,
+              {
+                operation:
+                  'MapView.resetInitialView',
+              },
+            );
+          }
+        };
+
+      const unsubscribe =
+        EventBus.on(
+          EVENTS.MAP_RESET_INITIAL_VIEW,
+          handleResetInitialView,
+        );
+
+      return () => {
+        unsubscribe?.();
+      };
+    },
+    [],
+  );
+
+  /**
    * Centraliza o mapa em um evento selecionado
    * no painel de alertas.
    */

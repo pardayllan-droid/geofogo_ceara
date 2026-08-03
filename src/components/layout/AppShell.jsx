@@ -19,6 +19,7 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -84,6 +85,22 @@ const PANELS = [
 ];
 
 const DESKTOP_RESIZE_DELAY_MS = 230;
+
+/**
+ * Configuração da gaveta móvel.
+ *
+ * A gaveta fecha quando:
+ * - o deslocamento ultrapassa 80 px; ou
+ * - o usuário faz um movimento rápido para baixo.
+ */
+const MOBILE_SHEET_CLOSE_DISTANCE_PX =
+  80;
+
+const MOBILE_SHEET_FAST_SWIPE_DISTANCE_PX =
+  28;
+
+const MOBILE_SHEET_CLOSE_VELOCITY_PX_MS =
+  0.6;
 
 export default function AppShell({
   ready,
@@ -477,18 +494,372 @@ function DesktopPanel({
   );
 }
 
+/**
+ * Gaveta inferior utilizada por todos os painéis em
+ * celulares e tablets.
+ *
+ * O gesto de fechamento só pode começar no cabeçalho.
+ * Isso evita conflito com:
+ * - rolagem das listas;
+ * - botões dos painéis;
+ * - controles de camadas;
+ * - conteúdo do diagnóstico.
+ */
 function MobilePanel({
   open,
   activePanel,
   panelProps,
   onClose,
 }) {
+  const [
+    dragOffset,
+    setDragOffset,
+  ] = useState(
+    0,
+  );
+
+  const [
+    dragging,
+    setDragging,
+  ] = useState(
+    false,
+  );
+
+  const dragStateRef =
+    useRef({
+      pointerId:
+        null,
+
+      startY:
+        0,
+
+      currentY:
+        0,
+
+      startedAt:
+        0,
+
+      moved:
+        false,
+    });
+
+  /**
+   * Sempre que a gaveta for fechada externamente,
+   * elimina qualquer deslocamento restante.
+   */
+  useEffect(
+    () => {
+      if (!open) {
+        setDragOffset(
+          0,
+        );
+
+        setDragging(
+          false,
+        );
+
+        dragStateRef.current = {
+          pointerId:
+            null,
+
+          startY:
+            0,
+
+          currentY:
+            0,
+
+          startedAt:
+            0,
+
+          moved:
+            false,
+        };
+      }
+    },
+    [
+      open,
+    ],
+  );
+
+  function resetDrag() {
+    setDragging(
+      false,
+    );
+
+    setDragOffset(
+      0,
+    );
+
+    dragStateRef.current = {
+      pointerId:
+        null,
+
+      startY:
+        0,
+
+      currentY:
+        0,
+
+      startedAt:
+        0,
+
+      moved:
+        false,
+    };
+  }
+
+  function handleDragStart(
+    event,
+  ) {
+    if (
+      !open ||
+      event.button !==
+        undefined &&
+      event.button !==
+        0
+    ) {
+      return;
+    }
+
+    /**
+     * Não inicia um novo gesto quando o toque começou
+     * no botão lateral de fechar.
+     */
+    if (
+      event.target.closest(
+        '[data-mobile-sheet-close-button]',
+      )
+    ) {
+      return;
+    }
+
+    const pointerId =
+      event.pointerId;
+
+    dragStateRef.current = {
+      pointerId,
+
+      startY:
+        event.clientY,
+
+      currentY:
+        event.clientY,
+
+      startedAt:
+        performance.now(),
+
+      moved:
+        false,
+    };
+
+    setDragging(
+      true,
+    );
+
+    try {
+      event.currentTarget
+        .setPointerCapture(
+          pointerId,
+        );
+    } catch {
+      /**
+       * Alguns navegadores podem não permitir captura,
+       * mas o gesto ainda pode funcionar normalmente.
+       */
+    }
+  }
+
+  function handleDragMove(
+    event,
+  ) {
+    const dragState =
+      dragStateRef.current;
+
+    if (
+      !dragging ||
+      dragState.pointerId !==
+        event.pointerId
+    ) {
+      return;
+    }
+
+    const difference =
+      event.clientY -
+      dragState.startY;
+
+    /**
+     * A gaveta só acompanha movimentos para baixo.
+     * Movimentos para cima são ignorados.
+     */
+    const nextOffset =
+      Math.max(
+        0,
+        difference,
+      );
+
+    dragState.currentY =
+      event.clientY;
+
+    if (
+      nextOffset >
+      4
+    ) {
+      dragState.moved =
+        true;
+    }
+
+    setDragOffset(
+      nextOffset,
+    );
+  }
+
+  function finishDrag(
+    event,
+  ) {
+    const dragState =
+      dragStateRef.current;
+
+    if (
+      dragState.pointerId !==
+        event.pointerId
+    ) {
+      return;
+    }
+
+    const endedAt =
+      performance.now();
+
+    const elapsedMs =
+      Math.max(
+        1,
+        endedAt -
+          dragState.startedAt,
+      );
+
+    const distance =
+      Math.max(
+        0,
+        dragState.currentY -
+          dragState.startY,
+      );
+
+    const velocity =
+      distance /
+      elapsedMs;
+
+    const crossedDistance =
+      distance >=
+      MOBILE_SHEET_CLOSE_DISTANCE_PX;
+
+    const wasFastSwipe =
+      distance >=
+        MOBILE_SHEET_FAST_SWIPE_DISTANCE_PX &&
+      velocity >=
+        MOBILE_SHEET_CLOSE_VELOCITY_PX_MS;
+
+    try {
+      event.currentTarget
+        .releasePointerCapture(
+          event.pointerId,
+        );
+    } catch {
+      /**
+       * A captura pode já ter sido liberada pelo navegador.
+       */
+    }
+
+    setDragging(
+      false,
+    );
+
+    if (
+      crossedDistance ||
+      wasFastSwipe
+    ) {
+      /**
+       * Mantém brevemente o deslocamento atual para que
+       * a animação de fechamento continue desse ponto.
+       */
+      setDragOffset(
+        distance,
+      );
+
+      onClose();
+
+      return;
+    }
+
+    /**
+     * Se o limite não foi alcançado, a gaveta retorna
+     * suavemente para a posição original.
+     */
+    setDragOffset(
+      0,
+    );
+
+    dragStateRef.current = {
+      pointerId:
+        null,
+
+      startY:
+        0,
+
+      currentY:
+        0,
+
+      startedAt:
+        0,
+
+      moved:
+        false,
+    };
+  }
+
+  function handleDragCancel(
+    event,
+  ) {
+    try {
+      event.currentTarget
+        .releasePointerCapture(
+          event.pointerId,
+        );
+    } catch {
+      /**
+       * Nenhuma ação adicional é necessária.
+       */
+    }
+
+    resetDrag();
+  }
+
+  /**
+   * Durante o arraste, o transform inline substitui
+   * temporariamente a transformação das classes Tailwind.
+   *
+   * Quando a gaveta está fechada, nenhuma transformação
+   * inline é aplicada e a classe translate-y assume.
+   */
+  const sheetStyle =
+    open
+      ? {
+          transform:
+            `translateY(${dragOffset}px)`,
+
+          transition:
+            dragging
+              ? 'none'
+              : undefined,
+        }
+      : undefined;
+
   return (
     <>
       <button
         type="button"
         aria-label="Fechar painel"
-        onClick={onClose}
+        onClick={
+          onClose
+        }
         className={`geofogo-mobile-backdrop absolute inset-0 z-20 bg-black/25 transition-opacity duration-200 lg:hidden ${
           open
             ? 'pointer-events-auto opacity-100'
@@ -502,22 +873,74 @@ function MobilePanel({
             ? 'translate-y-0'
             : 'translate-y-[calc(100%+1rem)]'
         }`}
-        aria-hidden={!open}
+        style={
+          sheetStyle
+        }
+        aria-hidden={
+          !open
+        }
       >
-        <div className="relative flex h-8 flex-shrink-0 items-center justify-center border-b border-border/60">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 flex-1 items-center justify-center"
-            title="Recolher painel"
-            aria-label="Recolher painel"
-          >
-            <span className="h-1 w-10 rounded-full bg-muted-foreground/30" />
-          </button>
+        {/*
+         * Área exclusiva de arraste.
+         *
+         * touchAction none impede que o navegador interprete
+         * este gesto como rolagem da página. O conteúdo abaixo
+         * continua rolando normalmente.
+         */}
+        <div
+          className={`relative flex h-8 flex-shrink-0 select-none items-center justify-center border-b border-border/60 ${
+            dragging
+              ? 'cursor-grabbing'
+              : 'cursor-grab'
+          }`}
+          style={{
+            touchAction:
+              'none',
+          }}
+          onPointerDown={
+            handleDragStart
+          }
+          onPointerMove={
+            handleDragMove
+          }
+          onPointerUp={
+            finishDrag
+          }
+          onPointerCancel={
+            handleDragCancel
+          }
+          onLostPointerCapture={
+            (
+              event,
+            ) => {
+              const dragState =
+                dragStateRef.current;
+
+              if (
+                dragging &&
+                dragState.pointerId ===
+                  event.pointerId
+              ) {
+                resetDrag();
+              }
+            }
+          }
+          role="presentation"
+        >
+          <span
+            className={`h-1 rounded-full bg-muted-foreground/30 transition-[width,opacity] duration-150 ${
+              dragging
+                ? 'w-14 opacity-80'
+                : 'w-10 opacity-100'
+            }`}
+          />
 
           <button
             type="button"
-            onClick={onClose}
+            data-mobile-sheet-close-button
+            onClick={
+              onClose
+            }
             className="absolute right-2 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             title="Recolher painel"
             aria-label="Recolher painel"
@@ -526,6 +949,11 @@ function MobilePanel({
           </button>
         </div>
 
+        {/*
+         * Este permanece como o único scroll principal dos
+         * painéis móveis. O gesto de fechamento não começa
+         * dentro desta área.
+         */}
         <div className="touch-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
           {renderPanel(
             activePanel,
@@ -642,7 +1070,7 @@ function renderPanel(
             props.openAlertsPanel
           }
         />
-      );;
+      );
 
     case 'field':
       return (

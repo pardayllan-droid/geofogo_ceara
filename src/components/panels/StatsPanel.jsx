@@ -366,14 +366,16 @@ function focusFeature(
   );
 }
 
+/**
+ * Solicita ao mapa que restaure exatamente o mesmo
+ * enquadramento utilizado na inicialização.
+ */
 function resetMapToCeara() {
-  const boundaryFeature =
-    AppCore.cearaBoundary
+  if (
+    !AppCore.cearaBoundary
       ?.features
-      ?.[0] ||
-    null;
-
-  if (!boundaryFeature) {
+      ?.length
+  ) {
     console.warn(
       '[StatsPanel] Limite do Ceará indisponível para restaurar o mapa.',
     );
@@ -382,11 +384,8 @@ function resetMapToCeara() {
   }
 
   EventBus.emit(
-    EVENTS.MAP_FOCUS_FIRE_EVENT,
+    EVENTS.MAP_RESET_INITIAL_VIEW,
     {
-      feature:
-        boundaryFeature,
-
       source:
         'stats-total-area',
     },
