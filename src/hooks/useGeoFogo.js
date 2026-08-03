@@ -1148,66 +1148,115 @@ export function useGeoFogo() {
     }, []);
 
   const stopFieldMode =
-    useCallback(() => {
-      try {
-        FieldController.stop();
+    useCallback(
+      async () => {
+        try {
+          await FieldController.stop();
 
-        setFieldState(
-          FieldController.getState(),
-        );
-      } catch (error) {
-        ErrorManager.report(
-          'field',
-          error,
-          {
-            operation:
-              'stopFieldMode',
-          },
-        );
-      }
-    }, []);
+          setFieldState(
+            FieldController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'stopFieldMode',
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
 
   const toggleRecording =
-    useCallback(() => {
-      try {
-        if (
-          FieldController.recording
-        ) {
-          FieldController.pauseRecording();
-        } else {
-          FieldController.startRecording();
-        }
+    useCallback(
+      () => {
+        try {
+          if (
+            FieldController.recording
+          ) {
+            FieldController.pauseRecording();
+          } else {
+            FieldController.startRecording();
+          }
 
-        setFieldState(
-          FieldController.getState(),
-        );
-      } catch (error) {
-        ErrorManager.report(
-          'field',
-          error,
-          {
-            operation:
-              'toggleRecording',
-          },
-        );
-      }
-    }, []);
+          setFieldState(
+            FieldController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'toggleRecording',
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
+  /**
+   * Finaliza somente o trilho atual.
+   *
+   * O Modo Campo e o GPS permanecem ativos para:
+   * - iniciar outro trilho;
+   * - registrar pontos independentes;
+   * - consultar a posição atual.
+   */
+  const finishFieldTrail =
+    useCallback(
+      async () => {
+        try {
+          await FieldController.stopRecording();
+
+          setFieldState(
+            FieldController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'finishFieldTrail',
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
 
   const addFieldPoint =
     useCallback(
       (
         label,
         observation,
+        options =
+          {},
       ) => {
         try {
-          FieldController.addPoint(
-            label,
-            observation,
-          );
+          const point =
+            FieldController.addPoint(
+              label,
+              observation,
+              options,
+            );
 
           setFieldState(
             FieldController.getState(),
           );
+
+          return point;
         } catch (error) {
           ErrorManager.report(
             'field',
@@ -1261,6 +1310,7 @@ export function useGeoFogo() {
     startFieldMode,
     stopFieldMode,
     toggleRecording,
+    finishFieldTrail,
     addFieldPoint,
     closePopup,
 

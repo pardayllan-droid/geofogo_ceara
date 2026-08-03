@@ -127,6 +127,7 @@ export default function AppShell({
   startFieldMode,
   stopFieldMode,
   toggleRecording,
+  finishFieldTrail,
   addFieldPoint,
   closePopup,
 }) {
@@ -299,6 +300,7 @@ export default function AppShell({
     startFieldMode,
     stopFieldMode,
     toggleRecording,
+    finishFieldTrail,
     addFieldPoint,
     openAlertsPanel,
   };
@@ -1350,7 +1352,26 @@ function renderPanel(
         />
       );
 
-    case 'field':
+    <FieldModePanel
+      fieldState={
+        props.fieldState
+      }
+      onStart={
+        props.startFieldMode
+      }
+      onStop={
+        props.stopFieldMode
+      }
+      onToggleRecord={
+        props.toggleRecording
+      }
+      onFinishTrail={
+        props.finishFieldTrail
+      }
+      onAddPoint={
+        props.addFieldPoint
+      }
+    />
       return (
         <FieldModePanel
           fieldState={
@@ -1364,6 +1385,9 @@ function renderPanel(
           }
           onToggleRecord={
             props.toggleRecording
+          }
+          onFinishTrail={
+            props.finishFieldTrail
           }
           onAddPoint={
             props.addFieldPoint
