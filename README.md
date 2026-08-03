@@ -1160,3 +1160,26 @@ Versão 1.0 (em desenvolvimento)
 pkill -f vite
 pkill -f node
 npm run dev
+
+probable-zebra-5vggvv4v794r2vg5p
+echo "https://probable-zebra-5vggvv4v794r2vg5p-5173.app.github.dev"
+
+pkill -f vite || true
+gh codespace ports unforward 5173 -c "https://probable-zebra-5vggvv4v794r2vg5p-5173.app.github.dev" 2>/dev/null || true
+npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
+
+gh codespace ports forward 5173:5173 -c "https://probable-zebra-5vggvv4v794r2vg5p-5173.app.github.dev"
+gh codespace ports visibility 5173:public -c "https://probable-zebra-5vggvv4v794r2vg5p-5173.app.github.dev"
+gh codespace ports
+
+curl --get \
+  "https://panorama.sipam.gov.br/geoserver/painel_do_fogo/ows" \
+  --data-urlencode "service=WFS" \
+  --data-urlencode "version=1.0.0" \
+  --data-urlencode "request=GetFeature" \
+  --data-urlencode "typeName=painel_do_fogo:mv_evento_filtro" \
+  --data-urlencode "outputFormat=application/json" \
+  --data-urlencode "srsName=EPSG:4326" \
+  --data-urlencode "cql_filter=mv_evento_filtro.sigla_uf ILIKE '%CE%'" \
+  --data-urlencode "maxFeatures=500" \
+  --output /tmp/eventos-ce-cql.json

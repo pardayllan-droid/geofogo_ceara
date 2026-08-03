@@ -1259,19 +1259,131 @@ class AppCoreImpl {
       }
     }
 
-    const threatenedConservationUnits =
+    /**
+     * Áreas Sensíveis que possuem ao menos um alerta ativo.
+     */
+    const threatenedSensitiveAreaIds =
       new Set(
-        alerts.map(
-          (alert) =>
-            alert.ucId,
-        ),
+        alerts
+          .map(
+            (alert) =>
+              alert.sensitiveAreaId ??
+              alert.ucId ??
+              null,
+          )
+          .filter(
+            (value) =>
+              value !== null &&
+              value !== undefined,
+          ),
       );
 
-    const eventsInConservationUnits =
-      alerts.filter(
-        (alert) =>
-          alert.intersects,
-      ).length;
+    /**
+     * Eventos distintos que intersectam alguma Área Sensível.
+     *
+     * Contamos eventos, e não alertas, porque um mesmo evento
+     * pode intersectar mais de uma área.
+     */
+    const eventsInsideSensitiveAreaIds =
+      new Set(
+        alerts
+          .filter(
+            (alert) =>
+              alert.intersects,
+          )
+          .map(
+            (alert) =>
+              alert.eventId,
+          )
+          .filter(
+            (value) =>
+              value !== null &&
+              value !== undefined,
+          ),
+      );
+
+    /**
+     * Quantidade de alertas por tipo de Área Sensível.
+     */
+    const alertsBySensitiveAreaType =
+      {};
+
+    for (
+      const alert
+      of alerts
+    ) {
+      const type =
+        alert.sensitiveAreaType ||
+        'other';
+
+      alertsBySensitiveAreaType[type] =
+        (
+          alertsBySensitiveAreaType[
+            type
+          ] ||
+          0
+        ) +
+        1;
+    }
+
+    /**
+     * Quantidade de Áreas Sensíveis ameaçadas por tipo.
+     */
+    const threatenedSensitiveAreaIdsByType =
+      {};
+
+    for (
+      const alert
+      of alerts
+    ) {
+      const type =
+        alert.sensitiveAreaType ||
+        'other';
+
+      const sensitiveAreaId =
+        alert.sensitiveAreaId ??
+        alert.ucId ??
+        null;
+
+      if (
+        sensitiveAreaId === null ||
+        sensitiveAreaId === undefined
+      ) {
+        continue;
+      }
+
+      if (
+        !threatenedSensitiveAreaIdsByType[
+          type
+        ]
+      ) {
+        threatenedSensitiveAreaIdsByType[
+          type
+        ] =
+          new Set();
+      }
+
+      threatenedSensitiveAreaIdsByType[
+        type
+      ].add(
+        sensitiveAreaId,
+      );
+    }
+
+    const threatenedSensitiveAreasByType =
+      Object.fromEntries(
+        Object.entries(
+          threatenedSensitiveAreaIdsByType,
+        ).map(
+          ([
+            type,
+            ids,
+          ]) => [
+            type,
+            ids.size,
+          ],
+        ),
+      );
 
     const largestEvent =
       events.length
@@ -1319,11 +1431,53 @@ class AppCoreImpl {
       ucsCount:
         conservationUnits.length,
 
+      /**
+       * Campos definitivos.
+       */
+      threatenedSensitiveAreas:
+        threatenedSensitiveAreaIds.size,
+
+      eventsInSensitiveAreas:
+        eventsInsideSensitiveAreaIds.size,
+
+      alertsBySensitiveAreaType,
+
+      threatenedSensitiveAreasByType,
+
+      /**
+       * Campos legados mantidos temporariamente.
+       *
+       * Agora eles representam somente Unidades de Conservação,
+       * e não o total de todas as Áreas Sensíveis.
+       */
       threatenedUCs:
-        threatenedConservationUnits.size,
+        threatenedSensitiveAreasByType[
+          'conservation-unit'
+        ] ||
+        0,
 
       eventsInUCs:
-        eventsInConservationUnits,
+        new Set(
+          alerts
+            .filter(
+              (alert) =>
+                alert.intersects &&
+                (
+                  alert.sensitiveAreaType ??
+                  'conservation-unit'
+                ) ===
+                  'conservation-unit',
+            )
+            .map(
+              (alert) =>
+                alert.eventId,
+            )
+            .filter(
+              (value) =>
+                value !== null &&
+                value !== undefined,
+            ),
+        ).size,
 
       alertsCount:
         alerts.length,
