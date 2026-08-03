@@ -177,6 +177,7 @@ export default function AppShell({
     stopFieldMode,
     toggleRecording,
     addFieldPoint,
+    openAlertsPanel,
   };
 
   function openDesktopPanel(
@@ -205,6 +206,24 @@ export default function AppShell({
     setActivePanel('diagnostic');
     setDesktopPanelOpen(true);
     setMobilePanelOpen(true);
+  }
+
+  function openAlertsPanel() {
+    setActivePanel(
+      'alerts',
+    );
+
+    /**
+     * No desktop, abre o painel lateral.
+     * No celular/tablet, mantém a gaveta aberta.
+     */
+    setDesktopPanelOpen(
+      true,
+    );
+
+    setMobilePanelOpen(
+      true,
+    );
   }
 
   return (
@@ -610,13 +629,20 @@ function renderPanel(
     case 'stats':
       return (
         <StatsPanel
-          stats={props.stats}
-          online={props.online}
+          stats={
+            props.stats
+          }
+          online={
+            props.online
+          }
           syncing={
             props.syncing
           }
+          onOpenAlerts={
+            props.openAlertsPanel
+          }
         />
-      );
+      );;
 
     case 'field':
       return (
