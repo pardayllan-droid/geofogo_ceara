@@ -27,7 +27,7 @@ import {
 
 import {
   formatDistance,
-  formatArea,
+  formatAreaHectares,
 } from '../../utils/formatters';
 
 import {
@@ -361,10 +361,9 @@ export default function AlertPanel({
                               )}
                         </span>
 
-                        {alert.eventArea >
-                          0 && (
+                        {alert.eventArea > 0 && (
                           <span>
-                            {formatArea(
+                            {formatAreaHectares(
                               alert.eventArea,
                             )}
                           </span>

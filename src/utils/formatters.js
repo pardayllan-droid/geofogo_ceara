@@ -27,6 +27,50 @@ export function formatArea(km2) {
   )} km²`;
 }
 
+/**
+ * Formata uma área em hectares.
+ *
+ * O valor recebido deve estar em quilômetros quadrados,
+ * que é a unidade retornada por computeArea().
+ *
+ * 1 km² = 100 hectares.
+ */
+export function formatAreaHectares(
+  squareKilometers,
+) {
+  const numeric =
+    Number(
+      squareKilometers,
+    );
+
+  if (
+    !Number.isFinite(
+      numeric,
+    )
+  ) {
+    return '—';
+  }
+
+  const hectares =
+    numeric * 100;
+
+  return `${hectares.toLocaleString(
+    'pt-BR',
+    {
+      minimumFractionDigits:
+        hectares > 0 &&
+        hectares < 1
+          ? 2
+          : 0,
+
+      maximumFractionDigits:
+        hectares < 10
+          ? 2
+          : 1,
+    },
+  )} ha`;
+}
+
 export function formatDistance(
   meters,
 ) {

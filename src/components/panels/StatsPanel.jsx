@@ -47,7 +47,7 @@ import {
 } from '../../core/EventBus';
 
 import {
-  formatArea,
+  formatAreaHectares,
   formatNumber,
 } from '../../utils/formatters';
 
@@ -535,7 +535,7 @@ export default function StatsPanel({
         <InteractiveCard
           icon={Maximize}
           label="Área total afetada"
-          value={formatArea(
+          value={formatAreaHectares(
             stats.totalArea,
           )}
           color="#f97316"
@@ -562,7 +562,7 @@ export default function StatsPanel({
           <InteractiveCard
             icon={LocateFixed}
             label="Maior evento"
-            value={formatArea(
+            value={formatAreaHectares(
               stats
                 .largestEvent
                 .area,
@@ -736,7 +736,7 @@ function EventDrawer({
                       null && (
                       <span>
                         Área:{' '}
-                        {formatArea(
+                        {formatAreaHectares(
                           area,
                         )}
                       </span>

@@ -39,6 +39,7 @@ import {
   Wifi,
   WifiOff,
   XCircle,
+  Gauge,
 } from 'lucide-react';
 
 import {
@@ -63,6 +64,7 @@ import {
 } from '../../layers/LayerManager';
 
 import DiagnosticPanel from './DiagnosticPanel';
+import { Perf } from '../../utils/PerformanceMonitor';
 
 const AUTO_REFRESH_INTERVAL_MS =
   15000;
@@ -395,6 +397,38 @@ function collectSummary({
           1000
       : null;
 
+  const performanceSteps =
+    Perf.getSteps?.() ||
+    [];
+
+  const performanceTotalMs =
+    Perf.getElapsedMs?.() ||
+    0;
+
+  const synchronizationStep =
+    performanceSteps.find(
+      (step) =>
+        step.name ===
+        'Sincronização remota completa',
+    ) ||
+    null;
+
+  const alertsStep =
+    performanceSteps.find(
+      (step) =>
+        step.name ===
+        'Alertas: cálculo espacial',
+    ) ||
+    null;
+
+  const cacheStep =
+    performanceSteps.find(
+      (step) =>
+        step.name ===
+        'Carregamento do cache',
+    ) ||
+    null;
+
   return {
     collectedAt:
       new Date(),
@@ -431,6 +465,29 @@ function collectSummary({
       lastUpdated,
 
       nextDynamicRefresh,
+    },
+
+    performance: {
+      totalMs:
+        performanceTotalMs,
+
+      synchronizationMs:
+        synchronizationStep
+          ?.elapsedMs ??
+        null,
+
+      alertsMs:
+        alertsStep
+          ?.elapsedMs ??
+        null,
+
+      cacheMs:
+        cacheStep
+          ?.elapsedMs ??
+        null,
+
+      steps:
+        performanceSteps,
     },
 
     cache:
@@ -649,6 +706,47 @@ function formatNumber(
         digits,
     },
   );
+}
+
+function formatPerformanceDuration(
+  value,
+) {
+  const milliseconds =
+    Number(
+      value,
+    );
+
+  if (
+    !Number.isFinite(
+      milliseconds,
+    ) ||
+    milliseconds < 0
+  ) {
+    return 'Não disponível';
+  }
+
+  if (
+    milliseconds <
+    1000
+  ) {
+    return `${Math.round(
+      milliseconds,
+    )} ms`;
+  }
+
+  return `${(
+    milliseconds /
+    1000
+  ).toLocaleString(
+    'pt-BR',
+    {
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2,
+    },
+  )} s`;
 }
 
 function getStatusAppearance(
@@ -1019,6 +1117,72 @@ export default function DiagnosticDashboard({
               estáticas seguem a validade definida no CachePolicy.
             </p>
           </section>
+
+          <AccordionSection
+            title="Desempenho"
+            icon={Gauge}
+            defaultOpen
+          >
+            {summary.performance
+              .steps.length ===
+            0 ? (
+              <div className="rounded-lg bg-muted/40 px-3 py-3 text-xs text-muted-foreground">
+                Nenhuma medição de desempenho disponível. Execute uma sincronização para
+                gerar os dados.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <PerformanceMetric
+                    label="Tempo total"
+                    value={formatPerformanceDuration(
+                      summary.performance
+                        .totalMs,
+                    )}
+                  />
+
+                  <PerformanceMetric
+                    label="Sincronização"
+                    value={formatPerformanceDuration(
+                      summary.performance
+                        .synchronizationMs,
+                    )}
+                  />
+
+                  <PerformanceMetric
+                    label="Alertas"
+                    value={formatPerformanceDuration(
+                      summary.performance
+                        .alertsMs,
+                    )}
+                  />
+
+                  <PerformanceMetric
+                    label="Cache"
+                    value={formatPerformanceDuration(
+                      summary.performance
+                        .cacheMs,
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  {summary.performance
+                    .steps.map(
+                      (
+                        step,
+                        index,
+                      ) => (
+                        <PerformanceStepRow
+                          key={`${step.name}-${index}`}
+                          step={step}
+                        />
+                      ),
+                    )}
+                </div>
+              </div>
+            )}
+          </AccordionSection>
 
           <section className="rounded-xl border border-border bg-card p-3 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
@@ -1602,6 +1766,68 @@ function RuntimeRow({
           renderizadas
         </p>
       </div>
+    </div>
+  );
+}
+
+function PerformanceMetric({
+  label,
+  value,
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/35 p-2.5">
+      <p className="text-[10px] text-muted-foreground">
+        {label}
+      </p>
+
+      <p className="mt-1 text-sm font-bold">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function PerformanceStepRow({
+  step,
+}) {
+  const details =
+    step?.metadata &&
+    typeof step.metadata ===
+      'object'
+      ? Object.entries(
+          step.metadata,
+        )
+          .map(
+            ([
+              key,
+              value,
+            ]) =>
+              `${key}: ${value}`,
+          )
+          .join(
+            ' · ',
+          )
+      : null;
+
+  return (
+    <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 truncate text-[11px] font-medium">
+          {step.name}
+        </span>
+
+        <span className="shrink-0 text-[11px] font-semibold">
+          {formatPerformanceDuration(
+            step.elapsedMs,
+          )}
+        </span>
+      </div>
+
+      {details && (
+        <p className="mt-1 break-words text-[9px] text-muted-foreground">
+          {details}
+        </p>
+      )}
     </div>
   );
 }

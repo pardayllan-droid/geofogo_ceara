@@ -236,3 +236,34 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/**
+ * Barra indeterminada de sincronização.
+ *
+ * A aplicação não conhece antecipadamente o tempo total,
+ * portanto a barra indica atividade, não porcentagem.
+ */
+@keyframes geofogo-sync-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(310%);
+  }
+}
+
+.geofogo-sync-progress {
+  animation:
+    geofogo-sync-progress
+    1.15s
+    ease-in-out
+    infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geofogo-sync-progress {
+    animation-duration:
+      2.5s;
+  }
+}

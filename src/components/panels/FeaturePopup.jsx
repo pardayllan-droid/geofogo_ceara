@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 import {
-  formatArea,
+  formatAreaHectares,
   formatCoords,
   formatDistance,
   formatHumidity,
@@ -667,7 +667,12 @@ export default function FeaturePopup({
           )}
 
           {fireEvent && (
-            <div className="mt-4 border-t border-border pt-3">
+            <div className="mt-4 space-y-3 border-t border-border pt-3">
+              <EventGeometryPreview
+                feature={
+                  feature
+                }
+              />
               <button
                 type="button"
                 onClick={
@@ -690,6 +695,383 @@ export default function FeaturePopup({
         </div>
       </section>
     </>
+  );
+}
+
+/**
+ * Converte a geometria Polygon ou MultiPolygon em
+ * uma lista uniforme de polígonos.
+ *
+ * Estrutura retornada:
+ * [
+ *   [
+ *     ringExterior,
+ *     ringInterno,
+ *   ],
+ * ]
+ */
+function getPreviewPolygons(
+  feature,
+) {
+  const geometry =
+    feature?.geometry;
+
+  if (
+    !geometry ||
+    !Array.isArray(
+      geometry.coordinates,
+    )
+  ) {
+    return [];
+  }
+
+  if (
+    geometry.type ===
+    'Polygon'
+  ) {
+    return [
+      geometry.coordinates,
+    ];
+  }
+
+  if (
+    geometry.type ===
+    'MultiPolygon'
+  ) {
+    return geometry.coordinates;
+  }
+
+  return [];
+}
+
+/**
+ * Monta um caminho SVG normalizado para que qualquer
+ * evento caiba dentro da área de pré-visualização.
+ */
+function createEventPreviewPath(
+  feature,
+  width = 320,
+  height = 150,
+  padding = 14,
+) {
+  const polygons =
+    getPreviewPolygons(
+      feature,
+    );
+
+  if (
+    polygons.length ===
+    0
+  ) {
+    return null;
+  }
+
+  let bounds;
+
+  try {
+    bounds =
+      turf.bbox(
+        feature,
+      );
+  } catch {
+    return null;
+  }
+
+  const [
+    minLongitude,
+    minLatitude,
+    maxLongitude,
+    maxLatitude,
+  ] =
+    bounds;
+
+  const geometryWidth =
+    maxLongitude -
+    minLongitude;
+
+  const geometryHeight =
+    maxLatitude -
+    minLatitude;
+
+  if (
+    !Number.isFinite(
+      geometryWidth,
+    ) ||
+    !Number.isFinite(
+      geometryHeight,
+    )
+  ) {
+    return null;
+  }
+
+  const availableWidth =
+    Math.max(
+      1,
+      width -
+      padding * 2,
+    );
+
+  const availableHeight =
+    Math.max(
+      1,
+      height -
+      padding * 2,
+    );
+
+  const safeGeometryWidth =
+    Math.max(
+      geometryWidth,
+      Number.EPSILON,
+    );
+
+  const safeGeometryHeight =
+    Math.max(
+      geometryHeight,
+      Number.EPSILON,
+    );
+
+  const scale =
+    Math.min(
+      availableWidth /
+        safeGeometryWidth,
+
+      availableHeight /
+        safeGeometryHeight,
+    );
+
+  const renderedWidth =
+    geometryWidth *
+    scale;
+
+  const renderedHeight =
+    geometryHeight *
+    scale;
+
+  const horizontalOffset =
+    (
+      width -
+      renderedWidth
+    ) /
+    2;
+
+  const verticalOffset =
+    (
+      height -
+      renderedHeight
+    ) /
+    2;
+
+  function projectCoordinate(
+    coordinate,
+  ) {
+    if (
+      !Array.isArray(
+        coordinate,
+      ) ||
+      coordinate.length <
+        2
+    ) {
+      return null;
+    }
+
+    const longitude =
+      Number(
+        coordinate[0],
+      );
+
+    const latitude =
+      Number(
+        coordinate[1],
+      );
+
+    if (
+      !Number.isFinite(
+        longitude,
+      ) ||
+      !Number.isFinite(
+        latitude,
+      )
+    ) {
+      return null;
+    }
+
+    const x =
+      horizontalOffset +
+      (
+        longitude -
+        minLongitude
+      ) *
+        scale;
+
+    /**
+     * O eixo vertical do SVG cresce para baixo,
+     * portanto a latitude é invertida.
+     */
+    const y =
+      verticalOffset +
+      (
+        maxLatitude -
+        latitude
+      ) *
+        scale;
+
+    return [
+      x,
+      y,
+    ];
+  }
+
+  const pathParts =
+    [];
+
+  for (
+    const polygon
+    of polygons
+  ) {
+    for (
+      const ring
+      of polygon
+    ) {
+      if (
+        !Array.isArray(
+          ring,
+        ) ||
+        ring.length <
+          3
+      ) {
+        continue;
+      }
+
+      const projectedRing =
+        ring
+          .map(
+            projectCoordinate,
+          )
+          .filter(
+            Boolean,
+          );
+
+      if (
+        projectedRing.length <
+        3
+      ) {
+        continue;
+      }
+
+      const [
+        firstPoint,
+        ...remainingPoints
+      ] =
+        projectedRing;
+
+      pathParts.push(
+        `M ${firstPoint[0].toFixed(
+          2,
+        )} ${firstPoint[1].toFixed(
+          2,
+        )}`,
+      );
+
+      for (
+        const point
+        of remainingPoints
+      ) {
+        pathParts.push(
+          `L ${point[0].toFixed(
+            2,
+          )} ${point[1].toFixed(
+            2,
+          )}`,
+        );
+      }
+
+      pathParts.push(
+        'Z',
+      );
+    }
+  }
+
+  if (
+    pathParts.length ===
+    0
+  ) {
+    return null;
+  }
+
+  return pathParts.join(
+    ' ',
+  );
+}
+
+/**
+ * Pré-visualização vetorial do evento.
+ *
+ * Não usa mapa-base nem cria outra instância do MapLibre.
+ * A geometria é desenhada diretamente em SVG.
+ */
+function EventGeometryPreview({
+  feature,
+}) {
+  const width =
+    320;
+
+  const height =
+    150;
+
+  const path =
+    useMemo(
+      () =>
+        createEventPreviewPath(
+          feature,
+          width,
+          height,
+        ),
+      [
+        feature,
+      ],
+    );
+
+  if (!path) {
+    return (
+      <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-3 text-center text-[11px] text-muted-foreground">
+        Prévia geométrica indisponível.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
+      <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+        <span className="text-[11px] font-semibold">
+          Evento 
+        </span>
+
+        <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+          Prévia
+        </span>
+      </div>
+
+      <div className="p-2">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="block h-36 w-full"
+          role="img"
+          aria-label="Pré-visualização da geometria do evento de fogo"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <path
+            d={path}
+            fill="#ef4444"
+            fillOpacity="0.24"
+            stroke="#dc2626"
+            strokeWidth="2.5"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+            fillRule="evenodd"
+          />
+        </svg>
+      </div>
+    </div>
   );
 }
 
@@ -753,7 +1135,7 @@ function FireEventDetails({
 
       <DetailRow
         label="Área"
-        value={formatArea(
+        value={formatAreaHectares(
           area,
         )}
       />

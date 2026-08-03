@@ -37,6 +37,7 @@ import {
   Settings,
   Wifi,
   WifiOff,
+  X,
 } from 'lucide-react';
 
 import MapView from '../../map/MapView';
@@ -142,6 +143,22 @@ export default function AppShell({
     setMobilePanelOpen,
   ] = useState(false);
 
+  const [
+  showSyncSuccess,
+  setShowSyncSuccess,
+  ] = useState(false);
+
+  const [
+    startupAlertVisible,
+    setStartupAlertVisible,
+  ] = useState(false);
+
+  const startupAlertEvaluatedRef =
+    useRef(false);
+
+  const previousSyncingRef =
+    useRef(syncing);
+
   useEffect(() => {
     const timer =
       window.setTimeout(
@@ -158,6 +175,95 @@ export default function AppShell({
     };
   }, [desktopPanelOpen]);
 
+  /**
+   * Mostra uma confirmação temporária quando uma
+   * sincronização termina com sucesso.
+   */
+  useEffect(
+    () => {
+      const wasSyncing =
+        previousSyncingRef.current;
+
+      previousSyncingRef.current =
+        syncing;
+
+      if (
+        !wasSyncing ||
+        syncing ||
+        syncState !==
+          'success'
+      ) {
+        return undefined;
+      }
+
+      setShowSyncSuccess(
+        true,
+      );
+
+      const timer =
+        window.setTimeout(
+          () => {
+            setShowSyncSuccess(
+              false,
+            );
+          },
+          3000,
+        );
+
+      return () => {
+        window.clearTimeout(
+          timer,
+        );
+      };
+    },
+    [
+      syncing,
+      syncState,
+    ],
+  );
+
+  /**
+   * Exibe um aviso uma única vez por abertura da aplicação
+   * quando existirem alertas ativos.
+   *
+   * Aguarda o término da sincronização inicial para evitar
+   * mostrar uma contagem antiga e logo em seguida alterá-la.
+   */
+  useEffect(
+    () => {
+      if (
+        !ready ||
+        syncing ||
+        startupAlertEvaluatedRef.current
+      ) {
+        return;
+      }
+
+      startupAlertEvaluatedRef.current =
+        true;
+
+      const activeAlerts =
+        Number(
+          stats?.alertsCount,
+        ) ||
+        0;
+
+      if (
+        activeAlerts >
+        0
+      ) {
+        setStartupAlertVisible(
+          true,
+        );
+      }
+    },
+    [
+      ready,
+      syncing,
+      stats?.alertsCount,
+    ],
+  );
+  
   if (!ready) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-background">
@@ -298,9 +404,34 @@ export default function AppShell({
         </div>
       </header>
 
-      {syncMessage && syncing && (
-        <div className="relative z-40 flex-shrink-0 border-b border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-center text-[11px] text-amber-700 dark:text-amber-300">
-          {syncMessage}
+      {syncing && (
+        <div className="relative z-40 flex-shrink-0 overflow-hidden border-b border-amber-500/20 bg-amber-500/10">
+          <div className="flex min-h-8 items-center justify-center gap-2 px-3 py-1.5 text-center text-[11px] text-amber-700 dark:text-amber-300">
+            <RefreshCw className="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+
+            <span className="truncate">
+              {syncMessage ||
+                'Atualizando dados...'}
+            </span>
+          </div>
+
+          <div className="h-0.5 w-full overflow-hidden bg-amber-500/15">
+            <div className="geofogo-sync-progress h-full w-1/3 bg-amber-500" />
+          </div>
+        </div>
+      )}
+
+      {showSyncSuccess && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="relative z-40 flex min-h-8 flex-shrink-0 items-center justify-center gap-2 border-b border-green-500/20 bg-green-500/10 px-3 py-1.5 text-center text-[11px] text-green-700 dark:text-green-300"
+        >
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white">
+            ✓
+          </span>
+
+          Dados atualizados com sucesso
         </div>
       )}
 
@@ -316,6 +447,89 @@ export default function AppShell({
         </button>
       )}
 
+      {startupAlertVisible &&
+        Number(
+          stats?.alertsCount,
+        ) > 0 && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="
+              relative z-40
+              flex flex-shrink-0
+              items-start gap-3
+              border-b border-red-500/30
+              bg-red-500/10
+              px-3 py-2.5
+              text-red-800
+              dark:text-red-200
+            "
+          >
+            <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-red-500/15">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold">
+                {stats.alertsCount}{' '}
+                {stats.alertsCount === 1
+                  ? 'alerta ativo'
+                  : 'alertas ativos'}
+              </p>
+
+              <p className="mt-0.5 text-[10px] text-red-700/80 dark:text-red-200/80">
+                Existem eventos próximos ou dentro de Áreas Sensíveis.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStartupAlertVisible(
+                    false,
+                  );
+
+                  openAlertsPanel();
+                }}
+                className="
+                  mt-1.5
+                  rounded-md
+                  bg-red-600
+                  px-2.5 py-1
+                  text-[10px] font-semibold
+                  text-white
+                  transition-colors
+                  hover:bg-red-700
+                "
+              >
+                Ver alertas
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setStartupAlertVisible(
+                  false,
+                )
+              }
+              aria-label="Fechar aviso de alertas"
+              title="Fechar aviso"
+              className="
+                flex h-7 w-7
+                flex-shrink-0
+                items-center justify-center
+                rounded-md
+                text-red-700
+                transition-colors
+                hover:bg-red-500/15
+                dark:text-red-200
+              "
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <main className="geofogo-map-region relative min-w-0 flex-1">
           <MapView
@@ -328,6 +542,12 @@ export default function AppShell({
             }
             panelOpen={
               desktopPanelOpen
+            }
+            alertsCount={
+              Number(
+                stats?.alertsCount,
+              ) ||
+              0
             }
             onSelect={
               openDesktopPanel
@@ -388,6 +608,12 @@ export default function AppShell({
           panelOpen={
             mobilePanelOpen
           }
+          alertsCount={
+            Number(
+              stats?.alertsCount,
+            ) ||
+            0
+          }
           onSelect={
             toggleMobilePanel
           }
@@ -409,6 +635,7 @@ export default function AppShell({
 function DesktopNavigation({
   activePanel,
   panelOpen,
+  alertsCount,
   onSelect,
 }) {
   return (
@@ -449,7 +676,32 @@ function DesktopNavigation({
             }
             aria-pressed={active}
           >
-            <Icon className="h-4 w-4" />
+            <div className="relative">
+              <Icon className="h-4 w-4" />
+
+              {panel.id ===
+                'alerts' &&
+                alertsCount > 0 && (
+                  <span
+                    className="
+                      absolute -right-2.5 -top-2.5
+                      flex min-h-4 min-w-4
+                      items-center justify-center
+                      rounded-full
+                      bg-red-600
+                      px-1
+                      text-[8px] font-bold
+                      leading-none text-white
+                      ring-2 ring-card
+                    "
+                    aria-label={`${alertsCount} alertas ativos`}
+                  >
+                    {alertsCount > 99
+                      ? '99+'
+                      : alertsCount}
+                  </span>
+                )}
+            </div>
           </button>
         );
       })}
@@ -968,6 +1220,7 @@ function MobilePanel({
 function BottomNavigation({
   activePanel,
   panelOpen,
+  alertsCount,
   onSelect,
 }) {
   return (
@@ -1008,13 +1261,38 @@ function BottomNavigation({
               <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-amber-500" />
             )}
 
-            <Icon
-              className={`h-[18px] w-[18px] ${
-                active
-                  ? 'stroke-[2.5]'
-                  : ''
-              }`}
-            />
+            <div className="relative">
+              <Icon
+                className={`h-[18px] w-[18px] ${
+                  active
+                    ? 'stroke-[2.5]'
+                    : ''
+                }`}
+              />
+
+              {panel.id ===
+                'alerts' &&
+                alertsCount > 0 && (
+                  <span
+                    className="
+                      absolute -right-2.5 -top-2.5
+                      flex min-h-4 min-w-4
+                      items-center justify-center
+                      rounded-full
+                      bg-red-600
+                      px-1
+                      text-[8px] font-bold
+                      leading-none text-white
+                      ring-2 ring-card
+                    "
+                    aria-label={`${alertsCount} alertas ativos`}
+                  >
+                    {alertsCount > 99
+                      ? '99+'
+                      : alertsCount}
+                  </span>
+                )}
+            </div>
 
             <span className="w-full truncate text-center text-[9px] font-medium leading-none">
               {panel.label}
