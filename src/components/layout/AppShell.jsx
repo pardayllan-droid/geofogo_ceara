@@ -1323,14 +1323,18 @@ function renderPanel(
           onOpacity={
             props.setLayerOpacity
           }
-          onSync={props.sync}
+          onSync={
+            props.sync
+          }
         />
       );
 
     case 'alerts':
       return (
         <AlertPanel
-          alerts={props.alerts}
+          alerts={
+            props.alerts
+          }
         />
       );
 
@@ -1352,26 +1356,7 @@ function renderPanel(
         />
       );
 
-    <FieldModePanel
-      fieldState={
-        props.fieldState
-      }
-      onStart={
-        props.startFieldMode
-      }
-      onStop={
-        props.stopFieldMode
-      }
-      onToggleRecord={
-        props.toggleRecording
-      }
-      onFinishTrail={
-        props.finishFieldTrail
-      }
-      onAddPoint={
-        props.addFieldPoint
-      }
-    />
+    case 'field':
       return (
         <FieldModePanel
           fieldState={
@@ -1420,7 +1405,9 @@ function renderPanel(
     case 'diagnostic':
       return (
         <DiagnosticDashboard
-          onSync={props.sync}
+          onSync={
+            props.sync
+          }
           syncing={
             props.syncing
           }
