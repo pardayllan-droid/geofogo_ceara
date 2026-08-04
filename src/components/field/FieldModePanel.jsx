@@ -24,11 +24,9 @@ import {
   Download,
   FileText,
   Gauge,
-  MapPin,
   Navigation,
   Pause,
   Play,
-  Plus,
   Radio,
   Route,
   Satellite,
@@ -47,64 +45,8 @@ import {
 } from '../../field/FieldController';
 
 import {
-  FIELD_POINT_CATEGORY,
-} from '../../field/FieldPointModel';
-
-import {
   formatDistance,
 } from '../../utils/formatters';
-
-const CATEGORY_OPTIONS = [
-  {
-    value:
-      FIELD_POINT_CATEGORY.ACTIVE_FIRE,
-
-    label:
-      'Foco ativo',
-  },
-  {
-    value:
-      FIELD_POINT_CATEGORY.VEHICLE,
-
-    label:
-      'Viatura',
-  },
-  {
-    value:
-      FIELD_POINT_CATEGORY.WATER_SOURCE,
-
-    label:
-      'Fonte d’água',
-  },
-  {
-    value:
-      FIELD_POINT_CATEGORY.BLOCKAGE,
-
-    label:
-      'Bloqueio',
-  },
-  {
-    value:
-      FIELD_POINT_CATEGORY.RISK,
-
-    label:
-      'Risco',
-  },
-  {
-    value:
-      FIELD_POINT_CATEGORY.SERVICE,
-
-    label:
-      'Atendimento',
-  },
-  {
-    value:
-      FIELD_POINT_CATEGORY.OBSERVATION,
-
-    label:
-      'Observação',
-  },
-];
 
 function formatDuration(
   milliseconds,
@@ -272,33 +214,6 @@ export default function FieldModePanel({
   onFinishTrail,
   onAddPoint,
 }) {
-  const [
-    observation,
-    setObservation,
-  ] = useState(
-    '',
-  );
-
-  const [
-    label,
-    setLabel,
-  ] = useState(
-    '',
-  );
-
-  const [
-    category,
-    setCategory,
-  ] = useState(
-    FIELD_POINT_CATEGORY.OBSERVATION,
-  );
-
-  const [
-    linkToActiveTrail,
-    setLinkToActiveTrail,
-  ] = useState(
-    true,
-  );
 
   const [
     actionError,
@@ -502,50 +417,6 @@ export default function FieldModePanel({
       setActionError(
         error?.message ||
           'Não foi possível finalizar o trilho.',
-      );
-    }
-  }
-
-  function handleAddPoint() {
-    setActionError(
-      null,
-    );
-
-    setActionMessage(
-      null,
-    );
-
-    try {
-      onAddPoint(
-        label,
-        observation,
-        {
-          category,
-
-          linkToActiveTrail:
-            linkToActiveTrail &&
-            trailOpen,
-        },
-      );
-
-      setLabel(
-        '',
-      );
-
-      setObservation(
-        '',
-      );
-
-      setActionMessage(
-        linkToActiveTrail &&
-          trailOpen
-          ? 'Ponto salvo e vinculado ao trilho.'
-          : 'Ponto independente salvo.',
-      );
-    } catch (error) {
-      setActionError(
-        error?.message ||
-          'Não foi possível adicionar o ponto.',
       );
     }
   }
@@ -828,120 +699,17 @@ export default function FieldModePanel({
           }
         />
 
-        <div className="rounded-xl border border-border bg-card p-3">
-          <div className="mb-3 flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-blue-600" />
-
-            <div>
-              <p className="text-xs font-semibold">
-                Novo ponto
-              </p>
-
-              <p className="text-[10px] text-muted-foreground">
-                Utiliza sua posição GPS atual
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <select
-              value={
-                category
-              }
-              onChange={(event) =>
-                setCategory(
-                  event.target.value,
-                )
-              }
-              className="w-full rounded-md border border-border bg-background px-2.5 py-2 text-xs"
-            >
-              {CATEGORY_OPTIONS.map(
-                (option) => (
-                  <option
-                    key={
-                      option.value
-                    }
-                    value={
-                      option.value
-                    }
-                  >
-                    {option.label}
-                  </option>
-                ),
-              )}
-            </select>
-
-            <input
-              type="text"
-              placeholder="Nome ou rótulo do ponto"
-              value={
-                label
-              }
-              onChange={(event) =>
-                setLabel(
-                  event.target.value,
-                )
-              }
-              className="w-full rounded-md border border-border bg-background px-2.5 py-2 text-xs"
-            />
-
-            <textarea
-              placeholder="Observação"
-              value={
-                observation
-              }
-              onChange={(event) =>
-                setObservation(
-                  event.target.value,
-                )
-              }
-              rows={2}
-              className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-2 text-xs"
-            />
-
-            <label className="flex items-start gap-2 rounded-md bg-accent/30 px-2.5 py-2">
-              <input
-                type="checkbox"
-                checked={
-                  linkToActiveTrail
-                }
-                disabled={
-                  !trailOpen
-                }
-                onChange={(event) =>
-                  setLinkToActiveTrail(
-                    event.target.checked,
-                  )
-                }
-                className="mt-0.5"
-              />
-
-              <span className="text-[10px] leading-relaxed">
-                Vincular ao trilho atual
-                {!trailOpen && (
-                  <span className="block text-muted-foreground">
-                    Nenhum trilho aberto
-                  </span>
-                )}
-              </span>
-            </label>
-
-            <button
-              type="button"
-              onClick={
-                handleAddPoint
-              }
-              disabled={
-                !hasCurrentPosition
-              }
-              className="flex w-full items-center justify-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Plus className="h-3.5 w-3.5" />
-
-              Salvar ponto na posição atual
-            </button>
-          </div>
-        </div>
+        <FieldMarkerForm
+          currentPositionAvailable={
+            hasCurrentPosition
+          }
+          trailOpen={
+            trailOpen
+          }
+          onCreateCurrentPosition={
+            onAddPoint
+          }
+        />
 
         <div className="grid grid-cols-3 gap-2">
           <CompactMetric
