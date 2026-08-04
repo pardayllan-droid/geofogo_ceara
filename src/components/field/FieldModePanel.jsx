@@ -44,6 +44,8 @@ import {
   FieldController,
 } from '../../field/FieldController';
 
+import FieldMarkerForm from './FieldMarkerForm';
+
 import {
   formatDistance,
 } from '../../utils/formatters';
