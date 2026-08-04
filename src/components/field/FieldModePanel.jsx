@@ -713,31 +713,6 @@ export default function FieldModePanel({
           }
         />
 
-        <div className="grid grid-cols-3 gap-2">
-          <CompactMetric
-            label="Todos os pontos"
-            value={
-              fieldState.pointsCount
-            }
-          />
-
-          <CompactMetric
-            label="Independentes"
-            value={
-              fieldState
-                .independentPointsCount
-            }
-          />
-
-          <CompactMetric
-            label="Vinculados"
-            value={
-              fieldState
-                .linkedPointsCount
-            }
-          />
-        </div>
-
         <div className="rounded-xl border border-border bg-card p-3">
           <p className="mb-2 text-xs font-semibold">
             Exportar dados carregados
@@ -978,7 +953,7 @@ function TrailControls({
         >
           <Square className="h-3.5 w-3.5" />
 
-          Finalizar
+          Finalizar trilho
         </button>
       )}
 

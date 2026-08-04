@@ -4,6 +4,8 @@
  * Estrutura persistente de um trilho do Modo Campo.
  */
 
+import { DEFAULT_TRAIL_STYLE, normalizeTrailStyle } from './FieldStyles';
+
 export const TRAIL_STATUS = {
   ACTIVE:
     'active',
@@ -45,9 +47,17 @@ export function createTrail({
 
   navigationTargetId =
     null,
+
+  style =
+    DEFAULT_TRAIL_STYLE,
 } = {}) {
   const now =
     Date.now();
+
+  const normalizedStyle =
+    normalizeTrailStyle(
+      style,
+    );
 
   return {
     id:
@@ -69,6 +79,9 @@ export function createTrail({
     navigationTargetId:
       navigationTargetId ||
       null,
+
+    style:
+      normalizedStyle,
 
     startedAt:
       now,
@@ -143,9 +156,17 @@ export function normalizeTrail(
 
       navigationTargetId:
         trail.navigationTargetId,
+
+      style:
+        trail.style,
     }),
 
     ...trail,
+
+    style:
+      normalizeTrailStyle(
+        trail.style,
+      ),
 
     samples:
       Array.isArray(

@@ -106,6 +106,43 @@ class TrailRepositoryImpl {
     );
   }
 
+  /**
+   * Retorna o trilho salvo mais recente,
+   * independentemente do estado.
+   */
+  async getLatestTrail() {
+    const trails =
+      await this.getAll();
+
+    return (
+      trails[0] ||
+      null
+    );
+  }
+
+  /**
+   * Prioriza um trilho aberto.
+   *
+   * Caso não exista nenhum ativo ou pausado,
+   * retorna o trilho concluído mais recente para
+   * manter sua exibição no mapa e na interface.
+   */
+  async getCurrentOrLatestTrail() {
+    const trails =
+      await this.getAll();
+
+    const openTrail =
+      trails.find(
+        isTrailOpen,
+      );
+
+    return (
+      openTrail ||
+      trails[0] ||
+      null
+    );
+  }
+
   async delete(
     trailId,
   ) {

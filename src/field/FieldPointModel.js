@@ -10,6 +10,8 @@
  * - ter sido criado por coordenada informada manualmente.
  */
 
+import { getMarkerStylePreset, normalizeMarkerStyle } from './FieldStyles';
+
 export const FIELD_POINT_ORIGIN = {
   CURRENT_POSITION:
     'current-position',
@@ -115,6 +117,9 @@ export function createFieldPoint({
   category =
     FIELD_POINT_CATEGORY.OBSERVATION,
 
+  style =
+    null,
+
   status =
     FIELD_POINT_STATUS.NEW,
 
@@ -184,6 +189,15 @@ export function createFieldPoint({
         )
       : Date.now();
 
+  const normalizedStyle =
+    normalizeMarkerStyle(
+      style ||
+        getMarkerStylePreset(
+          category,
+        ),
+      category,
+    );
+
   return {
     id:
       createId(
@@ -217,6 +231,9 @@ export function createFieldPoint({
         ).trim(),
 
       category,
+
+      style:
+        normalizedStyle,
 
       status,
 
@@ -331,6 +348,16 @@ export function normalizeFieldPoint(
     properties.trailId ??
     null;
 
+  const category =
+    properties.category ||
+    FIELD_POINT_CATEGORY.OBSERVATION;
+
+  const normalizedStyle =
+    normalizeMarkerStyle(
+      properties.style,
+      category,
+    );
+
   return {
     ...point,
 
@@ -366,9 +393,10 @@ export function normalizeFieldPoint(
         properties.observation ||
         '',
 
-      category:
-        properties.category ||
-        FIELD_POINT_CATEGORY.OBSERVATION,
+      category,
+
+        style:
+          normalizedStyle,
 
       status:
         properties.status ||

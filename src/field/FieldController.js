@@ -394,14 +394,14 @@ class FieldControllerImpl {
        * - recarga da aplicação;
        * - encerramento do processo pelo sistema.
        */
-      const openTrail =
+      const storedTrail =
         await TrailRepository
-          .getOpenTrail();
+          .getCurrentOrLatestTrail();
 
-      if (openTrail) {
+      if (storedTrail) {
         this.currentTrail =
           normalizeTrail(
-            openTrail,
+            storedTrail,
           );
 
         this.trail =
@@ -415,6 +415,10 @@ class FieldControllerImpl {
               ]
             : [];
 
+        /**
+         * Trilhos concluídos continuam carregados e visíveis,
+         * mas não retomam automaticamente a gravação.
+         */
         this.recording =
           this.currentTrail
             .status ===
@@ -485,7 +489,7 @@ class FieldControllerImpl {
             'unknown',
 
           recoveredTrailId:
-            openTrail?.id ||
+            storedTrail?.id ||
             null,
         },
       );
@@ -521,9 +525,19 @@ class FieldControllerImpl {
 
     const trailToSave =
       this.currentTrail
-        ? completeTrail(
-            this.currentTrail,
-          )
+        ? {
+            ...this.currentTrail,
+
+            /**
+             * Ao encerrar o Campo, preservamos o estado.
+             *
+             * - active permanece active e poderá ser recuperado;
+             * - paused permanece paused;
+             * - completed permanece completed.
+             */
+            updated_date:
+              Date.now(),
+          }
         : null;
 
     if (trailToSave) {
@@ -1333,6 +1347,11 @@ class FieldControllerImpl {
           status:
             this.currentTrail
               ?.status ||
+            null,
+
+          style:
+            this.currentTrail
+              ?.style ||
             null,
 
           distanceMeters:
