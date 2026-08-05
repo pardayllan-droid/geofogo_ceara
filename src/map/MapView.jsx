@@ -2942,52 +2942,71 @@ export default function MapView({
               EMPTY_FEATURE_COLLECTION,
           );
 
-          const position =
-            FieldController
-              .currentPosition;
-
-          const coordinates =
-            position
-              ?.geometry
-              ?.coordinates;
-
+          /**
+           * A posição continua sendo atualizada e desenhada,
+           * independentemente do modo de acompanhamento.
+           *
+           * O mapa só é reposicionado quando o usuário ativar
+           * "Centralizar automaticamente".
+           */
           if (
-            Array.isArray(
-              coordinates,
-            ) &&
-            coordinates.length >=
-              2
+            FieldController
+              .followPosition
           ) {
-            const longitude =
-              Number(
-                coordinates[0],
-              );
+            const position =
+              FieldController
+                .currentPosition;
 
-            const latitude =
-              Number(
-                coordinates[1],
-              );
+            const coordinates =
+              position
+                ?.geometry
+                ?.coordinates;
 
             if (
-              Number.isFinite(
-                longitude,
+              Array.isArray(
+                coordinates,
               ) &&
-              Number.isFinite(
-                latitude,
-              )
+              coordinates.length >=
+                2
             ) {
-              map.easeTo({
-                center: [
-                  longitude,
-                  latitude,
-                ],
+              const longitude =
+                Number(
+                  coordinates[0],
+                );
 
-                zoom:
-                  Math.max(
-                    map.getZoom(),
-                    14,
-                  ),
-              });
+              const latitude =
+                Number(
+                  coordinates[1],
+                );
+
+              if (
+                Number.isFinite(
+                  longitude,
+                ) &&
+                Number.isFinite(
+                  latitude,
+                )
+              ) {
+                map.easeTo({
+                  center: [
+                    longitude,
+                    latitude,
+                  ],
+
+                  /**
+                   * Não afasta o mapa caso o usuário já esteja
+                   * utilizando um zoom maior.
+                   */
+                  zoom:
+                    Math.max(
+                      map.getZoom(),
+                      14,
+                    ),
+
+                  duration:
+                    500,
+                });
+              }
             }
           }
         };

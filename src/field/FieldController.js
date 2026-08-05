@@ -321,6 +321,16 @@ class FieldControllerImpl {
     this.locationError =
       null;
 
+    /**
+     * Controla se o mapa deve acompanhar automaticamente
+     * a posição atual.
+     *
+     * Desligado por padrão para permitir que o operador
+     * explore o mapa sem ser reposicionado pelo GPS.
+     */
+    this.followPosition =
+      false;
+
     this._listeners =
       [];
 
@@ -1313,6 +1323,26 @@ class FieldControllerImpl {
     this._notify();
   }
 
+  /**
+   * Ativa ou desativa o acompanhamento automático da
+   * posição atual pelo mapa.
+   *
+   * A coleta GPS e a gravação do trilho continuam
+   * funcionando mesmo quando esta opção está desligada.
+   */
+  setFollowPosition(
+    enabled,
+  ) {
+    this.followPosition =
+      Boolean(
+        enabled,
+      );
+
+    this._notify();
+
+    return this.followPosition;
+  }
+
   getDuration() {
     return calculateDurationMs(
       this.currentTrail,
@@ -1893,6 +1923,9 @@ class FieldControllerImpl {
 
       locationError:
         this.locationError,
+
+      followPosition:
+        this.followPosition,
 
       locationProvider:
         this.locationProvider

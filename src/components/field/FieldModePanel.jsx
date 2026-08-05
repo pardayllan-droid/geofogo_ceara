@@ -887,6 +887,34 @@ function LocationStatus({
         </div>
       </div>
 
+      <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-accent/20 px-3 py-2.5">
+        <input
+          type="checkbox"
+          checked={
+            Boolean(
+              fieldState.followPosition,
+            )
+          }
+          onChange={(event) => {
+            FieldController.setFollowPosition(
+              event.target.checked,
+            );
+          }}
+          className="mt-0.5"
+        />
+
+        <span className="min-w-0">
+          <span className="block text-[10px] font-semibold">
+            Centralizar automaticamente
+          </span>
+
+          <span className="mt-0.5 block text-[9px] leading-relaxed text-muted-foreground">
+            Mantém o mapa acompanhando sua posição enquanto o Modo Campo estiver
+            ativo.
+          </span>
+        </span>
+      </label>
+
       {fieldState.locationError && (
         <p className="mt-2 rounded-md bg-destructive/10 px-2 py-1.5 text-[10px] text-destructive">
           {fieldState.locationError}
