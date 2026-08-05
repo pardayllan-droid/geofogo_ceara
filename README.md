@@ -170,6 +170,8 @@ AppCore
 ├── ErrorManager
 └── IndexedDB
 
+## Progresso
+
 | Prioridade | Item                                                     | Status          |
 | ---------- | -------------------------------------------------------- | --------------- |
 | 🔴         | Finalizar funções de GPS                                 | Em andamento    |
