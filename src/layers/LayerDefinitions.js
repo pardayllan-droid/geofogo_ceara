@@ -490,29 +490,241 @@ export const LAYER_DEFINITIONS = [
     cachePolicy: 'local-first',
     interactive: false,
     paint: {
-      'line-color': '#3b82f6',
-      'line-width': 3,
-      'line-opacity': 0.9,
+      /**
+       * Lê a cor armazenada em:
+       *
+       * properties.style.color
+       *
+       * O fallback mantém compatibilidade com trilhos
+       * antigos que ainda não possuem estilo.
+       */
+      'line-color': [
+        'coalesce',
+
+        [
+          'get',
+          'color',
+          [
+            'get',
+            'style',
+          ],
+        ],
+
+        '#16a34a',
+      ],
+
+      /**
+       * Lê properties.style.width.
+       */
+      'line-width': [
+        'coalesce',
+
+        [
+          'to-number',
+          [
+            'get',
+            'width',
+            [
+              'get',
+              'style',
+            ],
+          ],
+        ],
+
+        4,
+      ],
+
+      /**
+       * Lê properties.style.opacity.
+       */
+      'line-opacity': [
+        'coalesce',
+
+        [
+          'to-number',
+          [
+            'get',
+            'opacity',
+            [
+              'get',
+              'style',
+            ],
+          ],
+        ],
+
+        0.9,
+      ],
     },
   },
   {
-    id: 'field-points',
-    title: 'Pontos do Modo Campo',
-    group: LAYER_GROUPS.RESOURCES,
-    sourceType: 'geojson',
-    geometryType: 'point',
-    defaultVisible: true,
-    minZoom: 5,
-    maxZoom: 22,
-    zIndex: 61,
-    opacity: 1,
-    cachePolicy: 'local-first',
-    interactive: true,
+    id:
+      'field-points',
+
+    title:
+      'Marcadores do Modo Campo',
+
+    group:
+      LAYER_GROUPS.RESOURCES,
+
+    sourceType:
+      'geojson',
+
+    geometryType:
+      'point',
+
+    /**
+     * Os marcadores serão imagens SDF do MapLibre.
+     *
+     * Isso permite alterar a cor de cada ícone usando
+     * properties.style.color sem gerar uma imagem diferente
+     * para cada cor.
+     */
+    mapLayerType:
+      'symbol',
+
+    symbol:
+      true,
+
+    defaultVisible:
+      true,
+
+    minZoom:
+      5,
+
+    maxZoom:
+      22,
+
+    zIndex:
+      61,
+
+    opacity:
+      1,
+
+    cachePolicy:
+      'local-first',
+
+    interactive:
+      true,
+
+    layout: {
+      /**
+       * Seleciona o pictograma conforme:
+       *
+       * properties.style.iconId
+       */
+      'icon-image': [
+        'match',
+
+        [
+          'get',
+          'iconId',
+          [
+            'get',
+            'style',
+          ],
+        ],
+
+        'flame',
+        'field-marker-flame',
+
+        'vehicle',
+        'field-marker-vehicle',
+
+        'water',
+        'field-marker-water',
+
+        'blockage',
+        'field-marker-blockage',
+
+        'risk',
+        'field-marker-risk',
+
+        'service',
+        'field-marker-service',
+
+        'observation',
+        'field-marker-observation',
+
+        /**
+         * Fallback para registros antigos ou incompletos.
+         */
+        'field-marker-observation',
+      ],
+
+      /**
+       * Converte o tamanho semântico salvo no registro
+       * para a escala visual do MapLibre.
+       */
+      'icon-size': [
+        'match',
+
+        [
+          'get',
+          'size',
+          [
+            'get',
+            'style',
+          ],
+        ],
+
+        'small',
+        0.78,
+
+        'large',
+        1.28,
+
+        /**
+         * medium e fallback.
+         */
+        1,
+      ],
+
+      'icon-anchor':
+        'center',
+
+      'icon-allow-overlap':
+        true,
+
+      'icon-ignore-placement':
+        true,
+    },
+
     paint: {
-      'circle-radius': 5,
-      'circle-color': '#3b82f6',
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 2,
+      /**
+       * Como os pictogramas serão registrados como SDF,
+       * o MapLibre pode aplicar uma cor diferente para
+       * cada feição.
+       */
+      'icon-color': [
+        'coalesce',
+
+        [
+          'get',
+          'color',
+          [
+            'get',
+            'style',
+          ],
+        ],
+
+        '#7c3aed',
+      ],
+
+      'icon-opacity':
+        1,
+
+      /**
+       * Contorno branco para manter legibilidade sobre
+       * mapas claros, escuros e imagens de satélite.
+       */
+      'icon-halo-color':
+        '#ffffff',
+
+      'icon-halo-width':
+        2,
+
+      'icon-halo-blur':
+        0.4,
     },
   },
   {

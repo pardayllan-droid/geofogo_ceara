@@ -34,21 +34,11 @@ import {
   Timer,
 } from 'lucide-react';
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-
-import {
-  FieldController,
-} from '../../field/FieldController';
-
+import { useEffect, useMemo, useState } from 'react';
+import { FieldController } from '../../field/FieldController';
 import FieldMarkerForm from './FieldMarkerForm';
-
-import {
-  formatDistance,
-} from '../../utils/formatters';
+import { formatDistance } from '../../utils/formatters';
+import FieldTrailStartForm from './FieldTrailStartForm';
 
 function formatDuration(
   milliseconds,
@@ -215,6 +205,7 @@ export default function FieldModePanel({
   onToggleRecord,
   onFinishTrail,
   onAddPoint,
+  onAddPointAtCoordinates,
 }) {
 
   const [
@@ -381,7 +372,10 @@ export default function FieldModePanel({
     }
   }
 
-  async function handleToggleTrail() {
+  async function handleToggleTrail(
+    options =
+      {},
+  ) {
     setActionError(
       null,
     );
@@ -391,7 +385,9 @@ export default function FieldModePanel({
     );
 
     try {
-      await onToggleRecord();
+      await onToggleRecord(
+        options,
+      );
     } catch (error) {
       setActionError(
         error?.message ||
@@ -677,29 +673,37 @@ export default function FieldModePanel({
           </div>
         )}
 
-        <TrailControls
-          fieldState={
-            fieldState
-          }
-          trailExists={
-            trailExists
-          }
-          trailOpen={
-            trailOpen
-          }
-          trailPaused={
-            trailPaused
-          }
-          trailCompleted={
-            trailCompleted
-          }
-          onToggle={
-            handleToggleTrail
-          }
-          onFinish={
-            handleFinishTrail
-          }
-        />
+        {trailOpen ? (
+          <TrailControls
+            fieldState={
+              fieldState
+            }
+            trailExists={
+              trailExists
+            }
+            trailOpen={
+              trailOpen
+            }
+            trailPaused={
+              trailPaused
+            }
+            trailCompleted={
+              trailCompleted
+            }
+            onToggle={
+              handleToggleTrail
+            }
+            onFinish={
+              handleFinishTrail
+            }
+          />
+        ) : (
+          <FieldTrailStartForm
+            onStartTrail={
+              handleToggleTrail
+            }
+          />
+        )}
 
         <FieldMarkerForm
           currentPositionAvailable={
@@ -710,6 +714,9 @@ export default function FieldModePanel({
           }
           onCreateCurrentPosition={
             onAddPoint
+          }
+          onCreateAtCoordinates={
+            onAddPointAtCoordinates
           }
         />
 

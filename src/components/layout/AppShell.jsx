@@ -129,6 +129,7 @@ export default function AppShell({
   toggleRecording,
   finishFieldTrail,
   addFieldPoint,
+  addFieldPointAtCoordinates,
   closePopup,
 }) {
   const [activePanel, setActivePanel] =
@@ -302,6 +303,7 @@ export default function AppShell({
     toggleRecording,
     finishFieldTrail,
     addFieldPoint,
+    addFieldPointAtCoordinates,
     openAlertsPanel,
   };
 
@@ -1376,6 +1378,9 @@ function renderPanel(
           }
           onAddPoint={
             props.addFieldPoint
+          }
+          onAddPointAtCoordinates={
+            props.addFieldPointAtCoordinates
           }
         />
       );

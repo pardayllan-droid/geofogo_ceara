@@ -1369,18 +1369,43 @@ class LayerManagerImpl {
 
         try {
           if (
-            mapLayer.type === 'fill'
+            mapLayer.type ===
+            'line'
           ) {
-            const originalOpacity =
+            const configuredOpacity =
               definition.paint?.[
-                'fill-opacity'
-              ] ?? 0.5;
+                'line-opacity'
+              ];
+
+            /**
+             * Quando a opacidade é uma expressão MapLibre,
+             * combina a opacidade da camada com a expressão.
+             *
+             * Quando é um número, mantém o comportamento
+             * anterior.
+             */
+            const effectiveOpacity =
+              Array.isArray(
+                configuredOpacity,
+              )
+                ? [
+                    '*',
+                    opacity,
+                    configuredOpacity,
+                  ]
+                : opacity *
+                  (
+                    Number.isFinite(
+                      configuredOpacity,
+                    )
+                      ? configuredOpacity
+                      : 0.8
+                  );
 
             this._map.setPaintProperty(
               mapLayerId,
-              'fill-opacity',
-              opacity *
-                originalOpacity,
+              'line-opacity',
+              effectiveOpacity,
             );
           }
 

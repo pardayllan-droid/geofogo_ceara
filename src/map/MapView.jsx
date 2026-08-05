@@ -55,6 +55,82 @@ const EMPTY_FEATURE_COLLECTION = {
     [],
 };
 
+/**
+ * Aplica à camada do trilho o padrão visual armazenado
+ * em properties.style.linePattern.
+ *
+ * O MapLibre utilizado atualmente não permite que
+ * line-dasharray seja lido individualmente de cada
+ * feição. Como apenas um trilho é exibido por vez,
+ * aplicamos o padrão diretamente na camada.
+ */
+function applyFieldTrailPattern(
+  map,
+  trailGeoJSON,
+) {
+  if (
+    !map ||
+    !map.getLayer?.(
+      'field-trail',
+    )
+  ) {
+    return false;
+  }
+
+  const trailFeature =
+    trailGeoJSON
+      ?.features
+      ?.[0];
+
+  const linePattern =
+    trailFeature
+      ?.properties
+      ?.style
+      ?.linePattern ||
+    'solid';
+
+  try {
+    if (
+      linePattern ===
+      'dashed'
+    ) {
+      /**
+       * Os valores representam:
+       * [comprimento do traço, comprimento do espaço]
+       *
+       * Eles são multiplicados pela espessura atual
+       * da linha pelo próprio MapLibre.
+       */
+      map.setPaintProperty(
+        'field-trail',
+        'line-dasharray',
+        [
+          2.5,
+          1.8,
+        ],
+      );
+    } else {
+      /**
+       * null restaura o padrão contínuo da camada.
+       */
+      map.setPaintProperty(
+        'field-trail',
+        'line-dasharray',
+        null,
+      );
+    }
+
+    return true;
+  } catch (error) {
+    console.warn(
+      '[MapView] Não foi possível aplicar o padrão do trilho:',
+      error,
+    );
+
+    return false;
+  }
+}
+
 function isFeatureCollection(
   value,
 ) {
@@ -936,6 +1012,653 @@ function ensureFireEventMarkerImages(
   return true;
 }
 
+/**
+ * Imagens utilizadas pelos marcadores do Modo Campo.
+ *
+ * Cada imagem é monocromática e registrada como SDF.
+ * A cor final é aplicada pela expressão icon-color da
+ * camada field-points.
+ */
+const FIELD_MARKER_IMAGES = {
+  flame:
+    'field-marker-flame',
+
+  vehicle:
+    'field-marker-vehicle',
+
+  water:
+    'field-marker-water',
+
+  blockage:
+    'field-marker-blockage',
+
+  risk:
+    'field-marker-risk',
+
+  service:
+    'field-marker-service',
+
+  observation:
+    'field-marker-observation',
+};
+
+/**
+ * Cria uma imagem monocromática para ser usada como
+ * ícone SDF pelo MapLibre.
+ *
+ * O desenho é gerado em resolução dupla para permanecer
+ * nítido em telas móveis de alta densidade.
+ */
+function createFieldMarkerImage(
+  iconId,
+) {
+  const pixelRatio =
+    2;
+
+  const displaySize =
+    34;
+
+  const canvas =
+    document.createElement(
+      'canvas',
+    );
+
+  canvas.width =
+    displaySize *
+    pixelRatio;
+
+  canvas.height =
+    displaySize *
+    pixelRatio;
+
+  const context =
+    canvas.getContext(
+      '2d',
+    );
+
+  if (!context) {
+    return null;
+  }
+
+  context.scale(
+    pixelRatio,
+    pixelRatio,
+  );
+
+  context.clearRect(
+    0,
+    0,
+    displaySize,
+    displaySize,
+  );
+
+  context.fillStyle =
+    '#ffffff';
+
+  context.strokeStyle =
+    '#ffffff';
+
+  context.lineWidth =
+    2.6;
+
+  context.lineCap =
+    'round';
+
+  context.lineJoin =
+    'round';
+
+  switch (iconId) {
+    case 'flame':
+      drawFieldFlame(
+        context,
+      );
+      break;
+
+    case 'vehicle':
+      drawFieldVehicle(
+        context,
+      );
+      break;
+
+    case 'water':
+      drawFieldWater(
+        context,
+      );
+      break;
+
+    case 'blockage':
+      drawFieldBlockage(
+        context,
+      );
+      break;
+
+    case 'risk':
+      drawFieldRisk(
+        context,
+      );
+      break;
+
+    case 'service':
+      drawFieldService(
+        context,
+      );
+      break;
+
+    case 'observation':
+    default:
+      drawFieldObservation(
+        context,
+      );
+      break;
+  }
+
+  return {
+    imageData:
+      context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ),
+
+    pixelRatio,
+  };
+}
+
+/**
+ * Foco ativo — chama.
+ */
+function drawFieldFlame(
+  context,
+) {
+  context.beginPath();
+
+  context.moveTo(
+    17,
+    3,
+  );
+
+  context.bezierCurveTo(
+    20,
+    9,
+    27,
+    12,
+    27,
+    21,
+  );
+
+  context.bezierCurveTo(
+    27,
+    28,
+    22,
+    32,
+    17,
+    32,
+  );
+
+  context.bezierCurveTo(
+    10,
+    32,
+    6,
+    27,
+    6,
+    21,
+  );
+
+  context.bezierCurveTo(
+    6,
+    15,
+    10,
+    11,
+    14,
+    7,
+  );
+
+  context.bezierCurveTo(
+    14,
+    12,
+    16,
+    14,
+    18,
+    16,
+  );
+
+  context.bezierCurveTo(
+    21,
+    13,
+    20,
+    8,
+    17,
+    3,
+  );
+
+  context.closePath();
+  context.fill();
+
+  /**
+   * Recorte interno da chama.
+   */
+  context.save();
+
+  context.globalCompositeOperation =
+    'destination-out';
+
+  context.beginPath();
+
+  context.moveTo(
+    17,
+    17,
+  );
+
+  context.bezierCurveTo(
+    20,
+    21,
+    21,
+    24,
+    19,
+    28,
+  );
+
+  context.bezierCurveTo(
+    14,
+    28,
+    12,
+    25,
+    13,
+    22,
+  );
+
+  context.bezierCurveTo(
+    14,
+    20,
+    16,
+    19,
+    17,
+    17,
+  );
+
+  context.closePath();
+  context.fill();
+
+  context.restore();
+}
+
+/**
+ * Viatura — silhueta de veículo operacional.
+ */
+function drawFieldVehicle(
+  context,
+) {
+  context.fillRect(
+    5,
+    13,
+    18,
+    11,
+  );
+
+  context.beginPath();
+
+  context.moveTo(
+    23,
+    16,
+  );
+
+  context.lineTo(
+    28,
+    16,
+  );
+
+  context.lineTo(
+    31,
+    21,
+  );
+
+  context.lineTo(
+    31,
+    24,
+  );
+
+  context.lineTo(
+    23,
+    24,
+  );
+
+  context.closePath();
+  context.fill();
+
+  context.beginPath();
+
+  context.arc(
+    11,
+    26,
+    3,
+    0,
+    Math.PI * 2,
+  );
+
+  context.arc(
+    26,
+    26,
+    3,
+    0,
+    Math.PI * 2,
+  );
+
+  context.fill();
+
+  /**
+   * Sinalizador superior.
+   */
+  context.fillRect(
+    13,
+    9,
+    7,
+    3,
+  );
+}
+
+/**
+ * Ponto d’água — gota.
+ */
+function drawFieldWater(
+  context,
+) {
+  context.beginPath();
+
+  context.moveTo(
+    17,
+    3,
+  );
+
+  context.bezierCurveTo(
+    15,
+    8,
+    8,
+    16,
+    8,
+    22,
+  );
+
+  context.bezierCurveTo(
+    8,
+    28,
+    12,
+    32,
+    17,
+    32,
+  );
+
+  context.bezierCurveTo(
+    23,
+    32,
+    27,
+    28,
+    27,
+    22,
+  );
+
+  context.bezierCurveTo(
+    27,
+    16,
+    20,
+    8,
+    17,
+    3,
+  );
+
+  context.closePath();
+  context.fill();
+}
+
+/**
+ * Bloqueio — barreira com faixas diagonais.
+ */
+function drawFieldBlockage(
+  context,
+) {
+  context.fillRect(
+    4,
+    11,
+    26,
+    11,
+  );
+
+  context.fillRect(
+    8,
+    22,
+    4,
+    8,
+  );
+
+  context.fillRect(
+    22,
+    22,
+    4,
+    8,
+  );
+
+  context.save();
+
+  context.globalCompositeOperation =
+    'destination-out';
+
+  context.lineWidth =
+    3;
+
+  for (
+    let x = 4;
+    x <= 30;
+    x += 8
+  ) {
+    context.beginPath();
+
+    context.moveTo(
+      x,
+      21,
+    );
+
+    context.lineTo(
+      x + 7,
+      12,
+    );
+
+    context.stroke();
+  }
+
+  context.restore();
+}
+
+/**
+ * Área de risco — triângulo com exclamação.
+ */
+function drawFieldRisk(
+  context,
+) {
+  context.beginPath();
+
+  context.moveTo(
+    17,
+    3,
+  );
+
+  context.lineTo(
+    32,
+    30,
+  );
+
+  context.lineTo(
+    2,
+    30,
+  );
+
+  context.closePath();
+  context.fill();
+
+  context.save();
+
+  context.globalCompositeOperation =
+    'destination-out';
+
+  context.fillRect(
+    15.5,
+    11,
+    3,
+    10,
+  );
+
+  context.beginPath();
+
+  context.arc(
+    17,
+    25,
+    1.8,
+    0,
+    Math.PI * 2,
+  );
+
+  context.fill();
+
+  context.restore();
+}
+
+/**
+ * Atendimento — cruz operacional.
+ */
+function drawFieldService(
+  context,
+) {
+  context.fillRect(
+    13,
+    4,
+    8,
+    26,
+  );
+
+  context.fillRect(
+    4,
+    13,
+    26,
+    8,
+  );
+}
+
+/**
+ * Observação — marcador simples.
+ */
+function drawFieldObservation(
+  context,
+) {
+  context.beginPath();
+
+  context.arc(
+    17,
+    14,
+    10,
+    Math.PI,
+    0,
+  );
+
+  context.bezierCurveTo(
+    27,
+    23,
+    20,
+    29,
+    17,
+    33,
+  );
+
+  context.bezierCurveTo(
+    14,
+    29,
+    7,
+    23,
+    7,
+    14,
+  );
+
+  context.closePath();
+  context.fill();
+
+  context.save();
+
+  context.globalCompositeOperation =
+    'destination-out';
+
+  context.beginPath();
+
+  context.arc(
+    17,
+    14,
+    3.5,
+    0,
+    Math.PI * 2,
+  );
+
+  context.fill();
+
+  context.restore();
+}
+
+/**
+ * Registra os ícones no estilo atual do mapa.
+ *
+ * As imagens precisam ser recriadas sempre que o
+ * mapa-base for alterado, pois map.setStyle() remove
+ * imagens adicionadas manualmente.
+ */
+function ensureFieldMarkerImages(
+  map,
+) {
+  if (!map?.addImage) {
+    return false;
+  }
+
+  for (
+    const [
+      iconId,
+      imageId,
+    ]
+    of Object.entries(
+      FIELD_MARKER_IMAGES,
+    )
+  ) {
+    if (
+      map.hasImage?.(
+        imageId,
+      )
+    ) {
+      continue;
+    }
+
+    const markerImage =
+      createFieldMarkerImage(
+        iconId,
+      );
+
+    if (!markerImage) {
+      continue;
+    }
+
+    map.addImage(
+      imageId,
+      markerImage.imageData,
+      {
+        pixelRatio:
+          markerImage.pixelRatio,
+
+        /**
+         * Necessário para permitir icon-color e
+         * icon-halo-color.
+         */
+        sdf:
+          true,
+      },
+    );
+  }
+
+  return true;
+}
+
 export default function MapView({
   baseMapId,
   onReady,
@@ -1393,6 +2116,14 @@ export default function MapView({
            * da criação da layer symbol.
            */
           ensureFireEventMarkerImages(
+            map,
+          );
+
+          /**
+           * Os ícones do Campo também precisam existir antes da
+           * criação da camada symbol field-points.
+           */
+          ensureFieldMarkerImages(
             map,
           );
 
@@ -2173,13 +2904,24 @@ export default function MapView({
             map,
           );
 
-          updateLayer(
-            'field-position',
-
+          const trailGeoJSON =
             FieldController
-              .getPositionGeoJSON
+              .getTrailGeoJSON
               ?.() ||
-              EMPTY_FEATURE_COLLECTION,
+            EMPTY_FEATURE_COLLECTION;
+
+          updateLayer(
+            'field-trail',
+            trailGeoJSON,
+          );
+
+          /**
+           * A camada precisa existir antes da aplicação
+           * de line-dasharray.
+           */
+          applyFieldTrailPattern(
+            map,
+            trailGeoJSON,
           );
 
           updateLayer(
@@ -2250,29 +2992,69 @@ export default function MapView({
           }
         };
 
+      /**
+       * Atualiza imediatamente sempre que o estado interno
+       * do FieldController mudar.
+       */
+      const unsubscribeFieldState =
+        FieldController.subscribe(
+          () => {
+            updateFieldLayers();
+          },
+        );
+
+      /**
+       * Faz uma primeira atualização ao montar o efeito.
+       */
+      updateFieldLayers();
+
       const intervalId =
         window.setInterval(
           updateFieldLayers,
           3000,
         );
 
+      /**
+       * Ao encerrar o Modo Campo, apenas a posição ao vivo
+       * deve desaparecer.
+       *
+       * Trilhos e marcadores são registros persistentes e
+       * devem continuar visíveis no mapa.
+       */
       const unsubscribeStopped =
         EventBus.on(
           EVENTS.FIELD_MODE_STOPPED,
           () => {
+            const map =
+              mapRef.current;
+
             updateLayer(
               'field-position',
               EMPTY_FEATURE_COLLECTION,
             );
 
+            const trailGeoJSON =
+              FieldController
+                .getTrailGeoJSON
+                ?.() ||
+              EMPTY_FEATURE_COLLECTION;
+
             updateLayer(
               'field-trail',
-              EMPTY_FEATURE_COLLECTION,
+              trailGeoJSON,
             );
 
             updateLayer(
               'field-points',
+              FieldController
+                .getPointsGeoJSON
+                ?.() ||
               EMPTY_FEATURE_COLLECTION,
+            );
+
+            applyFieldTrailPattern(
+              map,
+              trailGeoJSON,
             );
           },
         );
@@ -2280,14 +3062,233 @@ export default function MapView({
       return () => {
         window.clearInterval(
           intervalId,
+          
         );
 
+        unsubscribeFieldState?.();
         unsubscribeStopped?.();
       };
     },
     [
       updateLayer,
     ],
+  );
+
+  const fieldMarkerPreviewReadyRef =
+    useRef(false);
+
+  /**
+   * Pré-visualização de marcador criado por coordenada
+   * manual.
+   *
+   * A feição é temporária e não é persistida.
+   */
+  useEffect(
+    () => {
+      const handlePreview =
+        ({
+          longitude,
+          latitude,
+        } = {}) => {
+          const map =
+            mapRef.current;
+
+          const lng =
+            Number(
+              longitude,
+            );
+
+          const lat =
+            Number(
+              latitude,
+            );
+
+          if (
+            !map ||
+            !Number.isFinite(
+              lng,
+            ) ||
+            !Number.isFinite(
+              lat,
+            )
+          ) {
+            return;
+          }
+
+          const previewData = {
+            type:
+              'FeatureCollection',
+
+            features: [
+              {
+                type:
+                  'Feature',
+
+                geometry: {
+                  type:
+                    'Point',
+
+                  coordinates: [
+                    lng,
+                    lat,
+                  ],
+                },
+
+                properties: {},
+              },
+            ],
+          };
+
+          if (
+            !map.getSource(
+              'field-marker-preview-source',
+            )
+          ) {
+            map.addSource(
+              'field-marker-preview-source',
+              {
+                type:
+                  'geojson',
+
+                data:
+                  previewData,
+              },
+            );
+          } else {
+            map
+              .getSource(
+                'field-marker-preview-source',
+              )
+              .setData(
+                previewData,
+              );
+          }
+
+          if (
+            !map.getLayer(
+              'field-marker-preview-halo',
+            )
+          ) {
+            map.addLayer({
+              id:
+                'field-marker-preview-halo',
+
+              type:
+                'circle',
+
+              source:
+                'field-marker-preview-source',
+
+              paint: {
+                'circle-radius':
+                  15,
+
+                'circle-color':
+                  '#ffffff',
+
+                'circle-opacity':
+                  0.8,
+
+                'circle-stroke-color':
+                  '#2563eb',
+
+                'circle-stroke-width':
+                  3,
+              },
+            });
+          }
+
+          if (
+            !map.getLayer(
+              'field-marker-preview-center',
+            )
+          ) {
+            map.addLayer({
+              id:
+                'field-marker-preview-center',
+
+              type:
+                'circle',
+
+              source:
+                'field-marker-preview-source',
+
+              paint: {
+                'circle-radius':
+                  5,
+
+                'circle-color':
+                  '#2563eb',
+
+                'circle-stroke-color':
+                  '#ffffff',
+
+                'circle-stroke-width':
+                  2,
+              },
+            });
+          }
+
+          fieldMarkerPreviewReadyRef.current =
+            true;
+
+          map.easeTo({
+            center: [
+              lng,
+              lat,
+            ],
+
+            zoom:
+              Math.max(
+                map.getZoom(),
+                14,
+              ),
+
+            duration:
+              900,
+          });
+        };
+
+      const handleClear =
+        () => {
+          const map =
+            mapRef.current;
+
+          if (!map) {
+            return;
+          }
+
+          const source =
+            map.getSource(
+              'field-marker-preview-source',
+            );
+
+          source?.setData?.(
+            EMPTY_FEATURE_COLLECTION,
+          );
+
+          fieldMarkerPreviewReadyRef.current =
+            false;
+        };
+
+      const unsubscribePreview =
+        EventBus.on(
+          EVENTS.MAP_PREVIEW_FIELD_MARKER,
+          handlePreview,
+        );
+
+      const unsubscribeClear =
+        EventBus.on(
+          EVENTS.MAP_CLEAR_FIELD_MARKER_PREVIEW,
+          handleClear,
+        );
+
+      return () => {
+        unsubscribePreview?.();
+        unsubscribeClear?.();
+      };
+    },
+    [],
   );
 
   return (

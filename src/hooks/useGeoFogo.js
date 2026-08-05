@@ -1174,14 +1174,19 @@ export function useGeoFogo() {
 
   const toggleRecording =
     useCallback(
-      () => {
+      (
+        options =
+          {},
+      ) => {
         try {
           if (
             FieldController.recording
           ) {
             FieldController.pauseRecording();
           } else {
-            FieldController.startRecording();
+            FieldController.startRecording(
+              options,
+            );
           }
 
           setFieldState(
@@ -1273,6 +1278,38 @@ export function useGeoFogo() {
       [],
     );
 
+  const addFieldPointAtCoordinates =
+    useCallback(
+      (
+        coordinates,
+      ) => {
+        try {
+          const point =
+            FieldController.addPointAtCoordinates(
+              coordinates,
+            );
+
+          setFieldState(
+            FieldController.getState(),
+          );
+
+          return point;
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'addFieldPointAtCoordinates',
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+  
   const closePopup =
     useCallback(() => {
       setSelectedFeature(
@@ -1312,6 +1349,7 @@ export function useGeoFogo() {
     toggleRecording,
     finishFieldTrail,
     addFieldPoint,
+    addFieldPointAtCoordinates,
     closePopup,
 
     config,

@@ -33,7 +33,9 @@ export default function GeoFogo() {
       startFieldMode={geo.startFieldMode}
       stopFieldMode={geo.stopFieldMode}
       toggleRecording={geo.toggleRecording}
+      finishFieldTrail={geo.finishFieldTrail}
       addFieldPoint={geo.addFieldPoint}
+      addFieldPointAtCoordinates={geo.addFieldPointAtCoordinates}
       closePopup={geo.closePopup}
     />
   );

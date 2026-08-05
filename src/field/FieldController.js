@@ -590,6 +590,9 @@ class FieldControllerImpl {
 
     navigationTargetId =
       null,
+
+    style =
+      null,
   } = {}) {
     if (!this.active) {
       throw new Error(
@@ -620,6 +623,8 @@ class FieldControllerImpl {
           name,
 
           navigationTargetId,
+
+          style,
         });
 
       this.trail =
@@ -1122,6 +1127,9 @@ class FieldControllerImpl {
       category =
         FIELD_POINT_CATEGORY.OBSERVATION,
 
+      style =
+        null,
+
       status =
         'new',
 
@@ -1219,6 +1227,9 @@ class FieldControllerImpl {
     category =
       FIELD_POINT_CATEGORY.OBSERVATION,
 
+    style =
+      null,
+
     status =
       'new',
 
@@ -1236,6 +1247,7 @@ class FieldControllerImpl {
         label,
         observation,
         category,
+        style,
         status,
 
         origin:
