@@ -45,6 +45,9 @@ export function createTrail({
   name =
     null,
 
+  missionId =
+    null,
+
   navigationTargetId =
     null,
 
@@ -75,6 +78,15 @@ export function createTrail({
 
     status:
       TRAIL_STATUS.ACTIVE,
+
+    /**
+     * Missão à qual o trilho pertence.
+     *
+     * null representa um trilho avulso.
+     */
+    missionId:
+      missionId ||
+      null,
 
     navigationTargetId:
       navigationTargetId ||
@@ -154,6 +166,9 @@ export function normalizeTrail(
       name:
         trail.name,
 
+      missionId:
+        trail.missionId,
+
       navigationTargetId:
         trail.navigationTargetId,
 
@@ -162,6 +177,10 @@ export function normalizeTrail(
     }),
 
     ...trail,
+
+    missionId:
+      trail.missionId ||
+      null,    
 
     style:
       normalizeTrailStyle(

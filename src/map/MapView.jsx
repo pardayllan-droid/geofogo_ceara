@@ -2904,6 +2904,23 @@ export default function MapView({
             map,
           );
 
+          /**
+           * A posição atual deve ser desenhada sempre que
+           * o Modo Campo estiver ativo.
+           *
+           * Isso independe de:
+           * - estar gravando um trilho;
+           * - centralização automática;
+           * - existência de marcadores.
+           */
+          updateLayer(
+            'field-position',
+            FieldController
+              .getPositionGeoJSON
+              ?.() ||
+              EMPTY_FEATURE_COLLECTION,
+          );
+
           const trailGeoJSON =
             FieldController
               .getTrailGeoJSON
@@ -2915,27 +2932,13 @@ export default function MapView({
             trailGeoJSON,
           );
 
-          /**
-           * A camada precisa existir antes da aplicação
-           * de line-dasharray.
-           */
           applyFieldTrailPattern(
             map,
             trailGeoJSON,
           );
 
           updateLayer(
-            'field-trail',
-
-            FieldController
-              .getTrailGeoJSON
-              ?.() ||
-              EMPTY_FEATURE_COLLECTION,
-          );
-
-          updateLayer(
             'field-points',
-
             FieldController
               .getPointsGeoJSON
               ?.() ||
@@ -2943,10 +2946,10 @@ export default function MapView({
           );
 
           /**
-           * A posição continua sendo atualizada e desenhada,
-           * independentemente do modo de acompanhamento.
+           * A posição continua sendo atualizada e desenhada
+           * independentemente do acompanhamento automático.
            *
-           * O mapa só é reposicionado quando o usuário ativar
+           * O mapa só é reposicionado quando o usuário ativa
            * "Centralizar automaticamente".
            */
           if (
@@ -2993,10 +2996,6 @@ export default function MapView({
                     latitude,
                   ],
 
-                  /**
-                   * Não afasta o mapa caso o usuário já esteja
-                   * utilizando um zoom maior.
-                   */
                   zoom:
                     Math.max(
                       map.getZoom(),

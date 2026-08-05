@@ -132,6 +132,9 @@ export function createFieldPoint({
   trailId =
     null,
 
+  missionId =
+    null,
+
   timestamp =
     Date.now(),
 } = {}) {
@@ -247,6 +250,18 @@ export function createFieldPoint({
         trailId ||
         null,
 
+      missionId:
+        missionId ||
+        null,
+
+      /**
+       * Mantido também no nível principal para facilitar
+       * filtros futuros no IndexedDB ou SQLite.
+       */
+      missionId:
+        missionId ||
+        null,
+
       altitude:
         normalizeCoordinate(
           altitude,
@@ -348,6 +363,11 @@ export function normalizeFieldPoint(
     properties.trailId ??
     null;
 
+  const missionId =
+    point.missionId ??
+    properties.missionId ??
+    null;
+
   const category =
     properties.category ||
     FIELD_POINT_CATEGORY.OBSERVATION;
@@ -382,6 +402,8 @@ export function normalizeFieldPoint(
 
     trailId,
 
+    missionId,
+
     properties: {
       ...properties,
 
@@ -407,6 +429,8 @@ export function normalizeFieldPoint(
         FIELD_POINT_ORIGIN.CURRENT_POSITION,
 
       trailId,
+
+      missionId,
 
       timestamp:
         Number(

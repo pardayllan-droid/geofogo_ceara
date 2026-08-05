@@ -57,6 +57,8 @@ import {
   WebGeolocationProvider,
 } from './location/WebGeolocationProvider';
 
+import { FieldMissionController } from './FieldMissionController';
+
 const EMPTY_FEATURE_COLLECTION = {
   type:
     'FeatureCollection',
@@ -383,6 +385,8 @@ class FieldControllerImpl {
     this._starting =
       true;
 
+    await FieldMissionController.initialize();
+    
     try {
       this.permissionStatus =
         await this.locationProvider

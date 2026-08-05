@@ -14,7 +14,7 @@ const DB_NAME =
   'geofogo-ceara';
 
 const DB_VERSION =
-  3;
+  4;
 
 const STORES = {
   boundary:
@@ -43,6 +43,18 @@ const STORES = {
 
   settings:
     'settings',
+
+  /**
+   * Missões operacionais.
+   *
+   * Cada missão organiza:
+   * - trilhos;
+   * - marcadores;
+   * - fotografias;
+   * - outros registros futuros.
+   */
+  fieldMissions:
+    'fieldMissions',
 
   /**
    * Registros completos dos trilhos.
