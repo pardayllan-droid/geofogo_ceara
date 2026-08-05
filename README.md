@@ -169,3 +169,13 @@ AppCore
 ├── EventBus
 ├── ErrorManager
 └── IndexedDB
+
+| Prioridade | Item                                                     | Status          |
+| ---------- | -------------------------------------------------------- | --------------- |
+| 🔴         | Finalizar funções de GPS                                 | Em andamento    |
+| 🔴         | Consolidar layout e diagramação                          | Parcial         |
+| 🔴         | Testes completos (desktop + Android + PWA)               | Pendente        |
+| 🟡         | Hospedagem Cloudflare Pages                              | Em andamento    |
+| 🟡         | Segurança das chaves de API                              | Pendente        |
+| 🟡         | Revisão do README                                        | Quase concluído |
+| 🟢         | APK via Capacitor                                        | Depois da v1.0  |
