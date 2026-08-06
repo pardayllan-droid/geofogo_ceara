@@ -23,6 +23,9 @@ import { LayerRegistry } from '../layers/LayerRegistry';
 import { EventBus, EVENTS } from '../core/EventBus';
 import { SyncEngine } from '../sync/SyncEngine';
 import { FieldController } from '../field/FieldController';
+import {
+  FieldMissionController,
+} from '../field/FieldMissionController';
 import { ErrorManager } from '../core/ErrorManager';
 
 import {
@@ -64,6 +67,10 @@ export function useGeoFogo() {
 
   const [fieldState, setFieldState] = useState(
     FieldController.getState(),
+  );
+
+  const [missionState, setMissionState] = useState(
+    FieldMissionController.getState(),
   );
 
   const [baseMapId, setBaseMapId] = useState(
@@ -656,6 +663,19 @@ export function useGeoFogo() {
         },
       );
 
+    const missionUnsubscribe =
+      FieldMissionController.subscribe(
+        (state) => {
+          if (
+            mountedRef.current
+          ) {
+            setMissionState(
+              state,
+            );
+          }
+        },
+      );
+
     return () => {
       mountedRef.current =
         false;
@@ -669,6 +689,7 @@ export function useGeoFogo() {
       );
 
       fieldUnsubscribe?.();
+      missionUnsubscribe?.();
     };
   }, [
     refreshApplicationState,
@@ -703,6 +724,22 @@ export function useGeoFogo() {
           Perf.end(
             'Inicialização do núcleo',
           );
+
+          /**
+           * Carrega o catálogo de missões sem ativar o GPS.
+           *
+           * Isso permite mostrar e administrar missões antes
+           * de o usuário iniciar o Modo Campo.
+           */
+          await FieldMissionController.initialize();
+
+          if (
+            mountedRef.current
+          ) {
+            setMissionState(
+              FieldMissionController.getState(),
+            );
+          }
 
           if (
             !mountedRef.current
@@ -1309,7 +1346,132 @@ export function useGeoFogo() {
       },
       [],
     );
-  
+
+  const createFieldMission =
+    useCallback(
+      async (
+        missionData,
+      ) => {
+        try {
+          const mission =
+            await FieldMissionController.createMission(
+              missionData,
+            );
+
+          setMissionState(
+            FieldMissionController.getState(),
+          );
+
+          return mission;
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'createFieldMission',
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
+  const setActiveFieldMission =
+    useCallback(
+      async (
+        missionId,
+      ) => {
+        try {
+          await FieldMissionController.setActiveMission(
+            missionId,
+          );
+
+          setMissionState(
+            FieldMissionController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'setActiveFieldMission',
+
+              missionId,
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
+  const toggleFieldMissionVisibility =
+    useCallback(
+      async (
+        missionId,
+      ) => {
+        try {
+          await FieldMissionController.toggleVisibility(
+            missionId,
+          );
+
+          setMissionState(
+            FieldMissionController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'toggleFieldMissionVisibility',
+
+              missionId,
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
+  const deleteFieldMission =
+    useCallback(
+      async (
+        missionId,
+      ) => {
+        try {
+          await FieldMissionController.deleteMission(
+            missionId,
+          );
+
+          setMissionState(
+            FieldMissionController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'deleteFieldMission',
+
+              missionId,
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
   const closePopup =
     useCallback(() => {
       setSelectedFeature(
@@ -1329,6 +1491,7 @@ export function useGeoFogo() {
     errors,
     selectedFeature,
     fieldState,
+    missionState,
     baseMapId,
 
     layerGroups:
@@ -1350,6 +1513,10 @@ export function useGeoFogo() {
     finishFieldTrail,
     addFieldPoint,
     addFieldPointAtCoordinates,
+    createFieldMission,
+    setActiveFieldMission,
+    toggleFieldMissionVisibility,
+    deleteFieldMission,
     closePopup,
 
     config,
