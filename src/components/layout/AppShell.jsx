@@ -130,6 +130,11 @@ export default function AppShell({
   finishFieldTrail,
   addFieldPoint,
   addFieldPointAtCoordinates,
+  missionState,
+  createFieldMission,
+  setActiveFieldMission,
+  toggleFieldMissionVisibility,
+  deleteFieldMission,
   closePopup,
 }) {
   const [activePanel, setActivePanel] =
@@ -293,6 +298,7 @@ export default function AppShell({
     baseMapId,
     config,
     fieldState,
+    missionState,
     sync,
     toggleLayer,
     setLayerOpacity,
@@ -304,6 +310,10 @@ export default function AppShell({
     finishFieldTrail,
     addFieldPoint,
     addFieldPointAtCoordinates,
+    createFieldMission,
+    setActiveFieldMission,
+    toggleFieldMissionVisibility,
+    deleteFieldMission,
     openAlertsPanel,
   };
 
@@ -1381,6 +1391,21 @@ function renderPanel(
           }
           onAddPointAtCoordinates={
             props.addFieldPointAtCoordinates
+          }
+          missionState={
+            props.missionState
+          }
+          onCreateMission={
+            props.createFieldMission
+          }
+          onSetActiveMission={
+            props.setActiveFieldMission
+          }
+          onToggleMissionVisibility={
+            props.toggleFieldMissionVisibility
+          }
+          onDeleteMission={
+            props.deleteFieldMission
           }
         />
       );

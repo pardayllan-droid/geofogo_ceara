@@ -39,6 +39,7 @@ import { FieldController } from '../../field/FieldController';
 import FieldMarkerForm from './FieldMarkerForm';
 import { formatDistance } from '../../utils/formatters';
 import FieldTrailStartForm from './FieldTrailStartForm';
+import FieldMissionPanel from './FieldMissionPanel';
 
 function formatDuration(
   milliseconds,
@@ -200,12 +201,17 @@ function downloadTextFile({
 
 export default function FieldModePanel({
   fieldState,
+  missionState,
   onStart,
   onStop,
   onToggleRecord,
   onFinishTrail,
   onAddPoint,
   onAddPointAtCoordinates,
+  onCreateMission,
+  onSetActiveMission,
+  onToggleMissionVisibility,
+  onDeleteMission,
 }) {
 
   const [
@@ -537,6 +543,24 @@ export default function FieldModePanel({
         <LocationStatus
           fieldState={
             fieldState
+          }
+        />
+
+        <FieldMissionPanel
+          missionState={
+            missionState
+          }
+          onCreateMission={
+            onCreateMission
+          }
+          onSetActiveMission={
+            onSetActiveMission
+          }
+          onToggleMissionVisibility={
+            onToggleMissionVisibility
+          }
+          onDeleteMission={
+            onDeleteMission
           }
         />
 
