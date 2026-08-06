@@ -20,21 +20,54 @@ class FieldMissionControllerClass {
     this.missions = [];
     this.activeMissionId = null;
     this.listeners = [];
+    this.initialized = false;
+    this.initializePromise = null;
   }
 
   async initialize() {
-    this.missions =
-      await FieldMissionRepository.getAll();
+    if (
+      this.initialized
+    ) {
+      return this.getState();
+    }
 
-    const active =
-      this.missions.find(
-        (mission) => mission.status === 'active',
-      );
+    if (
+      this.initializePromise
+    ) {
+      return this.initializePromise;
+    }
 
-    this.activeMissionId =
-      active?.id ?? null;
+    this.initializePromise =
+      (async () => {
+        this.missions =
+          await FieldMissionRepository
+            .getAll();
 
-    this.notify();
+        const active =
+          this.missions.find(
+            (mission) =>
+              mission.status ===
+              'active',
+          );
+
+        this.activeMissionId =
+          active?.id ??
+          null;
+
+        this.initialized =
+          true;
+
+        this.notify();
+
+        return this.getState();
+      })();
+
+    try {
+      return await this.initializePromise;
+    } finally {
+      this.initializePromise =
+        null;
+    }
   }
 
   subscribe(listener) {

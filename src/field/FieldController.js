@@ -385,9 +385,13 @@ class FieldControllerImpl {
     this._starting =
       true;
 
-    await FieldMissionController.initialize();
-    
     try {
+      /**
+       * Carrega as missões antes de recuperar trilhos,
+       * marcadores e iniciar o GPS.
+       */
+      await FieldMissionController.initialize();
+
       this.permissionStatus =
         await this.locationProvider
           .getPermissionStatus();
@@ -602,6 +606,9 @@ class FieldControllerImpl {
     name =
       null,
 
+    missionId =
+      undefined,
+
     navigationTargetId =
       null,
 
@@ -632,9 +639,20 @@ class FieldControllerImpl {
         .status ===
         TRAIL_STATUS.INTERRUPTED
     ) {
+      const resolvedMissionId =
+        missionId ===
+          undefined
+          ? FieldMissionController
+              .getActiveMission()
+              ?.id ||
+            null
+          : missionId;
       this.currentTrail =
         createTrail({
           name,
+
+          missionId:
+            resolvedMissionId,
 
           navigationTargetId,
 
@@ -1147,6 +1165,9 @@ class FieldControllerImpl {
       status =
         'new',
 
+      missionId =
+        undefined,
+
       linkToActiveTrail =
         true,
     } = {},
@@ -1171,6 +1192,15 @@ class FieldControllerImpl {
             ?.id ||
           null
         : null;
+
+    const resolvedMissionId =
+      missionId ===
+        undefined
+        ? FieldMissionController
+            .getActiveMission()
+            ?.id ||
+          null
+        : missionId;
 
     const point =
       createFieldPoint({
@@ -1200,11 +1230,14 @@ class FieldControllerImpl {
         label,
         observation,
         category,
+        style,
         status,
 
         origin:
           FIELD_POINT_ORIGIN.CURRENT_POSITION,
 
+        missionId:
+          resolvedMissionId,
         trailId,
       });
 
@@ -1247,12 +1280,24 @@ class FieldControllerImpl {
     status =
       'new',
 
+    missionId =
+      undefined,
+
     originalCoordinateFormat =
       'decimal-degrees',
 
     trailId =
       null,
   } = {}) {
+    const resolvedMissionId =
+      missionId ===
+        undefined
+        ? FieldMissionController
+            .getActiveMission()
+            ?.id ||
+          null
+        : missionId;
+
     const point =
       createFieldPoint({
         longitude,
@@ -1266,6 +1311,9 @@ class FieldControllerImpl {
 
         origin:
           FIELD_POINT_ORIGIN.MANUAL_COORDINATE,
+
+        missionId:
+          resolvedMissionId,
 
         originalCoordinateFormat,
 
@@ -1383,6 +1431,11 @@ class FieldControllerImpl {
           trailId:
             this.currentTrail
               ?.id ||
+            null,
+
+          missionId:
+            this.currentTrail
+              ?.missionId ||
             null,
 
           name:

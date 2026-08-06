@@ -254,14 +254,6 @@ export function createFieldPoint({
         missionId ||
         null,
 
-      /**
-       * Mantido também no nível principal para facilitar
-       * filtros futuros no IndexedDB ou SQLite.
-       */
-      missionId:
-        missionId ||
-        null,
-
       altitude:
         normalizeCoordinate(
           altitude,
@@ -298,6 +290,14 @@ export function createFieldPoint({
      */
     trailId:
       trailId ||
+      null,
+
+    /**
+     * Mantido também no nível principal para facilitar
+     * filtros futuros no IndexedDB ou SQLite.
+     */
+    missionId:
+      missionId ||
       null,
 
     created_date:

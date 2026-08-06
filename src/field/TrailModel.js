@@ -78,6 +78,7 @@ export function createTrail({
 
     status:
       TRAIL_STATUS.ACTIVE,
+      
 
     /**
      * Missão à qual o trilho pertence.
