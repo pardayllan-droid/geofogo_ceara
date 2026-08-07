@@ -1503,6 +1503,98 @@ class FieldControllerImpl {
   }
 
   /**
+   * Retorna os registros associados a uma missão.
+   *
+   * Usado pelo gestor de Missões.
+   */
+  getMissionRecords(
+    missionId,
+  ) {
+    if (!missionId) {
+      return {
+        trails: [],
+        points: [],
+      };
+    }
+
+    const trails =
+      this.trails.filter(
+        (trail) =>
+          (
+            trail.missionId ??
+            null
+          ) ===
+          missionId,
+      );
+
+    const points =
+      this.points.filter(
+        (point) =>
+          (
+            point.missionId ??
+            point.properties
+              ?.missionId ??
+            null
+          ) ===
+          missionId,
+      );
+
+    return {
+      trails:
+        trails.map(
+          (trail) =>
+            cloneData(
+              trail,
+            ),
+        ),
+
+      points:
+        points.map(
+          (point) =>
+            cloneData(
+              point,
+            ),
+        ),
+    };
+  }
+
+  getUnassignedRecords() {
+    const trails =
+      this.trails.filter(
+        (trail) =>
+          !trail.missionId,
+      );
+
+    const points =
+      this.points.filter(
+        (point) =>
+          !(
+            point.missionId ??
+            point.properties
+              ?.missionId
+          ),
+      );
+
+    return {
+      trails:
+        trails.map(
+          (trail) =>
+            cloneData(
+              trail,
+            ),
+        ),
+
+      points:
+        points.map(
+          (point) =>
+            cloneData(
+              point,
+            ),
+        ),
+    };
+  }
+
+  /**
    * Retorna todos os trilhos que devem ser exibidos no mapa.
    *
    * A visibilidade da missão é aplicada aqui, antes dos
@@ -1661,6 +1753,18 @@ class FieldControllerImpl {
         this.points
           .filter(
             (point) => {
+              const visible =
+                (
+                  point.visible ??
+                  point.properties
+                    ?.visible
+                ) !==
+                false;
+
+              if (!visible) {
+                return false;
+              }
+
               const missionId =
                 point.missionId ??
                 point.properties
@@ -1902,6 +2006,85 @@ class FieldControllerImpl {
     return gpx;
   }
 
+  /**
+   * Altera a visibilidade individual de um trilho.
+   */
+  async setTrailVisibility(
+    trailId,
+    visible,
+  ) {
+    const trail =
+      this.trails.find(
+        (candidate) =>
+          candidate.id ===
+          trailId,
+      );
+
+    if (!trail) {
+      throw new Error(
+        'Trilho não encontrado.',
+      );
+    }
+
+    const updatedTrail = {
+      ...trail,
+
+      visible:
+        Boolean(
+          visible,
+        ),
+
+      updated_date:
+        Date.now(),
+    };
+
+    this._updateTrailCollection(
+      updatedTrail,
+    );
+
+    if (
+      this.currentTrail
+        ?.id ===
+      trailId
+    ) {
+      this.currentTrail =
+        updatedTrail;
+    }
+
+    this._queueTrailSave(
+      updatedTrail,
+    );
+
+    await this.flushPersistence();
+
+    this._notify();
+
+    return updatedTrail;
+  }
+
+  async toggleTrailVisibility(
+    trailId,
+  ) {
+    const trail =
+      this.trails.find(
+        (candidate) =>
+          candidate.id ===
+          trailId,
+      );
+
+    if (!trail) {
+      throw new Error(
+        'Trilho não encontrado.',
+      );
+    }
+
+    return this.setTrailVisibility(
+      trailId,
+      trail.visible ===
+        false,
+    );
+  }
+
   _updateTrailCollection(
     trail,
   ) {
@@ -1962,6 +2145,103 @@ class FieldControllerImpl {
             );
           },
         );
+  }
+
+  /**
+   * Altera a visibilidade individual de um marcador.
+   */
+  async setPointVisibility(
+    pointId,
+    visible,
+  ) {
+    const index =
+      this.points.findIndex(
+        (point) =>
+          point.id ===
+          pointId,
+      );
+
+    if (index < 0) {
+      throw new Error(
+        'Marcador não encontrado.',
+      );
+    }
+
+    const currentPoint =
+      this.points[
+        index
+      ];
+
+    const normalizedVisible =
+      Boolean(
+        visible,
+      );
+
+    const updatedPoint = {
+      ...currentPoint,
+
+      visible:
+        normalizedVisible,
+
+      properties: {
+        ...currentPoint.properties,
+
+        visible:
+          normalizedVisible,
+      },
+
+      updated_date:
+        Date.now(),
+    };
+
+    this.points = [
+      ...this.points,
+    ];
+
+    this.points[
+      index
+    ] =
+      updatedPoint;
+
+    this._queuePointSave(
+      updatedPoint,
+    );
+
+    await this.flushPersistence();
+
+    this._notify();
+
+    return updatedPoint;
+  }
+
+  async togglePointVisibility(
+    pointId,
+  ) {
+    const point =
+      this.points.find(
+        (candidate) =>
+          candidate.id ===
+          pointId,
+      );
+
+    if (!point) {
+      throw new Error(
+        'Marcador não encontrado.',
+      );
+    }
+
+    const visible =
+      (
+        point.visible ??
+        point.properties
+          ?.visible
+      ) !==
+      false;
+
+    return this.setPointVisibility(
+      pointId,
+      !visible,
+    );
   }
 
   _queuePointSave(

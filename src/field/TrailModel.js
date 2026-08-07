@@ -48,6 +48,9 @@ export function createTrail({
   missionId =
     null,
 
+  visible =
+    true,
+
   navigationTargetId =
     null,
 
@@ -88,6 +91,16 @@ export function createTrail({
     missionId:
       missionId ||
       null,
+
+    /**
+     * Visibilidade individual do trilho.
+     *
+     * A visibilidade final no mapa depende de:
+     * - a missão estar visível;
+     * - o próprio trilho estar visível.
+     */
+    visible:
+      visible !== false,
 
     navigationTargetId:
       navigationTargetId ||
@@ -170,6 +183,9 @@ export function normalizeTrail(
       missionId:
         trail.missionId,
 
+      visible:
+        trail.visible,
+
       navigationTargetId:
         trail.navigationTargetId,
 
@@ -181,7 +197,11 @@ export function normalizeTrail(
 
     missionId:
       trail.missionId ||
-      null,    
+      null,
+
+    visible:
+      trail.visible !==
+      false,
 
     style:
       normalizeTrailStyle(

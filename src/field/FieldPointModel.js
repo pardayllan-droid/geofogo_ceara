@@ -135,6 +135,9 @@ export function createFieldPoint({
   missionId =
     null,
 
+  visible =
+    true,
+
   timestamp =
     Date.now(),
 } = {}) {
@@ -254,6 +257,9 @@ export function createFieldPoint({
         missionId ||
         null,
 
+      visible:
+        visible !== false,
+
       altitude:
         normalizeCoordinate(
           altitude,
@@ -299,6 +305,9 @@ export function createFieldPoint({
     missionId:
       missionId ||
       null,
+
+    visible:
+      visible !== false,
 
     created_date:
       createdAt,
@@ -368,6 +377,13 @@ export function normalizeFieldPoint(
     properties.missionId ??
     null;
 
+  const visible =
+    (
+      point.visible ??
+      properties.visible
+    ) !==
+    false;
+
   const category =
     properties.category ||
     FIELD_POINT_CATEGORY.OBSERVATION;
@@ -404,6 +420,8 @@ export function normalizeFieldPoint(
 
     missionId,
 
+    visible,
+
     properties: {
       ...properties,
 
@@ -431,6 +449,8 @@ export function normalizeFieldPoint(
       trailId,
 
       missionId,
+
+      visible,
 
       timestamp:
         Number(
