@@ -34,6 +34,7 @@ import FieldTrailStartForm from './FieldTrailStartForm';
 export default function FieldModePanel({
   fieldState,
   missionState,
+  getMissionRecords,
 
   onStart,
   onStop,
@@ -222,6 +223,9 @@ export default function FieldModePanel({
         <FieldMissionPanel
           missionState={
             missionState
+          }
+          getMissionRecords={
+            getMissionRecords
           }
           onCreateMission={
             onCreateMission
