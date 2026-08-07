@@ -216,6 +216,38 @@ class FieldMissionControllerClass {
     this.notify();
   }
 
+  /**
+   * Informa se um registro associado a uma missão deve
+   * aparecer no mapa.
+   *
+   * Regras:
+   * - missionId null → registro avulso → visível;
+   * - missão existente → respeita mission.visible;
+   * - missão inexistente → registro órfão → permanece
+   *   visível para não esconder dados antigos.
+   */
+  isRecordVisible(
+    missionId,
+  ) {
+    if (!missionId) {
+      return true;
+    }
+
+    const mission =
+      this.missions.find(
+        (candidate) =>
+          candidate.id === missionId,
+      );
+
+    if (!mission) {
+      return true;
+    }
+
+    return (
+      mission.visible !== false
+    );
+  }
+
   async toggleVisibility(id) {
     const mission =
       this.missions.find(

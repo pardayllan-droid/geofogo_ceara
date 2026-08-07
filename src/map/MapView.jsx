@@ -47,6 +47,10 @@ import {
   FieldController,
 } from '../field/FieldController';
 
+import {
+  FieldMissionController,
+} from '../field/FieldMissionController';
+
 const EMPTY_FEATURE_COLLECTION = {
   type:
     'FeatureCollection',
@@ -2923,7 +2927,7 @@ export default function MapView({
 
           const trailGeoJSON =
             FieldController
-              .getTrailGeoJSON
+              .getVisibleTrailsGeoJSON
               ?.() ||
             EMPTY_FEATURE_COLLECTION;
 
@@ -2940,7 +2944,7 @@ export default function MapView({
           updateLayer(
             'field-points',
             FieldController
-              .getPointsGeoJSON
+              .getVisiblePointsGeoJSON
               ?.() ||
               EMPTY_FEATURE_COLLECTION,
           );
@@ -3022,6 +3026,17 @@ export default function MapView({
         );
 
       /**
+       * Mostrar/ocultar uma missão deve refletir no mapa
+       * imediatamente, sem precisar alterar o GPS.
+       */
+      const unsubscribeMissionState =
+        FieldMissionController.subscribe(
+          () => {
+            updateFieldLayers();
+          },
+        );
+
+      /**
        * Faz uma primeira atualização ao montar o efeito.
        */
       updateFieldLayers();
@@ -3053,7 +3068,7 @@ export default function MapView({
 
             const trailGeoJSON =
               FieldController
-                .getTrailGeoJSON
+                .getVisibleTrailsGeoJSON
                 ?.() ||
               EMPTY_FEATURE_COLLECTION;
 
@@ -3065,7 +3080,7 @@ export default function MapView({
             updateLayer(
               'field-points',
               FieldController
-                .getPointsGeoJSON
+                .getVisiblePointsGeoJSON
                 ?.() ||
               EMPTY_FEATURE_COLLECTION,
             );
@@ -3084,6 +3099,7 @@ export default function MapView({
         );
 
         unsubscribeFieldState?.();
+        unsubscribeMissionState?.();
         unsubscribeStopped?.();
       };
     },

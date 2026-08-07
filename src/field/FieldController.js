@@ -302,6 +302,15 @@ class FieldControllerImpl {
       null;
 
     /**
+     * Todos os trilhos persistentes carregados.
+     *
+     * currentTrail continua representando somente o trilho
+     * atualmente selecionado/em gravação.
+     */
+    this.trails =
+      [];
+
+    /**
      * Mantido por compatibilidade com a interface e
      * as camadas existentes.
      */
@@ -404,6 +413,14 @@ class FieldControllerImpl {
           'Permissão de localização negada.',
         );
       }
+
+      /**
+       * Carrega todo o histórico para permitir a exibição de
+       * várias missões simultaneamente.
+       */
+      this.trails =
+        await TrailRepository
+          .getAll();
 
       /**
        * Recupera um trilho deixado aberto por:
@@ -1486,6 +1503,115 @@ class FieldControllerImpl {
   }
 
   /**
+   * Retorna todos os trilhos que devem ser exibidos no mapa.
+   *
+   * A visibilidade da missão é aplicada aqui, antes dos
+   * dados chegarem ao MapLibre.
+   */
+  getVisibleTrailsGeoJSON() {
+    const features =
+      [];
+
+    for (
+      const trail
+      of this.trails
+    ) {
+      if (
+        !trail ||
+        !Array.isArray(
+          trail.samples,
+        ) ||
+        trail.samples.length <
+          2
+      ) {
+        continue;
+      }
+
+      if (
+        !FieldMissionController
+          .isRecordVisible(
+            trail.missionId,
+          )
+      ) {
+        continue;
+      }
+
+      const coordinates =
+        trail.samples
+          .map(
+            (point) =>
+              point?.geometry?.coordinates,
+          )
+          .filter(
+            (coordinates) =>
+              Array.isArray(
+                coordinates,
+              ) &&
+              coordinates.length >=
+                2,
+          );
+
+      if (
+        coordinates.length <
+          2
+      ) {
+        continue;
+      }
+
+      const line =
+        turf.lineString(
+          coordinates,
+          {
+            trailId:
+              trail.id,
+
+            missionId:
+              trail.missionId ||
+              null,
+
+            name:
+              trail.name ||
+              'Trilho GeoFogo',
+
+            status:
+              trail.status ||
+              null,
+
+            style:
+              trail.style ||
+              null,
+
+            distanceMeters:
+              trail.distanceMeters ||
+              0,
+
+            startedAt:
+              trail.startedAt ||
+              null,
+
+            endedAt:
+              trail.endedAt ||
+              null,
+          },
+        );
+
+      line.id =
+        trail.id;
+
+      features.push(
+        line,
+      );
+    }
+
+    return {
+      type:
+        'FeatureCollection',
+
+      features,
+    };
+  }
+
+  /**
    * Por padrão retorna todos os pontos carregados.
    *
    * trailId:
@@ -1523,6 +1649,38 @@ class FieldControllerImpl {
               point,
             ),
         ),
+    };
+  }
+
+  getVisiblePointsGeoJSON() {
+    return {
+      type:
+        'FeatureCollection',
+
+      features:
+        this.points
+          .filter(
+            (point) => {
+              const missionId =
+                point.missionId ??
+                point.properties
+                  ?.missionId ??
+                null;
+
+              return (
+                FieldMissionController
+                  .isRecordVisible(
+                    missionId,
+                  )
+              );
+            },
+          )
+          .map(
+            (point) =>
+              cloneData(
+                point,
+              ),
+          ),
     };
   }
 
@@ -1744,12 +1902,34 @@ class FieldControllerImpl {
     return gpx;
   }
 
+  _updateTrailCollection(
+    trail,
+  ) {
+    if (!trail?.id) {
+      return;
+    }
+
+    this.trails = [
+      trail,
+
+      ...this.trails.filter(
+        (existingTrail) =>
+          existingTrail.id !==
+          trail.id,
+      ),
+    ];
+  }
+
   _queueTrailSave(
     trail,
   ) {
     if (!trail?.id) {
       return;
     }
+
+    this._updateTrailCollection(
+      trail,
+    );
 
     const snapshot =
       cloneData(
