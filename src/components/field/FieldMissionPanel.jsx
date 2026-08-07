@@ -22,7 +22,9 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
+  MapPin,
   Plus,
+  Route,
   Trash2,
 } from 'lucide-react';
 
@@ -61,11 +63,96 @@ function formatMissionDate(
   );
 }
 
+function getMarkerCategoryLabel(
+  category,
+) {
+  switch (category) {
+    case 'fire':
+      return 'Foco';
+    case 'water':
+      return 'Água';
+    case 'base':
+      return 'Base';
+    case 'observation':
+      return 'Observação';
+    default:
+      return 'Marcador';
+  }
+}
+
+function MissionRecordGroup({
+  title,
+  icon: Icon,
+  emptyMessage,
+  children,
+}) {
+  return (
+    <div className="rounded-lg border border-border/70 bg-background/60 p-2.5">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </p>
+      </div>
+
+      {children &&
+      children.length > 0 ? (
+        <div className="space-y-1.5">
+          {children}
+        </div>
+      ) : (
+        <p className="text-[9px] text-muted-foreground">
+          {emptyMessage}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MissionRecordRow({
+  label,
+  visible,
+  busy,
+  onToggle,
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-background px-2.5 py-2">
+      <p className="min-w-0 flex-1 truncate text-[9px] font-medium">
+        {label}
+      </p>
+
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={busy}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+        aria-label={
+          visible
+            ? `Ocultar ${label}`
+            : `Exibir ${label}`
+        }
+      >
+        {visible ? (
+          <Eye className="h-3.5 w-3.5" />
+        ) : (
+          <EyeOff className="h-3.5 w-3.5" />
+        )}
+      </button>
+    </div>
+  );
+}
+
 export default function FieldMissionPanel({
   missionState,
+  getMissionRecords,
   onCreateMission,
   onSetActiveMission,
   onToggleMissionVisibility,
+  onToggleTrailVisibility,
+  onTogglePointVisibility,
   onDeleteMission,
 }) {
   const [
@@ -77,6 +164,14 @@ export default function FieldMissionPanel({
     managerOpen,
     setManagerOpen,
   ] = useState(false);
+
+  const [
+    expandedMissionIds,
+    setExpandedMissionIds,
+  ] = useState(
+    () =>
+      new Set(),
+  );
 
   const [
     name,
@@ -136,6 +231,35 @@ export default function FieldMissionPanel({
 
     setActionMessage(
       null,
+    );
+  }
+
+  function toggleMissionExpanded(
+    missionId,
+  ) {
+    setExpandedMissionIds(
+      (current) => {
+        const next =
+          new Set(
+            current,
+          );
+
+        if (
+          next.has(
+            missionId,
+          )
+        ) {
+          next.delete(
+            missionId,
+          );
+        } else {
+          next.add(
+            missionId,
+          );
+        }
+
+        return next;
+      },
     );
   }
 
@@ -257,6 +381,85 @@ export default function FieldMissionPanel({
       setActionError(
         error?.message ||
           'Não foi possível alterar a visibilidade.',
+      );
+    } finally {
+      setBusyMissionId(
+        null,
+      );
+    }
+  }
+
+  async function handleToggleTrailVisibility(
+    trail,
+  ) {
+    if (!trail?.id) {
+      return;
+    }
+
+    clearFeedback();
+
+    try {
+      setBusyMissionId(
+        `trail:${trail.id}`,
+      );
+
+      await onToggleTrailVisibility?.(
+        trail.id,
+      );
+
+      setActionMessage(
+        trail.visible ===
+          false
+          ? 'Trilho exibido.'
+          : 'Trilho ocultado.',
+      );
+    } catch (error) {
+      setActionError(
+        error?.message ||
+          'Não foi possível alterar a visibilidade do trilho.',
+      );
+    } finally {
+      setBusyMissionId(
+        null,
+      );
+    }
+  }
+
+  async function handleTogglePointVisibility(
+    point,
+  ) {
+    if (!point?.id) {
+      return;
+    }
+
+    clearFeedback();
+
+    try {
+      setBusyMissionId(
+        `point:${point.id}`,
+      );
+
+      await onTogglePointVisibility?.(
+        point.id,
+      );
+
+      const visible =
+        (
+          point.visible ??
+          point.properties
+            ?.visible
+        ) !==
+        false;
+
+      setActionMessage(
+        visible
+          ? 'Marcador ocultado.'
+          : 'Marcador exibido.',
+      );
+    } catch (error) {
+      setActionError(
+        error?.message ||
+          'Não foi possível alterar a visibilidade do marcador.',
       );
     } finally {
       setBusyMissionId(
@@ -543,6 +746,33 @@ export default function FieldMissionPanel({
                     busyMissionId ===
                     mission.id;
 
+                  const expanded =
+                    expandedMissionIds.has(
+                      mission.id,
+                    );
+
+                  const records =
+                    getMissionRecords?.(
+                      mission.id,
+                    ) || {
+                      trails: [],
+                      points: [],
+                    };
+
+                  const trails =
+                    Array.isArray(
+                      records.trails,
+                    )
+                      ? records.trails
+                      : [];
+
+                  const points =
+                    Array.isArray(
+                      records.points,
+                    )
+                      ? records.points
+                      : [];
+
                   return (
                     <article
                       key={
@@ -555,6 +785,30 @@ export default function FieldMissionPanel({
                       }`}
                     >
                       <div className="flex items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleMissionExpanded(
+                              mission.id,
+                            )
+                          }
+                          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          aria-expanded={
+                            expanded
+                          }
+                          aria-label={
+                            expanded
+                              ? `Recolher ${mission.name}`
+                              : `Expandir ${mission.name}`
+                          }
+                        >
+                          {expanded ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+
                         <button
                           type="button"
                           onClick={() =>
@@ -592,6 +846,18 @@ export default function FieldMissionPanel({
                             {formatMissionDate(
                               mission.startedAt,
                             )}
+                          </p>
+
+                          <p className="mt-0.5 text-[9px] text-muted-foreground">
+                            {trails.length}{' '}
+                            {trails.length === 1
+                              ? 'trilho'
+                              : 'trilhos'}
+                            {' · '}
+                            {points.length}{' '}
+                            {points.length === 1
+                              ? 'marcador'
+                              : 'marcadores'}
                           </p>
                         </div>
 
@@ -649,6 +915,84 @@ export default function FieldMissionPanel({
                         <p className="mt-2 line-clamp-2 text-[9px] leading-relaxed text-muted-foreground">
                           {mission.description}
                         </p>
+                      )}
+
+                      {expanded && (
+                        <div className="mt-2 space-y-3 border-t border-border/70 pt-2">
+                          <MissionRecordGroup
+                            title="Trilhos"
+                            icon={Route}
+                            emptyMessage="Nenhum trilho nesta missão."
+                          >
+                            {trails.map((trail) => (
+                              <MissionRecordRow
+                                key={trail.id}
+                                label={
+                                  trail.name ||
+                                  'Trilho sem nome'
+                                }
+                                visible={
+                                  trail.visible !==
+                                  false
+                                }
+                                busy={
+                                  busyMissionId ===
+                                  `trail:${trail.id}`
+                                }
+                                onToggle={() =>
+                                  handleToggleTrailVisibility(
+                                    trail,
+                                  )
+                                }
+                              />
+                            ))}
+                          </MissionRecordGroup>
+
+                          <MissionRecordGroup
+                            title="Marcadores"
+                            icon={MapPin}
+                            emptyMessage="Nenhum marcador nesta missão."
+                          >
+                            {points.map((point) => {
+                              const properties =
+                                point.properties ||
+                                {};
+
+                              const label =
+                                properties.label ||
+                                getMarkerCategoryLabel(
+                                  properties.category,
+                                );
+
+                              const visible =
+                                (
+                                  point.visible ??
+                                  properties.visible
+                                ) !==
+                                false;
+
+                              return (
+                                <MissionRecordRow
+                                  key={point.id}
+                                  label={
+                                    label ||
+                                    'Marcador'
+                                  }
+                                  visible={visible}
+                                  busy={
+                                    busyMissionId ===
+                                    `point:${point.id}`
+                                  }
+                                  onToggle={() =>
+                                    handleTogglePointVisibility(
+                                      point,
+                                    )
+                                  }
+                                />
+                              );
+                            })}
+                          </MissionRecordGroup>
+                        </div>
                       )}
                     </article>
                   );

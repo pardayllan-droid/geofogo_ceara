@@ -130,6 +130,9 @@ export default function AppShell({
   finishFieldTrail,
   addFieldPoint,
   addFieldPointAtCoordinates,
+  getFieldMissionRecords,
+  toggleFieldTrailVisibility,
+  toggleFieldPointVisibility,
   missionState,
   createFieldMission,
   setActiveFieldMission,
@@ -310,6 +313,9 @@ export default function AppShell({
     finishFieldTrail,
     addFieldPoint,
     addFieldPointAtCoordinates,
+    getFieldMissionRecords,
+    toggleFieldTrailVisibility,
+    toggleFieldPointVisibility,
     createFieldMission,
     setActiveFieldMission,
     toggleFieldMissionVisibility,
@@ -1391,6 +1397,15 @@ function renderPanel(
           }
           onAddPointAtCoordinates={
             props.addFieldPointAtCoordinates
+          }
+          getMissionRecords={
+            props.getFieldMissionRecords
+          }
+          onToggleTrailVisibility={
+            props.toggleFieldTrailVisibility
+          }
+          onTogglePointVisibility={
+            props.toggleFieldPointVisibility
           }
           missionState={
             props.missionState

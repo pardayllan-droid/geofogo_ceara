@@ -36,6 +36,9 @@ export default function GeoFogo() {
       finishFieldTrail={geo.finishFieldTrail}
       addFieldPoint={geo.addFieldPoint}
       addFieldPointAtCoordinates={geo.addFieldPointAtCoordinates}
+      getFieldMissionRecords={geo.getFieldMissionRecords}
+      toggleFieldTrailVisibility={geo.toggleFieldTrailVisibility}
+      toggleFieldPointVisibility={geo.toggleFieldPointVisibility}
       missionState={geo.missionState}
       createFieldMission={geo.createFieldMission}
       setActiveFieldMission={geo.setActiveFieldMission}

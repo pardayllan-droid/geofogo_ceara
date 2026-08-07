@@ -1347,6 +1347,89 @@ export function useGeoFogo() {
       [],
     );
 
+  const getFieldMissionRecords =
+    useCallback(
+      (
+        missionId,
+      ) => {
+        return FieldController
+          .getMissionRecords(
+            missionId,
+          );
+      },
+      [],
+    );
+
+  const toggleFieldTrailVisibility =
+    useCallback(
+      async (
+        trailId,
+      ) => {
+        try {
+          const trail =
+            await FieldController
+              .toggleTrailVisibility(
+                trailId,
+              );
+
+          setFieldState(
+            FieldController.getState(),
+          );
+
+          return trail;
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'toggleFieldTrailVisibility',
+
+              trailId,
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
+  const toggleFieldPointVisibility =
+    useCallback(
+      async (
+        pointId,
+      ) => {
+        try {
+          const point =
+            await FieldController
+              .togglePointVisibility(
+                pointId,
+              );
+
+          setFieldState(
+            FieldController.getState(),
+          );
+
+          return point;
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'toggleFieldPointVisibility',
+
+              pointId,
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
   const createFieldMission =
     useCallback(
       async (
@@ -1513,6 +1596,9 @@ export function useGeoFogo() {
     finishFieldTrail,
     addFieldPoint,
     addFieldPointAtCoordinates,
+    getFieldMissionRecords,
+    toggleFieldTrailVisibility,
+    toggleFieldPointVisibility,
     createFieldMission,
     setActiveFieldMission,
     toggleFieldMissionVisibility,
