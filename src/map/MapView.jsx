@@ -60,79 +60,50 @@ const EMPTY_FEATURE_COLLECTION = {
 };
 
 /**
- * Aplica à camada do trilho o padrão visual armazenado
- * em properties.style.linePattern.
+ * Separa uma coleção de trilhos somente para fins de
+ * renderização.
  *
- * O MapLibre utilizado atualmente não permite que
- * line-dasharray seja lido individualmente de cada
- * feição. Como apenas um trilho é exibido por vez,
- * aplicamos o padrão diretamente na camada.
+ * O FieldController continua responsável apenas pelos
+ * dados. A decisão sobre como cada padrão será desenhado
+ * permanece no módulo de mapa.
  */
-function applyFieldTrailPattern(
-  map,
-  trailGeoJSON,
+function filterFieldTrailsByPattern(
+  collection,
+  pattern,
 ) {
   if (
-    !map ||
-    !map.getLayer?.(
-      'field-trail',
+    collection?.type !==
+      'FeatureCollection' ||
+    !Array.isArray(
+      collection.features,
     )
   ) {
-    return false;
+    return {
+      ...EMPTY_FEATURE_COLLECTION,
+    };
   }
 
-  const trailFeature =
-    trailGeoJSON
-      ?.features
-      ?.[0];
+  return {
+    type:
+      'FeatureCollection',
 
-  const linePattern =
-    trailFeature
-      ?.properties
-      ?.style
-      ?.linePattern ||
-    'solid';
+    features:
+      collection.features.filter(
+        (feature) => {
+          const linePattern =
+            feature
+              ?.properties
+              ?.style
+              ?.linePattern ||
+            'solid';
 
-  try {
-    if (
-      linePattern ===
-      'dashed'
-    ) {
-      /**
-       * Os valores representam:
-       * [comprimento do traço, comprimento do espaço]
-       *
-       * Eles são multiplicados pela espessura atual
-       * da linha pelo próprio MapLibre.
-       */
-      map.setPaintProperty(
-        'field-trail',
-        'line-dasharray',
-        [
-          2.5,
-          1.8,
-        ],
-      );
-    } else {
-      /**
-       * null restaura o padrão contínuo da camada.
-       */
-      map.setPaintProperty(
-        'field-trail',
-        'line-dasharray',
-        null,
-      );
-    }
-
-    return true;
-  } catch (error) {
-    console.warn(
-      '[MapView] Não foi possível aplicar o padrão do trilho:',
-      error,
-    );
-
-    return false;
-  }
+          return (
+            linePattern ===
+            pattern
+          );
+        },
+      ),
+  };
 }
 
 function isFeatureCollection(
@@ -2933,12 +2904,18 @@ export default function MapView({
 
           updateLayer(
             'field-trail',
-            trailGeoJSON,
+            filterFieldTrailsByPattern(
+              trailGeoJSON,
+              'solid',
+            ),
           );
 
-          applyFieldTrailPattern(
-            map,
-            trailGeoJSON,
+          updateLayer(
+            'field-trail-dashed',
+            filterFieldTrailsByPattern(
+              trailGeoJSON,
+              'dashed',
+            ),
           );
 
           updateLayer(
@@ -3058,9 +3035,6 @@ export default function MapView({
         EventBus.on(
           EVENTS.FIELD_MODE_STOPPED,
           () => {
-            const map =
-              mapRef.current;
-
             updateLayer(
               'field-position',
               EMPTY_FEATURE_COLLECTION,
@@ -3074,7 +3048,18 @@ export default function MapView({
 
             updateLayer(
               'field-trail',
-              trailGeoJSON,
+              filterFieldTrailsByPattern(
+                trailGeoJSON,
+                'solid',
+              ),
+            );
+
+            updateLayer(
+              'field-trail-dashed',
+              filterFieldTrailsByPattern(
+                trailGeoJSON,
+                'dashed',
+              ),
             );
 
             updateLayer(
@@ -3083,11 +3068,6 @@ export default function MapView({
                 .getVisiblePointsGeoJSON
                 ?.() ||
               EMPTY_FEATURE_COLLECTION,
-            );
-
-            applyFieldTrailPattern(
-              map,
-              trailGeoJSON,
             );
           },
         );

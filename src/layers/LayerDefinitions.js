@@ -478,7 +478,7 @@ export const LAYER_DEFINITIONS = [
   },
   {
     id: 'field-trail',
-    title: 'Trilha do Modo Campo',
+    title: 'Trilhos do Modo Campo',
     group: LAYER_GROUPS.RESOURCES,
     sourceType: 'geojson',
     geometryType: 'linestring',
@@ -553,6 +553,119 @@ export const LAYER_DEFINITIONS = [
         ],
 
         0.9,
+      ],
+    },
+  },
+  {
+    id:
+      'field-trail-dashed',
+
+    title:
+      'Trilhos tracejados do Modo Campo',
+
+    group:
+      LAYER_GROUPS.RESOURCES,
+
+    sourceType:
+      'geojson',
+
+    geometryType:
+      'linestring',
+
+    defaultVisible:
+      true,
+
+    minZoom:
+      5,
+
+    maxZoom:
+      22,
+
+    /**
+     * Fica imediatamente acima dos trilhos contínuos
+     * e abaixo dos marcadores.
+     */
+    zIndex:
+      60.1,
+
+    opacity:
+      1,
+
+    cachePolicy:
+      'local-first',
+
+    interactive:
+      false,
+
+    paint: {
+      /**
+       * Cada feição mantém sua própria cor.
+       */
+      'line-color': [
+        'coalesce',
+
+        [
+          'get',
+          'color',
+          [
+            'get',
+            'style',
+          ],
+        ],
+
+        '#16a34a',
+      ],
+
+      /**
+       * Cada feição mantém sua própria espessura.
+       */
+      'line-width': [
+        'coalesce',
+
+        [
+          'to-number',
+          [
+            'get',
+            'width',
+            [
+              'get',
+              'style',
+            ],
+          ],
+        ],
+
+        4,
+      ],
+
+      /**
+       * Cada feição mantém sua própria opacidade.
+       */
+      'line-opacity': [
+        'coalesce',
+
+        [
+          'to-number',
+          [
+            'get',
+            'opacity',
+            [
+              'get',
+              'style',
+            ],
+          ],
+        ],
+
+        0.9,
+      ],
+
+      /**
+       * O padrão é propriedade da camada porque a versão
+       * atual do MapLibre não aplica um dasharray diferente
+       * para cada feição da mesma camada.
+       */
+      'line-dasharray': [
+        2.5,
+        1.8,
       ],
     },
   },
