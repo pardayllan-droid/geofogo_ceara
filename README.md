@@ -164,7 +164,7 @@ Em desenvolvimento:
 |     🔴    | Testes completos (desktop + Android + PWA)               | Pendente        |
 |     🟡    | Hospedagem Cloudflare Pages                              | Em andamento    |
 |     🟡    | Segurança das chaves de API                              | Pendente        |
-|     🟡    | Revisão do README                                        | Quase concluído |
+|     🟡    | Revisão do README                                        | Pendente |
 |     🟢    | APK via Capacitor                                        | Depois da v1.0  |
 
 ---
