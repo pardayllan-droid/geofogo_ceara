@@ -117,6 +117,7 @@ function MissionRecordRow({
   visible,
   busy,
   onToggle,
+  onDelete,
 }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-background px-2.5 py-2">
@@ -124,23 +125,41 @@ function MissionRecordRow({
         {label}
       </p>
 
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={busy}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-        aria-label={
-          visible
-            ? `Ocultar ${label}`
-            : `Exibir ${label}`
-        }
-      >
-        {visible ? (
-          <Eye className="h-3.5 w-3.5" />
-        ) : (
-          <EyeOff className="h-3.5 w-3.5" />
-        )}
-      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={onToggle}
+          disabled={busy}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+          aria-label={
+            visible
+              ? `Ocultar ${label}`
+              : `Exibir ${label}`
+          }
+          title={
+            visible
+              ? 'Ocultar no mapa'
+              : 'Exibir no mapa'
+          }
+        >
+          {visible ? (
+            <Eye className="h-3.5 w-3.5" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={busy}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          aria-label={`Excluir ${label}`}
+          title="Excluir"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -153,6 +172,8 @@ export default function FieldMissionPanel({
   onToggleMissionVisibility,
   onToggleTrailVisibility,
   onTogglePointVisibility,
+  onDeleteTrail,
+  onDeletePoint,
   onDeleteMission,
 }) {
   const [
@@ -460,6 +481,99 @@ export default function FieldMissionPanel({
       setActionError(
         error?.message ||
           'Não foi possível alterar a visibilidade do marcador.',
+      );
+    } finally {
+      setBusyMissionId(
+        null,
+      );
+    }
+  }
+
+  async function handleDeleteTrail(
+    trail,
+  ) {
+    if (!trail?.id) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Excluir o trilho “${trail.name || 'Trilho sem nome'}”?\n\n` +
+          'Os marcadores vinculados serão preservados.',
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    clearFeedback();
+
+    try {
+      setBusyMissionId(
+        `trail:${trail.id}`,
+      );
+
+      await onDeleteTrail?.(
+        trail.id,
+      );
+
+      setActionMessage(
+        'Trilho excluído.',
+      );
+    } catch (error) {
+      setActionError(
+        error?.message ||
+          'Não foi possível excluir o trilho.',
+      );
+    } finally {
+      setBusyMissionId(
+        null,
+      );
+    }
+  }
+
+  async function handleDeletePoint(
+    point,
+  ) {
+    if (!point?.id) {
+      return;
+    }
+
+    const label =
+      point.properties
+        ?.label ||
+      getMarkerCategoryLabel(
+        point.properties
+          ?.category,
+      );
+
+    const confirmed =
+      window.confirm(
+        `Excluir o marcador “${label || 'Marcador'}”?`,
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    clearFeedback();
+
+    try {
+      setBusyMissionId(
+        `point:${point.id}`,
+      );
+
+      await onDeletePoint?.(
+        point.id,
+      );
+
+      setActionMessage(
+        'Marcador excluído.',
+      );
+    } catch (error) {
+      setActionError(
+        error?.message ||
+          'Não foi possível excluir o marcador.',
       );
     } finally {
       setBusyMissionId(
@@ -944,6 +1058,11 @@ export default function FieldMissionPanel({
                                     trail,
                                   )
                                 }
+                                onDelete={() =>
+                                  handleDeleteTrail(
+                                    trail,
+                                  )
+                                }
                               />
                             ))}
                           </MissionRecordGroup>
@@ -985,6 +1104,11 @@ export default function FieldMissionPanel({
                                   }
                                   onToggle={() =>
                                     handleTogglePointVisibility(
+                                      point,
+                                    )
+                                  }
+                                  onDelete={() =>
+                                    handleDeletePoint(
                                       point,
                                     )
                                   }

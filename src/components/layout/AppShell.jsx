@@ -133,6 +133,8 @@ export default function AppShell({
   getFieldMissionRecords,
   toggleFieldTrailVisibility,
   toggleFieldPointVisibility,
+  deleteFieldTrail,
+  deleteFieldPoint,
   missionState,
   createFieldMission,
   setActiveFieldMission,
@@ -316,6 +318,8 @@ export default function AppShell({
     getFieldMissionRecords,
     toggleFieldTrailVisibility,
     toggleFieldPointVisibility,
+    deleteFieldTrail,
+    deleteFieldPoint,
     createFieldMission,
     setActiveFieldMission,
     toggleFieldMissionVisibility,
@@ -1406,6 +1410,12 @@ function renderPanel(
           }
           onTogglePointVisibility={
             props.toggleFieldPointVisibility
+          }
+          onDeleteTrail={
+            props.deleteFieldTrail
+          }
+          onDeletePoint={
+            props.deleteFieldPoint
           }
           missionState={
             props.missionState

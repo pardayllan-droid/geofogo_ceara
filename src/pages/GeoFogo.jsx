@@ -39,6 +39,8 @@ export default function GeoFogo() {
       getFieldMissionRecords={geo.getFieldMissionRecords}
       toggleFieldTrailVisibility={geo.toggleFieldTrailVisibility}
       toggleFieldPointVisibility={geo.toggleFieldPointVisibility}
+      deleteFieldTrail={geo.deleteFieldTrail}
+      deleteFieldPoint={geo.deleteFieldPoint}
       missionState={geo.missionState}
       createFieldMission={geo.createFieldMission}
       setActiveFieldMission={geo.setActiveFieldMission}

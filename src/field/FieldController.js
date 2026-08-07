@@ -1619,6 +1619,17 @@ class FieldControllerImpl {
         continue;
       }
 
+      /**
+       * A visibilidade individual do trilho é independente
+       * da visibilidade geral da missão.
+       */
+      if (
+        trail.visible ===
+        false
+      ) {
+        continue;
+      }
+
       if (
         !FieldMissionController
           .isRecordVisible(
@@ -2004,6 +2015,222 @@ class FieldControllerImpl {
       '</gpx>';
 
     return gpx;
+  }
+
+  /**
+   * Exclui permanentemente um trilho.
+   *
+   * Pontos vinculados ao trilho não são excluídos:
+   * eles se tornam marcadores independentes.
+   */
+  async deleteTrail(
+    trailId,
+  ) {
+    const trail =
+      this.trails.find(
+        (candidate) =>
+          candidate.id ===
+          trailId,
+      );
+
+    if (!trail) {
+      throw new Error(
+        'Trilho não encontrado.',
+      );
+    }
+
+    if (
+      this.currentTrail
+        ?.id ===
+        trailId &&
+      (
+        this.recording ||
+        this.currentTrail
+          ?.status ===
+          TRAIL_STATUS.ACTIVE ||
+        this.currentTrail
+          ?.status ===
+          TRAIL_STATUS.PAUSED
+      )
+    ) {
+      throw new Error(
+        'Finalize o trilho antes de excluí-lo.',
+      );
+    }
+
+    /**
+     * Remove o vínculo dos marcadores que pertenciam
+     * ao trilho, mas preserva os próprios marcadores.
+     */
+    const now =
+      Date.now();
+
+    this.points =
+      this.points.map(
+        (point) => {
+          const pointTrailId =
+            point.trailId ??
+            point.properties
+              ?.trailId ??
+            null;
+
+          if (
+            pointTrailId !==
+            trailId
+          ) {
+            return point;
+          }
+
+          const updatedPoint = {
+            ...point,
+
+            trailId:
+              null,
+
+            updated_date:
+              now,
+
+            properties: {
+              ...point.properties,
+
+              trailId:
+                null,
+
+              updated_date:
+                now,
+            },
+          };
+
+          this._queuePointSave(
+            updatedPoint,
+          );
+
+          return updatedPoint;
+        },
+      );
+
+    await TrailRepository.delete(
+      trailId,
+    );
+
+    this.trails =
+      this.trails.filter(
+        (candidate) =>
+          candidate.id !==
+          trailId,
+      );
+
+    if (
+      this.currentTrail
+        ?.id ===
+      trailId
+    ) {
+      this.currentTrail =
+        null;
+
+      this.trail =
+        [];
+
+      this.recording =
+        false;
+    }
+
+    await this.flushPersistence();
+
+    this._notify();
+
+    return true;
+  }
+
+  /**
+   * Exclui permanentemente um marcador.
+   */
+  async deletePoint(
+    pointId,
+  ) {
+    const point =
+      this.points.find(
+        (candidate) =>
+          candidate.id ===
+          pointId,
+      );
+
+    if (!point) {
+      throw new Error(
+        'Marcador não encontrado.',
+      );
+    }
+
+    const trailId =
+      point.trailId ??
+      point.properties
+        ?.trailId ??
+      null;
+
+    await FieldPointRepository.delete(
+      pointId,
+    );
+
+    this.points =
+      this.points.filter(
+        (candidate) =>
+          candidate.id !==
+          pointId,
+      );
+
+    /**
+     * Mantém a contagem do trilho coerente.
+     */
+    if (trailId) {
+      const trail =
+        this.trails.find(
+          (candidate) =>
+            candidate.id ===
+            trailId,
+        );
+
+      if (trail) {
+        const updatedTrail = {
+          ...trail,
+
+          pointCount:
+            Math.max(
+              0,
+              (
+                trail.pointCount ||
+                0
+              ) -
+                1,
+            ),
+
+          updated_date:
+            Date.now(),
+        };
+
+        this._updateTrailCollection(
+          updatedTrail,
+        );
+
+        if (
+          this.currentTrail
+            ?.id ===
+          trailId
+        ) {
+          this.currentTrail =
+            updatedTrail;
+        }
+
+        this._queueTrailSave(
+          updatedTrail,
+        );
+      }
+    }
+
+    await this.flushPersistence();
+
+    this._notify();
+
+    return true;
   }
 
   /**

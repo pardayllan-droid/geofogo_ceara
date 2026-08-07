@@ -1430,6 +1430,68 @@ export function useGeoFogo() {
       [],
     );
 
+  const deleteFieldTrail =
+    useCallback(
+      async (
+        trailId,
+      ) => {
+        try {
+          await FieldController.deleteTrail(
+            trailId,
+          );
+
+          setFieldState(
+            FieldController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'deleteFieldTrail',
+
+              trailId,
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
+  const deleteFieldPoint =
+    useCallback(
+      async (
+        pointId,
+      ) => {
+        try {
+          await FieldController.deletePoint(
+            pointId,
+          );
+
+          setFieldState(
+            FieldController.getState(),
+          );
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'deleteFieldPoint',
+
+              pointId,
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
   const createFieldMission =
     useCallback(
       async (
@@ -1599,6 +1661,8 @@ export function useGeoFogo() {
     getFieldMissionRecords,
     toggleFieldTrailVisibility,
     toggleFieldPointVisibility,
+    deleteFieldTrail,
+    deleteFieldPoint,
     createFieldMission,
     setActiveFieldMission,
     toggleFieldMissionVisibility,
