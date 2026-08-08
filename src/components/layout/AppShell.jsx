@@ -277,7 +277,7 @@ export default function AppShell({
       stats?.alertsCount,
     ],
   );
-  
+
   if (!ready) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-background">
@@ -1444,7 +1444,7 @@ function renderPanel(
           }
         />
       );
-    
+
     case 'settings':
       return (
         <SettingsPanel

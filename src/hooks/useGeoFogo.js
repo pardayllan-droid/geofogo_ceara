@@ -1708,7 +1708,7 @@ export function useGeoFogo() {
     toggleFieldMissionVisibility,
     deleteFieldMission,
     closePopup,
-    
+
     config,
   };
 }
