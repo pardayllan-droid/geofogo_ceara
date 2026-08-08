@@ -135,6 +135,22 @@ class FieldMissionControllerClass {
     this.notify();
   }
 
+  /**
+   * Remove a missão ativa sem excluir, concluir ou
+   * arquivar nenhuma missão.
+   *
+   * A partir desse momento, novos trilhos e marcadores
+   * serão criados com missionId = null.
+   */
+  clearActiveMission() {
+    this.activeMissionId =
+      null;
+
+    this.notify();
+
+    return this.getState();
+  }
+
   async renameMission(id, values) {
     const index =
       this.missions.findIndex(

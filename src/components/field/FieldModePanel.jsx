@@ -1,21 +1,24 @@
 /**
  * FieldModePanel
  *
- * Orquestrador visual do módulo Campo.
+ * Área operacional de campo organizada em três abas:
  *
- * Responsabilidades:
- * - ativar/encerrar o Modo Campo;
- * - organizar os cartões operacionais;
- * - encaminhar ações para os componentes especializados.
+ * - Campo:
+ *   GPS, missão ativa, gravação e criação de marcadores.
  *
- * Regras de GPS, trilhos, missões, marcadores e
- * exportações ficam fora deste componente.
+ * - Missões:
+ *   gestor dos registros organizados por missão.
+ *
+ * - Sem missão:
+ *   gestor dos registros avulsos.
  */
 
 import {
   AlertTriangle,
   CheckCircle2,
   Navigation,
+  Pause,
+  Play,
   Satellite,
   Square,
 } from 'lucide-react';
@@ -24,17 +27,19 @@ import {
   useState,
 } from 'react';
 
-import FieldExportCard from './FieldExportCard';
+import FieldActiveMissionCard from './FieldActiveMissionCard';
 import FieldGpsCard from './FieldGpsCard';
 import FieldMarkerForm from './FieldMarkerForm';
 import FieldMissionPanel from './FieldMissionPanel';
-import FieldTrailCard from './FieldTrailCard';
 import FieldTrailStartForm from './FieldTrailStartForm';
+import FieldUnassignedPanel from './FieldUnassignedPanel';
 
 export default function FieldModePanel({
   fieldState,
   missionState,
+
   getMissionRecords,
+  getUnassignedRecords,
 
   onStart,
   onStop,
@@ -47,14 +52,23 @@ export default function FieldModePanel({
 
   onToggleTrailVisibility,
   onTogglePointVisibility,
+
   onDeleteTrail,
   onDeletePoint,
 
   onCreateMission,
   onSetActiveMission,
+  onClearActiveMission,
   onToggleMissionVisibility,
   onDeleteMission,
 }) {
+  const [
+    activeTab,
+    setActiveTab,
+  ] = useState(
+    'field',
+  );
+
   const [
     actionError,
     setActionError,
@@ -88,6 +102,36 @@ export default function FieldModePanel({
     Boolean(
       fieldState
         ?.currentPosition,
+    );
+
+  const missionsCount =
+    Array.isArray(
+      missionState
+        ?.missions,
+    )
+      ? missionState
+          .missions
+          .length
+      : 0;
+
+  const unassignedRecords =
+    getUnassignedRecords?.() || {
+      trails: [],
+      points: [],
+    };
+
+  const unassignedCount =
+    (
+      unassignedRecords
+        .trails
+        ?.length ||
+      0
+    ) +
+    (
+      unassignedRecords
+        .points
+        ?.length ||
+      0
     );
 
   function clearFeedback() {
@@ -161,149 +205,205 @@ export default function FieldModePanel({
     }
   }
 
-  if (
-    !fieldState?.active
-  ) {
-    return (
-      <div className="flex min-h-full flex-col">
-        <PanelHeader />
-
-        <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10">
-            <Navigation className="h-7 w-7 text-blue-500" />
-          </div>
-
-          <h3 className="text-sm font-semibold">
-            Coleta de campo
-          </h3>
-
-          <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
-            Ative o GPS para registrar trilhos, criar marcadores e acompanhar
-            sua posição durante uma operação.
-          </p>
-
-          <p className="mt-2 max-w-xs text-[10px] leading-relaxed text-muted-foreground">
-            Na versão web, o rastreamento depende de a aplicação permanecer em
-            primeiro plano. O APK utilizará um provedor Android próprio.
-          </p>
-
-          {actionError && (
-            <FeedbackMessage
-              type="error"
-              message={
-                actionError
-              }
-            />
-          )}
-
-          <button
-            type="button"
-            onClick={
-              handleStartFieldMode
-            }
-            className="mt-4 flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
-          >
-            <Satellite className="h-4 w-4" />
-
-            Ativar Modo Campo
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-full flex-col">
       <PanelHeader
         recording={
           fieldState
-            .recording
+            ?.recording
         }
         onStop={
-          handleStopFieldMode
+          fieldState
+            ?.active
+            ? handleStopFieldMode
+            : null
         }
       />
 
+      <div className="grid grid-cols-3 border-b border-border bg-card/40">
+        <FieldTabButton
+          active={
+            activeTab ===
+            'field'
+          }
+          onClick={() =>
+            setActiveTab(
+              'field',
+            )
+          }
+        >
+          Campo
+        </FieldTabButton>
+
+        <FieldTabButton
+          active={
+            activeTab ===
+            'missions'
+          }
+          onClick={() =>
+            setActiveTab(
+              'missions',
+            )
+          }
+        >
+          Missões
+          {missionsCount >
+            0 &&
+            ` (${missionsCount})`}
+        </FieldTabButton>
+
+        <FieldTabButton
+          active={
+            activeTab ===
+            'unassigned'
+          }
+          onClick={() =>
+            setActiveTab(
+              'unassigned',
+            )
+          }
+        >
+          Sem missão
+          {unassignedCount >
+            0 &&
+            ` (${unassignedCount})`}
+        </FieldTabButton>
+      </div>
+
       <div className="space-y-3 p-3">
-        <FieldMissionPanel
-          missionState={
-            missionState
-          }
-          getMissionRecords={
-            getMissionRecords
-          }
-          onCreateMission={
-            onCreateMission
-          }
-          onSetActiveMission={
-            onSetActiveMission
-          }
-          onToggleMissionVisibility={
-            onToggleMissionVisibility
-          }
-          onToggleTrailVisibility={
-            onToggleTrailVisibility
-          }
-          onTogglePointVisibility={
-            onTogglePointVisibility
-          }
-          onDeleteTrail={
-            onDeleteTrail
-          }
-          onDeletePoint={
-            onDeletePoint
-          }
-          onDeleteMission={
-            onDeleteMission
-          }
-        />
+        {activeTab ===
+          'field' && (
+          <>
+            {!fieldState
+              ?.active ? (
+              <FieldActivation
+                error={
+                  actionError
+                }
+                onStart={
+                  handleStartFieldMode
+                }
+              />
+            ) : (
+              <>
+                <FieldGpsCard
+                  fieldState={
+                    fieldState
+                  }
+                />
 
-        <FieldGpsCard
-          fieldState={
-            fieldState
-          }
-        />
+                <FieldActiveMissionCard
+                  missionState={
+                    missionState
+                  }
+                  onOpenMissions={() =>
+                    setActiveTab(
+                      'missions',
+                    )
+                  }
+                  onClearActiveMission={
+                    onClearActiveMission
+                  }
+                />
 
-        <FieldTrailCard
-          fieldState={
-            fieldState
-          }
-          onToggle={
-            handleToggleTrail
-          }
-          onFinish={
-            handleFinishTrail
-          }
-        />
+                {trailOpen ? (
+                  <TrailControls
+                    fieldState={
+                      fieldState
+                    }
+                    onToggle={
+                      handleToggleTrail
+                    }
+                    onFinish={
+                      handleFinishTrail
+                    }
+                  />
+                ) : (
+                  <FieldTrailStartForm
+                    onStartTrail={
+                      handleToggleTrail
+                    }
+                  />
+                )}
 
-        {!trailOpen && (
-          <FieldTrailStartForm
-            onStartTrail={
-              handleToggleTrail
+                <FieldMarkerForm
+                  currentPositionAvailable={
+                    hasCurrentPosition
+                  }
+                  trailOpen={
+                    trailOpen
+                  }
+                  onCreateCurrentPosition={
+                    onAddPoint
+                  }
+                  onCreateAtCoordinates={
+                    onAddPointAtCoordinates
+                  }
+                />
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab ===
+          'missions' && (
+          <FieldMissionPanel
+            missionState={
+              missionState
+            }
+            getMissionRecords={
+              getMissionRecords
+            }
+            onCreateMission={
+              onCreateMission
+            }
+            onSetActiveMission={
+              onSetActiveMission
+            }
+            onClearActiveMission={
+              onClearActiveMission
+            }
+            onToggleMissionVisibility={
+              onToggleMissionVisibility
+            }
+            onToggleTrailVisibility={
+              onToggleTrailVisibility
+            }
+            onTogglePointVisibility={
+              onTogglePointVisibility
+            }
+            onDeleteTrail={
+              onDeleteTrail
+            }
+            onDeletePoint={
+              onDeletePoint
+            }
+            onDeleteMission={
+              onDeleteMission
             }
           />
         )}
 
-        <FieldMarkerForm
-          currentPositionAvailable={
-            hasCurrentPosition
-          }
-          trailOpen={
-            trailOpen
-          }
-          onCreateCurrentPosition={
-            onAddPoint
-          }
-          onCreateAtCoordinates={
-            onAddPointAtCoordinates
-          }
-        />
-
-        <FieldExportCard
-          onError={
-            setActionError
-          }
-        />
+        {activeTab ===
+          'unassigned' && (
+          <FieldUnassignedPanel
+            getUnassignedRecords={
+              getUnassignedRecords
+            }
+            onToggleTrailVisibility={
+              onToggleTrailVisibility
+            }
+            onTogglePointVisibility={
+              onTogglePointVisibility
+            }
+            onDeleteTrail={
+              onDeleteTrail
+            }
+            onDeletePoint={
+              onDeletePoint
+            }
+          />
+        )}
 
         {actionMessage && (
           <FeedbackMessage
@@ -314,7 +414,9 @@ export default function FieldModePanel({
           />
         )}
 
-        {actionError && (
+        {actionError &&
+          fieldState
+            ?.active && (
           <FeedbackMessage
             type="error"
             message={
@@ -322,13 +424,149 @@ export default function FieldModePanel({
             }
           />
         )}
-
-        <p className="pb-2 text-center text-[10px] text-muted-foreground">
-          Encerrar o Modo Campo desativa o GPS. Finalizar o trilho mantém o GPS
-          disponível.
-        </p>
       </div>
     </div>
+  );
+}
+
+function FieldActivation({
+  error,
+  onStart,
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center p-6 text-center">
+      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10">
+        <Navigation className="h-7 w-7 text-blue-500" />
+      </div>
+
+      <h3 className="text-sm font-semibold">
+        Coleta de campo
+      </h3>
+
+      <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
+        Ative o GPS para registrar trilhos, criar marcadores e acompanhar sua
+        posição durante uma operação.
+      </p>
+
+      <p className="mt-2 max-w-xs text-[10px] leading-relaxed text-muted-foreground">
+        Missões e registros armazenados podem ser gerenciados pelas outras abas
+        mesmo com o GPS desligado.
+      </p>
+
+      {error && (
+        <FeedbackMessage
+          type="error"
+          message={
+            error
+          }
+        />
+      )}
+
+      <button
+        type="button"
+        onClick={
+          onStart
+        }
+        className="mt-4 flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+      >
+        <Satellite className="h-4 w-4" />
+
+        Ativar Modo Campo
+      </button>
+    </div>
+  );
+}
+
+function TrailControls({
+  fieldState,
+  onToggle,
+  onFinish,
+}) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-3">
+      <div className="mb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Trilho atual
+        </p>
+
+        <p className="mt-1 truncate text-xs font-semibold">
+          {fieldState
+            ?.currentTrail
+            ?.name ||
+            'Trilho sem nome'}
+        </p>
+
+        <p className="mt-0.5 text-[9px] text-muted-foreground">
+          {fieldState
+            ?.recording
+            ? 'Gravando'
+            : 'Pausado'}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={
+            onToggle
+          }
+          className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors ${
+            fieldState
+              ?.recording
+              ? 'bg-amber-500/20 text-amber-700 hover:bg-amber-500/30 dark:text-amber-300'
+              : 'bg-green-600 text-white hover:bg-green-700'
+          }`}
+        >
+          {fieldState
+            ?.recording ? (
+            <Pause className="h-4 w-4" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+
+          {fieldState
+            ?.recording
+            ? 'Pausar'
+            : 'Retomar'}
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            onFinish
+          }
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/15"
+        >
+          <Square className="h-3.5 w-3.5" />
+
+          Finalizar
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function FieldTabButton({
+  active,
+  onClick,
+  children,
+}) {
+  return (
+    <button
+      type="button"
+      onClick={
+        onClick
+      }
+      className={`min-w-0 border-b-2 px-1 py-2.5 text-[10px] font-semibold transition-colors ${
+        active
+          ? 'border-blue-500 bg-blue-500/5 text-foreground'
+          : 'border-transparent text-muted-foreground hover:bg-accent/30 hover:text-foreground'
+      }`}
+    >
+      <span className="block truncate">
+        {children}
+      </span>
+    </button>
   );
 }
 

@@ -169,6 +169,7 @@ export default function FieldMissionPanel({
   getMissionRecords,
   onCreateMission,
   onSetActiveMission,
+  onClearActiveMission,
   onToggleMissionVisibility,
   onToggleTrailVisibility,
   onTogglePointVisibility,
@@ -849,6 +850,42 @@ export default function FieldMissionPanel({
             </div>
           ) : (
             <div className="space-y-2">
+              <button
+                type="button"
+                onClick={
+                  onClearActiveMission
+                }
+                className={`mb-2 flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  !missionState
+                    ?.activeMissionId
+                    ? 'border-orange-500 bg-orange-500/5'
+                    : 'border-border bg-background hover:bg-accent/30'
+                }`}
+              >
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                    !missionState
+                      ?.activeMissionId
+                      ? 'border-orange-600 bg-orange-600 text-white'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  {!missionState
+                    ?.activeMissionId && (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                </span>
+
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-semibold">
+                    Sem missão ativa
+                  </span>
+
+                  <span className="mt-0.5 block text-[9px] text-muted-foreground">
+                    Novos registros serão criados como avulsos.
+                  </span>
+                </span>
+              </button>
               {missions.map(
                 (mission) => {
                   const isActive =

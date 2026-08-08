@@ -131,6 +131,7 @@ export default function AppShell({
   addFieldPoint,
   addFieldPointAtCoordinates,
   getFieldMissionRecords,
+  getUnassignedFieldRecords,
   toggleFieldTrailVisibility,
   toggleFieldPointVisibility,
   deleteFieldTrail,
@@ -138,6 +139,7 @@ export default function AppShell({
   missionState,
   createFieldMission,
   setActiveFieldMission,
+  clearActiveFieldMission,
   toggleFieldMissionVisibility,
   deleteFieldMission,
   closePopup,
@@ -316,6 +318,8 @@ export default function AppShell({
     addFieldPoint,
     addFieldPointAtCoordinates,
     getFieldMissionRecords,
+    getUnassignedFieldRecords,
+    clearActiveFieldMission,
     toggleFieldTrailVisibility,
     toggleFieldPointVisibility,
     deleteFieldTrail,
@@ -1384,6 +1388,9 @@ function renderPanel(
           fieldState={
             props.fieldState
           }
+          missionState={
+            props.missionState
+          }
           onStart={
             props.startFieldMode
           }
@@ -1405,6 +1412,9 @@ function renderPanel(
           getMissionRecords={
             props.getFieldMissionRecords
           }
+          getUnassignedRecords={
+            props.getUnassignedFieldRecords
+          }
           onToggleTrailVisibility={
             props.toggleFieldTrailVisibility
           }
@@ -1417,14 +1427,14 @@ function renderPanel(
           onDeletePoint={
             props.deleteFieldPoint
           }
-          missionState={
-            props.missionState
-          }
           onCreateMission={
             props.createFieldMission
           }
           onSetActiveMission={
             props.setActiveFieldMission
+          }
+          onClearActiveMission={
+            props.clearActiveFieldMission
           }
           onToggleMissionVisibility={
             props.toggleFieldMissionVisibility
@@ -1434,7 +1444,7 @@ function renderPanel(
           }
         />
       );
-
+    
     case 'settings':
       return (
         <SettingsPanel

@@ -1360,6 +1360,15 @@ export function useGeoFogo() {
       [],
     );
 
+  const getUnassignedFieldRecords =
+    useCallback(
+      () => {
+        return FieldController
+          .getUnassignedRecords();
+      },
+      [],
+    );
+
   const toggleFieldTrailVisibility =
     useCallback(
       async (
@@ -1555,6 +1564,35 @@ export function useGeoFogo() {
       [],
     );
 
+  const clearActiveFieldMission =
+    useCallback(
+      () => {
+        try {
+          const state =
+            FieldMissionController
+              .clearActiveMission();
+
+          setMissionState(
+            state,
+          );
+
+          return state;
+        } catch (error) {
+          ErrorManager.report(
+            'field',
+            error,
+            {
+              operation:
+                'clearActiveFieldMission',
+            },
+          );
+
+          throw error;
+        }
+      },
+      [],
+    );
+
   const toggleFieldMissionVisibility =
     useCallback(
       async (
@@ -1659,16 +1697,18 @@ export function useGeoFogo() {
     addFieldPoint,
     addFieldPointAtCoordinates,
     getFieldMissionRecords,
+    getUnassignedFieldRecords,
     toggleFieldTrailVisibility,
     toggleFieldPointVisibility,
     deleteFieldTrail,
     deleteFieldPoint,
     createFieldMission,
     setActiveFieldMission,
+    clearActiveFieldMission,
     toggleFieldMissionVisibility,
     deleteFieldMission,
     closePopup,
-
+    
     config,
   };
 }
