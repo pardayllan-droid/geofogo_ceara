@@ -2080,6 +2080,10 @@ class FieldControllerImpl {
   /**
    * Move um marcador para outra missão.
    *
+   * missionId:
+   * - string: vincula à missão informada;
+   * - null: transforma em registro sem missão.
+   *
    * Mantemos missionId tanto no nível principal quanto
    * em properties para preservar compatibilidade com
    * os registros GeoJSON já existentes.
@@ -2102,18 +2106,6 @@ class FieldControllerImpl {
       );
     }
 
-    if (
-      missionId &&
-      !FieldMissionController
-        .getMissionById?.(
-          missionId,
-        )
-    ) {
-      throw new Error(
-        'Missão de destino não encontrada.',
-      );
-    }
-
     const point =
       this.points[
         index
@@ -2122,12 +2114,15 @@ class FieldControllerImpl {
     const now =
       Date.now();
 
+    const resolvedMissionId =
+      missionId ||
+      null;
+
     const updatedPoint = {
       ...point,
 
       missionId:
-        missionId ||
-        null,
+        resolvedMissionId,
 
       updated_date:
         now,
@@ -2136,8 +2131,7 @@ class FieldControllerImpl {
         ...point.properties,
 
         missionId:
-          missionId ||
-          null,
+          resolvedMissionId,
 
         updated_date:
           now,
