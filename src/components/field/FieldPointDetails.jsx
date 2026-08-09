@@ -11,21 +11,35 @@ import {
   CalendarClock,
   Compass,
   Crosshair,
+  Download,
+  FileJson,
   LocateFixed,
   MapPin,
   Mountain,
+  Palette,
   Satellite,
+  Save,
   X,
-  Download,
-  FileJson,
 } from 'lucide-react';
+
+import {
+  useEffect,
+  useState,
+} from 'react';
+
 import {
   EventBus,
   EVENTS,
 } from '../../core/EventBus';
+
 import {
   FieldController,
 } from '../../field/FieldController';
+
+import {
+  FIELD_MARKER_ICON,
+  FIELD_MARKER_SIZE,
+} from '../../field/FieldStyles';
 
 import {
   downloadFieldExport,
@@ -35,22 +49,17 @@ import {
 
 function formatNumber(
   value,
-  digits =
-    6,
+  digits = 6,
 ) {
   if (
-    value ===
-      null ||
-    value ===
-      undefined
+    value === null ||
+    value === undefined
   ) {
     return '—';
   }
 
   const numeric =
-    Number(
-      value,
-    );
+    Number(value);
 
   if (
     !Number.isFinite(
@@ -76,18 +85,14 @@ function formatMeters(
   value,
 ) {
   if (
-    value ===
-      null ||
-    value ===
-      undefined
+    value === null ||
+    value === undefined
   ) {
     return '—';
   }
 
   const numeric =
-    Number(
-      value,
-    );
+    Number(value);
 
   if (
     !Number.isFinite(
@@ -110,9 +115,7 @@ function formatHeading(
   value,
 ) {
   const numeric =
-    Number(
-      value,
-    );
+    Number(value);
 
   if (
     !Number.isFinite(
@@ -135,9 +138,7 @@ function formatDateTime(
   value,
 ) {
   const numeric =
-    Number(
-      value,
-    );
+    Number(value);
 
   if (
     !Number.isFinite(
@@ -164,9 +165,7 @@ function formatDateTime(
 function getCategoryLabel(
   category,
 ) {
-  switch (
-    category
-  ) {
+  switch (category) {
     case 'active-fire':
       return 'Foco ativo';
 
@@ -196,9 +195,7 @@ function getCategoryLabel(
 function getOriginLabel(
   origin,
 ) {
-  switch (
-    origin
-  ) {
+  switch (origin) {
     case 'current-position':
       return 'Posição atual';
 
@@ -213,9 +210,7 @@ function getOriginLabel(
 function getStatusLabel(
   status,
 ) {
-  switch (
-    status
-  ) {
+  switch (status) {
     case 'new':
       return 'Novo';
 
@@ -233,10 +228,153 @@ function getStatusLabel(
   }
 }
 
+function getMarkerIconLabel(
+  iconId,
+) {
+  switch (iconId) {
+    case FIELD_MARKER_ICON.FLAME:
+      return 'Fogo';
+
+    case FIELD_MARKER_ICON.VEHICLE:
+      return 'Viatura';
+
+    case FIELD_MARKER_ICON.WATER:
+      return 'Água';
+
+    case FIELD_MARKER_ICON.BLOCKAGE:
+      return 'Bloqueio';
+
+    case FIELD_MARKER_ICON.RISK:
+      return 'Risco';
+
+    case FIELD_MARKER_ICON.SERVICE:
+      return 'Atendimento';
+
+    case FIELD_MARKER_ICON.OBSERVATION:
+      return 'Observação';
+
+    default:
+      return 'Observação';
+  }
+}
+
+function getMarkerSizeLabel(
+  size,
+) {
+  switch (size) {
+    case FIELD_MARKER_SIZE.SMALL:
+      return 'Pequeno';
+
+    case FIELD_MARKER_SIZE.LARGE:
+      return 'Grande';
+
+    case FIELD_MARKER_SIZE.MEDIUM:
+    default:
+      return 'Médio';
+  }
+}
+
+function createStyleDraft(
+  point,
+) {
+  const properties =
+    point?.properties ||
+    {};
+
+  const style =
+    properties.style ||
+    {};
+
+  const category =
+    properties.category ||
+    'observation';
+
+  return {
+    color:
+      style.color ||
+      '#7c3aed',
+
+    iconId:
+      style.iconId ||
+      category,
+
+    size:
+      style.size ||
+      FIELD_MARKER_SIZE.MEDIUM,
+  };
+}
+
 export default function FieldPointDetails({
   point,
   onClose,
 }) {
+  const [
+    editingStyle,
+    setEditingStyle,
+  ] = useState(
+    false,
+  );
+
+  const [
+    draftStyle,
+    setDraftStyle,
+  ] = useState(
+    () =>
+      createStyleDraft(
+        point,
+      ),
+  );
+
+  const [
+    savingStyle,
+    setSavingStyle,
+  ] = useState(
+    false,
+  );
+
+  const [
+    styleError,
+    setStyleError,
+  ] = useState(
+    null,
+  );
+
+  useEffect(
+    () => {
+      if (!point) {
+        return;
+      }
+
+      /*
+       * Não fechamos o editor por qualquer
+       * re-renderização do componente.
+       *
+       * Ele somente será reinicializado quando
+       * outro marcador for selecionado.
+       *
+       * Isso evita o problema que anteriormente
+       * fazia o formulário de aparência fechar
+       * sozinho durante a edição.
+       */
+      setDraftStyle(
+        createStyleDraft(
+          point,
+        ),
+      );
+
+      setEditingStyle(
+        false,
+      );
+
+      setStyleError(
+        null,
+      );
+    },
+    [
+      point?.id,
+    ],
+  );
+
   if (!point) {
     return null;
   }
@@ -330,6 +468,73 @@ export default function FieldPointDetails({
     });
   }
 
+  function handleStartStyleEdit() {
+    setDraftStyle(
+      createStyleDraft(
+        point,
+      ),
+    );
+
+    setStyleError(
+      null,
+    );
+
+    setEditingStyle(
+      true,
+    );
+  }
+
+  function handleCancelStyleEdit() {
+    setDraftStyle(
+      createStyleDraft(
+        point,
+      ),
+    );
+
+    setStyleError(
+      null,
+    );
+
+    setEditingStyle(
+      false,
+    );
+  }
+
+  async function handleSaveStyle() {
+    if (savingStyle) {
+      return;
+    }
+
+    try {
+      setSavingStyle(
+        true,
+      );
+
+      setStyleError(
+        null,
+      );
+
+      await FieldController
+        .updatePointStyle(
+          point.id,
+          draftStyle,
+        );
+
+      setEditingStyle(
+        false,
+      );
+    } catch (error) {
+      setStyleError(
+        error?.message ||
+        'Não foi possível salvar a aparência do marcador.',
+      );
+    } finally {
+      setSavingStyle(
+        false,
+      );
+    }
+  }
+
   return (
     <section className="mt-2 rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
       <div className="flex items-start gap-2">
@@ -344,7 +549,9 @@ export default function FieldPointDetails({
             {getCategoryLabel(
               category,
             )}
+
             {' · '}
+
             {getStatusLabel(
               properties.status,
             )}
@@ -363,6 +570,7 @@ export default function FieldPointDetails({
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
+
       <button
         type="button"
         onClick={
@@ -536,43 +744,295 @@ export default function FieldPointDetails({
       </div>
 
       <div className="mt-2 rounded-lg border border-border/70 bg-background/70 p-2.5">
-        <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Aparência
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Aparência
+          </p>
 
-        <div className="mt-2 flex items-center gap-3">
-          <span
-            className="h-6 w-6 shrink-0 rounded-full border border-border"
-            style={{
-              backgroundColor:
-                style.color ||
-                '#7c3aed',
-            }}
-            title={
-              style.color ||
-              '#7c3aed'
-            }
-          />
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium">
-              {style.color ||
-                '#7c3aed'}
-            </p>
-
-            <p className="text-[9px] text-muted-foreground">
-              Ícone:{' '}
-              {style.iconId ||
-                category}
-              {' · '}
-              Tamanho:{' '}
-              {style.size ||
-                'medium'}
-            </p>
-          </div>
+          {!editingStyle && (
+            <button
+              type="button"
+              onClick={
+                handleStartStyleEdit
+              }
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Editar aparência"
+              aria-label="Editar aparência do marcador"
+            >
+              <Palette className="h-4 w-4" />
+            </button>
+          )}
         </div>
+
+        {!editingStyle ? (
+          <div className="mt-2 flex items-center gap-3">
+            <span
+              className="h-6 w-6 shrink-0 rounded-full border border-border"
+              style={{
+                backgroundColor:
+                  style.color ||
+                  '#7c3aed',
+              }}
+              title={
+                style.color ||
+                '#7c3aed'
+              }
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium">
+                {style.color ||
+                  '#7c3aed'}
+              </p>
+
+              <p className="text-[9px] text-muted-foreground">
+                Ícone:{' '}
+
+                {getMarkerIconLabel(
+                  style.iconId ||
+                  category,
+                )}
+
+                {' · '}
+
+                Tamanho:{' '}
+
+                {getMarkerSizeLabel(
+                  style.size,
+                )}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="mb-1 block text-[9px] font-semibold text-muted-foreground">
+                Cor
+              </label>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={
+                    draftStyle.color
+                  }
+                  onChange={(event) =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        color:
+                          event.target
+                            .value,
+                      }),
+                    )
+                  }
+                  className="h-8 w-10 cursor-pointer rounded border border-border bg-background p-1"
+                />
+
+                <input
+                  type="text"
+                  value={
+                    draftStyle.color
+                  }
+                  onChange={(event) =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        color:
+                          event.target
+                            .value,
+                      }),
+                    )
+                  }
+                  maxLength={7}
+                  className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-[10px]"
+                  placeholder="#7c3aed"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[9px] font-semibold text-muted-foreground">
+                Ícone
+              </label>
+
+              <select
+                value={
+                  draftStyle.iconId
+                }
+                onChange={(event) =>
+                  setDraftStyle(
+                    (current) => ({
+                      ...current,
+
+                      iconId:
+                        event.target
+                          .value,
+                    }),
+                  )
+                }
+                className="w-full rounded-md border border-border bg-background px-2 py-2 text-[10px]"
+              >
+                <option value={FIELD_MARKER_ICON.FLAME}>
+                  Fogo
+                </option>
+
+                <option value={FIELD_MARKER_ICON.VEHICLE}>
+                  Viatura
+                </option>
+
+                <option value={FIELD_MARKER_ICON.WATER}>
+                  Água
+                </option>
+
+                <option value={FIELD_MARKER_ICON.BLOCKAGE}>
+                  Bloqueio
+                </option>
+
+                <option value={FIELD_MARKER_ICON.RISK}>
+                  Risco
+                </option>
+
+                <option value={FIELD_MARKER_ICON.SERVICE}>
+                  Atendimento
+                </option>
+
+                <option value={FIELD_MARKER_ICON.OBSERVATION}>
+                  Observação
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[9px] font-semibold text-muted-foreground">
+                Tamanho
+              </label>
+
+              <div className="grid grid-cols-3 gap-2">
+                <SizeButton
+                  active={
+                    draftStyle.size ===
+                    FIELD_MARKER_SIZE.SMALL
+                  }
+                  onClick={() =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        size:
+                          FIELD_MARKER_SIZE.SMALL,
+                      }),
+                    )
+                  }
+                >
+                  Pequeno
+                </SizeButton>
+
+                <SizeButton
+                  active={
+                    draftStyle.size ===
+                    FIELD_MARKER_SIZE.MEDIUM
+                  }
+                  onClick={() =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        size:
+                          FIELD_MARKER_SIZE.MEDIUM,
+                      }),
+                    )
+                  }
+                >
+                  Médio
+                </SizeButton>
+
+                <SizeButton
+                  active={
+                    draftStyle.size ===
+                    FIELD_MARKER_SIZE.LARGE
+                  }
+                  onClick={() =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        size:
+                          FIELD_MARKER_SIZE.LARGE,
+                      }),
+                    )
+                  }
+                >
+                  Grande
+                </SizeButton>
+              </div>
+            </div>
+
+            {styleError && (
+              <p className="rounded-md bg-destructive/10 px-2 py-1.5 text-[9px] text-destructive">
+                {styleError}
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={
+                  handleCancelStyleEdit
+                }
+                disabled={
+                  savingStyle
+                }
+                className="rounded-md border border-border bg-background px-3 py-2 text-[10px] font-semibold transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  handleSaveStyle
+                }
+                disabled={
+                  savingStyle
+                }
+                className="flex items-center justify-center gap-1.5 rounded-md bg-purple-600 px-3 py-2 text-[10px] font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5" />
+
+                {savingStyle
+                  ? 'Salvando...'
+                  : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
+  );
+}
+
+function SizeButton({
+  active,
+  onClick,
+  children,
+}) {
+  return (
+    <button
+      type="button"
+      onClick={
+        onClick
+      }
+      className={`rounded-md border px-2 py-2 text-[9px] font-semibold transition-colors ${
+        active
+          ? 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-300'
+          : 'border-border bg-background text-muted-foreground hover:bg-accent'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

@@ -40,6 +40,7 @@ import {
 } from './TrailModel';
 
 import {
+  normalizeMarkerStyle,
   normalizeTrailStyle,
 } from './FieldStyles';
 
@@ -2927,6 +2928,90 @@ class FieldControllerImpl {
 
     return true;
   }
+
+    /**
+     * Atualiza e persiste a aparência individual
+     * de um marcador de campo.
+     *
+     * A normalização central garante:
+     * - cor hexadecimal válida;
+     * - ícone válido/persistente;
+     * - tamanho small, medium ou large;
+     * - preservação das demais propriedades do marcador.
+     */
+    async updatePointStyle(
+      pointId,
+      style,
+    ) {
+      const point =
+        this.points.find(
+          (candidate) =>
+            candidate.id ===
+            pointId,
+        );
+
+      if (!point) {
+        throw new Error(
+          'Marcador não encontrado.',
+        );
+      }
+
+      const category =
+        point.properties
+          ?.category ||
+        FIELD_POINT_CATEGORY.OBSERVATION;
+
+      const normalizedStyle =
+        normalizeMarkerStyle(
+          {
+            ...point.properties
+              ?.style,
+
+            ...style,
+          },
+          category,
+        );
+
+      const now =
+        Date.now();
+
+      const updatedPoint = {
+        ...point,
+
+        updated_date:
+          now,
+
+        properties: {
+          ...point.properties,
+
+          style:
+            normalizedStyle,
+
+          updated_date:
+            now,
+        },
+      };
+
+      this.points = [
+        updatedPoint,
+
+        ...this.points.filter(
+          (candidate) =>
+            candidate.id !==
+            pointId,
+        ),
+      ];
+
+      this._queuePointSave(
+        updatedPoint,
+      );
+
+      await this.flushPersistence();
+
+      this._notify();
+
+      return updatedPoint;
+    }
 
   /**
    * Atualiza e persiste a aparência individual de um trilho.
