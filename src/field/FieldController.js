@@ -1816,7 +1816,214 @@ class FieldControllerImpl {
     };
   }
 
-  exportGeoJSON({
+  /**
+   * Converte um trilho persistido em uma Feature
+   * GeoJSON LineString.
+   */
+  _createTrailExportFeature(
+    trail,
+  ) {
+    if (
+      !trail ||
+      !Array.isArray(
+        trail.samples,
+      )
+    ) {
+      return null;
+    }
+
+    const coordinates =
+      trail.samples
+        .map(
+          (sample) =>
+            sample
+              ?.geometry
+              ?.coordinates,
+        )
+        .filter(
+          (coordinate) =>
+            Array.isArray(
+              coordinate,
+            ) &&
+            coordinate.length >=
+              2 &&
+            Number.isFinite(
+              Number(
+                coordinate[0],
+              ),
+            ) &&
+            Number.isFinite(
+              Number(
+                coordinate[1],
+              ),
+            ),
+        );
+
+    if (
+      coordinates.length <
+      2
+    ) {
+      return null;
+    }
+
+    const feature =
+      turf.lineString(
+        coordinates,
+        {
+          recordType:
+            'trail',
+
+          trailId:
+            trail.id,
+
+          missionId:
+            trail.missionId ||
+            null,
+
+          name:
+            trail.name ||
+            'Trilho GeoFogo',
+
+          status:
+            trail.status ||
+            null,
+
+          style:
+            trail.style ||
+            null,
+
+          visible:
+            trail.visible !==
+            false,
+
+          distanceMeters:
+            trail.distanceMeters ||
+            0,
+
+          startedAt:
+            trail.startedAt ||
+            null,
+
+          endedAt:
+            trail.endedAt ||
+            null,
+
+          movingTimeMs:
+            trail.movingTimeMs ||
+            0,
+
+          stoppedTimeMs:
+            trail.stoppedTimeMs ||
+            0,
+
+          averageSpeedMps:
+            trail.averageSpeedMps ||
+            0,
+
+          maximumSpeedMps:
+            trail.maximumSpeedMps ||
+            0,
+
+          minimumAltitudeMeters:
+            trail.minimumAltitudeMeters ??
+            null,
+
+          averageAltitudeMeters:
+            trail.averageAltitudeMeters ??
+            null,
+
+          maximumAltitudeMeters:
+            trail.maximumAltitudeMeters ??
+            null,
+
+          averageAccuracyMeters:
+            trail.averageAccuracyMeters ??
+            null,
+
+          sampleCount:
+            trail.sampleCount ??
+            coordinates.length,
+
+          created_date:
+            trail.created_date ||
+            null,
+
+          updated_date:
+            trail.updated_date ||
+            null,
+        },
+      );
+
+    feature.id =
+      trail.id;
+
+    return feature;
+  }
+
+  /**
+   * Normaliza um marcador para exportação.
+   */
+  _createPointExportFeature(
+    point,
+  ) {
+    if (
+      !point?.geometry ||
+      point.geometry.type !==
+        'Point'
+    ) {
+      return null;
+    }
+
+    const feature =
+      cloneData(
+        point,
+      );
+
+    feature.properties = {
+      ...feature.properties,
+
+      recordType:
+        'point',
+
+      missionId:
+        point.missionId ??
+        point.properties
+          ?.missionId ??
+        null,
+
+      trailId:
+        point.trailId ??
+        point.properties
+          ?.trailId ??
+        null,
+    };
+
+    return feature;
+  }
+
+  /**
+   * Resolve o escopo da exportação.
+   *
+   * Somente um dos identificadores abaixo deve ser
+   * informado por chamada:
+   *
+   * - missionId: missão inteira;
+   * - trailId: um único trilho;
+   * - pointId: um único marcador.
+   *
+   * Sem escopo explícito, preserva o comportamento
+   * histórico da aplicação.
+   */
+  _getExportRecords({
+    missionId =
+      undefined,
+
+    trailId =
+      undefined,
+
+    pointId =
+      undefined,
+
     includeTrail =
       true,
 
@@ -1826,29 +2033,259 @@ class FieldControllerImpl {
     pointTrailId =
       undefined,
   } = {}) {
-    const features =
-      [];
+    const explicitScopes =
+      [
+        missionId,
+        trailId,
+        pointId,
+      ].filter(
+        (value) =>
+          value !==
+          undefined,
+      );
 
-    if (includeTrail) {
-      features.push(
-        ...this.getTrailGeoJSON()
-          .features,
+    if (
+      explicitScopes.length >
+      1
+    ) {
+      throw new Error(
+        'Informe apenas um escopo de exportação por vez.',
       );
     }
 
-    if (includePoints) {
-      features.push(
-        ...this.getPointsGeoJSON({
-          trailId:
-            pointTrailId,
-        }).features,
-      );
+    /**
+     * Missão inteira.
+     */
+    if (
+      missionId !==
+      undefined
+    ) {
+      const records =
+        this.getMissionRecords(
+          missionId,
+        );
+
+      return {
+        scope:
+          'mission',
+
+        missionId,
+
+        trails:
+          includeTrail
+            ? records.trails
+            : [],
+
+        points:
+          includePoints
+            ? records.points
+            : [],
+      };
+    }
+
+    /**
+     * Trilho individual.
+     */
+    if (
+      trailId !==
+      undefined
+    ) {
+      const trail =
+        this.trails.find(
+          (candidate) =>
+            candidate.id ===
+            trailId,
+        );
+
+      if (!trail) {
+        throw new Error(
+          'Trilho não encontrado.',
+        );
+      }
+
+      return {
+        scope:
+          'trail',
+
+        trailId,
+
+        trails: [
+          trail,
+        ],
+
+        points:
+          [],
+      };
+    }
+
+    /**
+     * Marcador individual.
+     */
+    if (
+      pointId !==
+      undefined
+    ) {
+      const point =
+        this.points.find(
+          (candidate) =>
+            candidate.id ===
+            pointId,
+        );
+
+      if (!point) {
+        throw new Error(
+          'Marcador não encontrado.',
+        );
+      }
+
+      return {
+        scope:
+          'point',
+
+        pointId,
+
+        trails:
+          [],
+
+        points: [
+          point,
+        ],
+      };
+    }
+
+    /**
+     * Compatibilidade com a exportação antiga.
+     */
+    return {
+      scope:
+        'legacy',
+
+      trails:
+        includeTrail &&
+        this.currentTrail
+          ? [
+              this.currentTrail,
+            ]
+          : [],
+
+      points:
+        includePoints
+          ? this.getPointsGeoJSON({
+              trailId:
+                pointTrailId,
+            }).features
+          : [],
+    };
+  }
+
+  /**
+   * Exporta:
+   *
+   * - uma missão inteira;
+   * - um trilho individual;
+   * - um marcador individual;
+   * - ou, sem escopo, preserva o comportamento antigo.
+   */
+  exportGeoJSON({
+    missionId =
+      undefined,
+
+    trailId =
+      undefined,
+
+    pointId =
+      undefined,
+
+    includeTrail =
+      true,
+
+    includePoints =
+      true,
+
+    pointTrailId =
+      undefined,
+  } = {}) {
+    const records =
+      this._getExportRecords({
+        missionId,
+        trailId,
+        pointId,
+        includeTrail,
+        includePoints,
+        pointTrailId,
+      });
+
+    const features =
+      [];
+
+    for (
+      const trail
+      of records.trails
+    ) {
+      const feature =
+        this._createTrailExportFeature(
+          trail,
+        );
+
+      if (feature) {
+        features.push(
+          feature,
+        );
+      }
+    }
+
+    for (
+      const point
+      of records.points
+    ) {
+      const feature =
+        this._createPointExportFeature(
+          point,
+        );
+
+      if (feature) {
+        features.push(
+          feature,
+        );
+      }
     }
 
     return JSON.stringify(
       {
         type:
           'FeatureCollection',
+
+        metadata: {
+          application:
+            'GeoFogo Ceará',
+
+          exportedAt:
+            new Date()
+              .toISOString(),
+
+          scope:
+            records.scope,
+
+          missionId:
+            records.missionId ??
+            null,
+
+          trailId:
+            records.trailId ??
+            null,
+
+          pointId:
+            records.pointId ??
+            null,
+
+          trailsCount:
+            records.trails
+              .length,
+
+          pointsCount:
+            records.points
+              .length,
+        },
 
         features,
       },
@@ -1857,37 +2294,33 @@ class FieldControllerImpl {
     );
   }
 
+  /**
+   * Mantido por compatibilidade.
+   */
   exportPointGeoJSON(
     pointId,
   ) {
-    const point =
-      this.points.find(
-        (candidate) =>
-          candidate.id ===
-          pointId,
-      );
-
-    if (!point) {
-      throw new Error(
-        'Ponto de campo não encontrado.',
-      );
-    }
-
-    return JSON.stringify(
-      {
-        type:
-          'FeatureCollection',
-
-        features: [
-          point,
-        ],
-      },
-      null,
-      2,
-    );
+    return this.exportGeoJSON({
+      pointId,
+    });
   }
 
+  /**
+   * Exporta registros de campo em GPX.
+   *
+   * - trilhos → <trk>
+   * - marcadores → <wpt>
+   */
   exportGPX({
+    missionId =
+      undefined,
+
+    trailId =
+      undefined,
+
+    pointId =
+      undefined,
+
     includeTrail =
       true,
 
@@ -1897,51 +2330,102 @@ class FieldControllerImpl {
     pointTrailId =
       undefined,
   } = {}) {
+    const records =
+      this._getExportRecords({
+        missionId,
+        trailId,
+        pointId,
+        includeTrail,
+        includePoints,
+        pointTrailId,
+      });
+
     let gpx =
       '<?xml version="1.0" encoding="UTF-8"?>\n';
 
     gpx +=
       '<gpx version="1.1" creator="GeoFogo Ceará" xmlns="http://www.topografix.com/GPX/1/1">\n';
 
-    if (
-      includeTrail &&
-      this.trail.length >
-        0
+    /**
+     * Trilhos.
+     */
+    for (
+      const trail
+      of records.trails
     ) {
+      if (
+        !Array.isArray(
+          trail.samples,
+        ) ||
+        trail.samples.length ===
+          0
+      ) {
+        continue;
+      }
+
       gpx +=
-        '<trk>';
+        '<trk>\n';
 
       gpx +=
         `<name>${escapeXml(
-          this.currentTrail
-            ?.name ||
+          trail.name ||
           'Trilho GeoFogo',
-        )}</name>`;
+        )}</name>\n`;
 
       gpx +=
         '<trkseg>\n';
 
       for (
-        const point
-        of this.trail
+        const sample
+        of trail.samples
       ) {
-        const [
-          longitude,
-          latitude,
-        ] =
-          point.geometry
-            .coordinates;
+        const coordinates =
+          sample
+            ?.geometry
+            ?.coordinates;
+
+        if (
+          !Array.isArray(
+            coordinates,
+          ) ||
+          coordinates.length <
+            2
+        ) {
+          continue;
+        }
+
+        const longitude =
+          Number(
+            coordinates[0],
+          );
+
+        const latitude =
+          Number(
+            coordinates[1],
+          );
+
+        if (
+          !Number.isFinite(
+            longitude,
+          ) ||
+          !Number.isFinite(
+            latitude,
+          )
+        ) {
+          continue;
+        }
 
         const altitude =
           numericOrNull(
-            point.properties
+            sample.properties
               ?.altitude,
           );
 
         const timestamp =
-          point.properties
-            ?.timestamp ||
-          Date.now();
+          numericOrNull(
+            sample.properties
+              ?.timestamp,
+          );
 
         gpx +=
           `<trkpt lat="${latitude}" lon="${longitude}">`;
@@ -1954,61 +2438,123 @@ class FieldControllerImpl {
             `<ele>${altitude}</ele>`;
         }
 
-        gpx +=
-          `<time>${new Date(
-            timestamp,
-          ).toISOString()}</time>`;
+        if (
+          timestamp !==
+          null
+        ) {
+          gpx +=
+            `<time>${new Date(
+              timestamp,
+            ).toISOString()}</time>`;
+        }
 
         gpx +=
           '</trkpt>\n';
       }
 
       gpx +=
-        '</trkseg></trk>\n';
+        '</trkseg>\n';
+
+      gpx +=
+        '</trk>\n';
     }
 
-    if (includePoints) {
-      const points =
-        this.getPointsGeoJSON({
-          trailId:
-            pointTrailId,
-        }).features;
+    /**
+     * Marcadores.
+     */
+    for (
+      const point
+      of records.points
+    ) {
+      const coordinates =
+        point
+          ?.geometry
+          ?.coordinates;
 
-      for (
-        const point
-        of points
+      if (
+        !Array.isArray(
+          coordinates,
+        ) ||
+        coordinates.length <
+          2
       ) {
-        const [
-          longitude,
-          latitude,
-        ] =
-          point.geometry
-            .coordinates;
-
-        gpx +=
-          `<wpt lat="${latitude}" lon="${longitude}">`;
-
-        gpx +=
-          `<name>${escapeXml(
-            point.properties
-              ?.label ||
-            'Ponto',
-          )}</name>`;
-
-        if (
-          point.properties
-            ?.observation
-        ) {
-          gpx +=
-            `<desc>${escapeXml(
-              point.properties
-                .observation,
-            )}</desc>`;
-        }
-
-        gpx +=
-          '</wpt>\n';
+        continue;
       }
+
+      const longitude =
+        Number(
+          coordinates[0],
+        );
+
+      const latitude =
+        Number(
+          coordinates[1],
+        );
+
+      if (
+        !Number.isFinite(
+          longitude,
+        ) ||
+        !Number.isFinite(
+          latitude,
+        )
+      ) {
+        continue;
+      }
+
+      gpx +=
+        `<wpt lat="${latitude}" lon="${longitude}">`;
+
+      gpx +=
+        `<name>${escapeXml(
+          point.properties
+            ?.label ||
+          'Marcador',
+        )}</name>`;
+
+      const altitude =
+        numericOrNull(
+          point.properties
+            ?.altitude,
+        );
+
+      if (
+        altitude !==
+        null
+      ) {
+        gpx +=
+          `<ele>${altitude}</ele>`;
+      }
+
+      if (
+        point.properties
+          ?.observation
+      ) {
+        gpx +=
+          `<desc>${escapeXml(
+            point.properties
+              .observation,
+          )}</desc>`;
+      }
+
+      const timestamp =
+        numericOrNull(
+          point.properties
+            ?.timestamp,
+        );
+
+      if (
+        timestamp !==
+        null
+      ) {
+        gpx +=
+          `<time>${new Date(
+            timestamp,
+          ).toISOString()}</time>`;
+      }
+
+      gpx +=
+        '</wpt>\n';
     }
 
     gpx +=

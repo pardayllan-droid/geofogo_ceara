@@ -16,11 +16,22 @@ import {
   Mountain,
   Satellite,
   X,
+  Download,
+  FileJson,
 } from 'lucide-react';
 import {
   EventBus,
   EVENTS,
 } from '../../core/EventBus';
+import {
+  FieldController,
+} from '../../field/FieldController';
+
+import {
+  downloadFieldExport,
+  getFieldExportDateStamp,
+  slugifyFieldExportName,
+} from './fieldExportUtils';
 
 function formatNumber(
   value,
@@ -269,6 +280,56 @@ export default function FieldPointDetails({
     );
   }
 
+  function handleExportGeoJSON() {
+    const content =
+      FieldController
+        .exportGeoJSON({
+          pointId:
+            point.id,
+        });
+
+    const name =
+      slugifyFieldExportName(
+        label ||
+        'marcador',
+      );
+
+    downloadFieldExport({
+      content,
+
+      filename:
+        `geofogo-${name}-${getFieldExportDateStamp()}.geojson`,
+
+      mimeType:
+        'application/geo+json',
+    });
+  }
+
+  function handleExportGPX() {
+    const content =
+      FieldController
+        .exportGPX({
+          pointId:
+            point.id,
+        });
+
+    const name =
+      slugifyFieldExportName(
+        label ||
+        'marcador',
+      );
+
+    downloadFieldExport({
+      content,
+
+      filename:
+        `geofogo-${name}-${getFieldExportDateStamp()}.gpx`,
+
+      mimeType:
+        'application/gpx+xml',
+    });
+  }
+
   return (
     <section className="mt-2 rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
       <div className="flex items-start gap-2">
@@ -313,6 +374,32 @@ export default function FieldPointDetails({
 
         Ir para
       </button>
+
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={
+            handleExportGeoJSON
+          }
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[10px] font-semibold transition-colors hover:bg-accent"
+        >
+          <FileJson className="h-3.5 w-3.5" />
+
+          GeoJSON
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            handleExportGPX
+          }
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[10px] font-semibold transition-colors hover:bg-accent"
+        >
+          <Download className="h-3.5 w-3.5" />
+
+          GPX
+        </button>
+      </div>
 
       {properties.observation && (
         <div className="mt-3 rounded-lg bg-accent/20 p-2.5">
