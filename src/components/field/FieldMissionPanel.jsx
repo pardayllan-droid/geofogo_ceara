@@ -27,11 +27,8 @@ import {
   Route,
   Trash2,
 } from 'lucide-react';
-
-import {
-  useMemo,
-  useState,
-} from 'react';
+import { useMemo, useState } from 'react';
+import FieldTrailDetails from './FieldTrailDetails';
 
 function formatMissionDate(
   timestamp,
@@ -116,14 +113,33 @@ function MissionRecordRow({
   label,
   visible,
   busy,
+  onOpen,
   onToggle,
   onDelete,
 }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-background px-2.5 py-2">
-      <p className="min-w-0 flex-1 truncate text-[9px] font-medium">
+      <button
+        type="button"
+        onClick={
+          onOpen
+        }
+        disabled={
+          !onOpen
+        }
+        className={`min-w-0 flex-1 truncate text-left text-[9px] font-medium ${
+          onOpen
+            ? 'cursor-pointer hover:text-blue-600'
+            : 'cursor-default'
+        }`}
+        title={
+          onOpen
+            ? `Abrir detalhes de ${label}`
+            : undefined
+        }
+      >
         {label}
-      </p>
+      </button>
 
       <div className="flex shrink-0 items-center gap-1">
         <button
@@ -219,6 +235,13 @@ export default function FieldMissionPanel({
     actionMessage,
     setActionMessage,
   ] = useState(null);
+
+  const [
+    selectedTrailId,
+    setSelectedTrailId,
+  ] = useState(
+    null,
+  );
 
   const missions =
     Array.isArray(
@@ -1075,33 +1098,66 @@ export default function FieldMissionPanel({
                             icon={Route}
                             emptyMessage="Nenhum trilho nesta missão."
                           >
-                            {trails.map((trail) => (
-                              <MissionRecordRow
-                                key={trail.id}
-                                label={
-                                  trail.name ||
-                                  'Trilho sem nome'
-                                }
-                                visible={
-                                  trail.visible !==
-                                  false
-                                }
-                                busy={
-                                  busyMissionId ===
-                                  `trail:${trail.id}`
-                                }
-                                onToggle={() =>
-                                  handleToggleTrailVisibility(
-                                    trail,
-                                  )
-                                }
-                                onDelete={() =>
-                                  handleDeleteTrail(
-                                    trail,
-                                  )
-                                }
-                              />
-                            ))}
+                            {trails.map(
+                              (trail) => {
+                                const selected =
+                                  selectedTrailId ===
+                                  trail.id;
+
+                                return (
+                                  <div
+                                    key={
+                                      trail.id
+                                    }
+                                  >
+                                    <MissionRecordRow
+                                      label={
+                                        trail.name ||
+                                        'Trilho sem nome'
+                                      }
+                                      visible={
+                                        trail.visible !==
+                                        false
+                                      }
+                                      busy={
+                                        busyMissionId ===
+                                        `trail:${trail.id}`
+                                      }
+                                      onOpen={() =>
+                                        setSelectedTrailId(
+                                          selected
+                                            ? null
+                                            : trail.id,
+                                        )
+                                      }
+                                      onToggle={() =>
+                                        handleToggleTrailVisibility(
+                                          trail,
+                                        )
+                                      }
+                                      onDelete={() =>
+                                        handleDeleteTrail(
+                                          trail,
+                                        )
+                                      }
+                                    />
+
+                                    {selected && (
+                                      <FieldTrailDetails
+                                        trail={
+                                          trail
+                                        }
+                                        onClose={() =>
+                                          setSelectedTrailId(
+                                            null,
+                                          )
+                                        }
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              },
+                            )}
                           </MissionRecordGroup>
 
                           <MissionRecordGroup

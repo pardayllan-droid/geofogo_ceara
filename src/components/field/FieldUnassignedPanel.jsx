@@ -12,6 +12,8 @@ import {
   Route,
   Trash2,
 } from 'lucide-react';
+import { useState } from 'react';
+import FieldTrailDetails from './FieldTrailDetails';
 
 export default function FieldUnassignedPanel({
   getUnassignedRecords,
@@ -22,6 +24,12 @@ export default function FieldUnassignedPanel({
   onDeleteTrail,
   onDeletePoint,
 }) {
+  const [
+    selectedTrailId,
+    setSelectedTrailId,
+  ] = useState(
+    null,
+  );
   const records =
     getUnassignedRecords?.() || {
       trails: [],
@@ -62,38 +70,73 @@ export default function FieldUnassignedPanel({
         emptyMessage="Nenhum trilho sem missão."
       >
         {trails.map(
-          (trail) => (
-            <RecordRow
-              key={
-                trail.id
-              }
-              label={
-                trail.name ||
-                'Trilho sem nome'
-              }
-              visible={
-                trail.visible !==
-                false
-              }
-              onToggle={() =>
-                onToggleTrailVisibility?.(
-                  trail.id,
-                )
-              }
-              onDelete={() => {
-                const confirmed =
-                  window.confirm(
-                    `Excluir definitivamente o trilho “${trail.name || 'Trilho sem nome'}”?`,
-                  );
+          (trail) => {
+            const selected =
+              selectedTrailId ===
+              trail.id;
 
-                if (confirmed) {
-                  onDeleteTrail?.(
-                    trail.id,
-                  );
+            return (
+              <div
+                key={
+                  trail.id
                 }
-              }}
-            />
-          ),
+              >
+                <RecordRow
+                  label={
+                    trail.name ||
+                    'Trilho sem nome'
+                  }
+                  visible={
+                    trail.visible !==
+                    false
+                  }
+                  onOpen={() =>
+                    setSelectedTrailId(
+                      selected
+                        ? null
+                        : trail.id,
+                    )
+                  }
+                  onToggle={() =>
+                    onToggleTrailVisibility?.(
+                      trail.id,
+                    )
+                  }
+                  onDelete={() => {
+                    const confirmed =
+                      window.confirm(
+                        `Excluir definitivamente o trilho “${trail.name || 'Trilho sem nome'}”?`,
+                      );
+
+                    if (confirmed) {
+                      onDeleteTrail?.(
+                        trail.id,
+                      );
+
+                      if (selected) {
+                        setSelectedTrailId(
+                          null,
+                        );
+                      }
+                    }
+                  }}
+                />
+
+                {selected && (
+                  <FieldTrailDetails
+                    trail={
+                      trail
+                    }
+                    onClose={() =>
+                      setSelectedTrailId(
+                        null,
+                      )
+                    }
+                  />
+                )}
+              </div>
+            );
+          },
         )}
       </RecordGroup>
 
@@ -206,20 +249,32 @@ function RecordGroup({
 function RecordRow({
   label,
   visible,
+  onOpen,
   onToggle,
   onDelete,
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-lg bg-accent/20 px-2.5 py-2">
-      <span
-        className={`min-w-0 flex-1 truncate text-[10px] ${
+      <button
+        type="button"
+        onClick={
+          onOpen
+        }
+        disabled={
+          !onOpen
+        }
+        className={`min-w-0 flex-1 truncate text-left text-[10px] ${
           visible
             ? 'text-foreground'
             : 'text-muted-foreground'
+        } ${
+          onOpen
+            ? 'cursor-pointer hover:text-blue-600'
+            : 'cursor-default'
         }`}
       >
         {label}
-      </span>
+      </button>
 
       <button
         type="button"
