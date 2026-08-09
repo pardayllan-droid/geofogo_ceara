@@ -422,7 +422,10 @@ export default function FieldTrailDetails({
     },
     [
       trail.id,
-      trail.style,
+      trail.style?.color,
+      trail.style?.width,
+      trail.style?.opacity,
+      trail.style?.linePattern,
     ],
   );
 
