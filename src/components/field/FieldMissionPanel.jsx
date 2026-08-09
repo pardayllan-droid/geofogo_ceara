@@ -20,8 +20,10 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Download,
   Eye,
   EyeOff,
+  FileJson,
   MapPin,
   Plus,
   Route,
@@ -30,6 +32,15 @@ import {
 import { useMemo, useState } from 'react';
 import FieldTrailDetails from './FieldTrailDetails';
 import FieldPointDetails from './FieldPointDetails';
+import {
+  FieldController,
+} from '../../field/FieldController';
+
+import {
+  downloadFieldExport,
+  getFieldExportDateStamp,
+  slugifyFieldExportName,
+} from './fieldExportUtils';
 
 
 function formatMissionDate(
@@ -388,6 +399,13 @@ export default function FieldMissionPanel({
     null,
   );
 
+  const [
+    exportMissionId,
+    setExportMissionId,
+  ] = useState(
+    null,
+  );
+
   const missions =
     Array.isArray(
       missionState
@@ -417,6 +435,94 @@ export default function FieldMissionPanel({
     setActionMessage(
       null,
     );
+  }
+
+  function handleExportMissionGeoJSON(
+    mission,
+  ) {
+    try {
+      clearFeedback();
+
+      const content =
+        FieldController
+          .exportGeoJSON({
+            missionId:
+              mission.id,
+          });
+
+      const name =
+        slugifyFieldExportName(
+          mission.name ||
+          'missao',
+        );
+
+      downloadFieldExport({
+        content,
+
+        filename:
+          `geofogo-missao-${name}-${getFieldExportDateStamp()}.geojson`,
+
+        mimeType:
+          'application/geo+json',
+      });
+
+      setExportMissionId(
+        null,
+      );
+
+      setActionMessage(
+        `Missão “${mission.name}” exportada em GeoJSON.`,
+      );
+    } catch (error) {
+      setActionError(
+        error?.message ||
+          'Não foi possível exportar a missão em GeoJSON.',
+      );
+    }
+  }
+
+  function handleExportMissionGPX(
+    mission,
+  ) {
+    try {
+      clearFeedback();
+
+      const content =
+        FieldController
+          .exportGPX({
+            missionId:
+              mission.id,
+          });
+
+      const name =
+        slugifyFieldExportName(
+          mission.name ||
+          'missao',
+        );
+
+      downloadFieldExport({
+        content,
+
+        filename:
+          `geofogo-missao-${name}-${getFieldExportDateStamp()}.gpx`,
+
+        mimeType:
+          'application/gpx+xml',
+      });
+
+      setExportMissionId(
+        null,
+      );
+
+      setActionMessage(
+        `Missão “${mission.name}” exportada em GPX.`,
+      );
+    } catch (error) {
+      setActionError(
+        error?.message ||
+          'Não foi possível exportar a missão em GPX.',
+      );
+    }
   }
 
   function toggleMissionExpanded(
@@ -1108,6 +1214,34 @@ export default function FieldMissionPanel({
 
                       <button
                         type="button"
+                        onClick={() => {
+                          clearFeedback();
+
+                          setExportMissionId(
+                            (current) =>
+                              current ===
+                              mission.id
+                                ? null
+                                : mission.id,
+                          );
+                        }}
+                        disabled={
+                          isBusy
+                        }
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-50 ${
+                          exportMissionId ===
+                          mission.id
+                            ? 'bg-blue-500/10 text-blue-600'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                        }`}
+                        aria-label={`Exportar missão ${mission.name}`}
+                        title="Exportar missão"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() =>
                           handleToggleVisibility(
                             mission,
@@ -1160,6 +1294,71 @@ export default function FieldMissionPanel({
                       <p className="mt-2 line-clamp-2 text-[9px] leading-relaxed text-muted-foreground">
                         {mission.description}
                       </p>
+                    )}
+
+                    {exportMissionId ===
+                      mission.id && (
+                      <div className="mt-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-2.5">
+                        <div className="mb-2">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Exportar missão
+                          </p>
+
+                          <p className="mt-0.5 text-[9px] text-muted-foreground">
+                            {trails.length}{' '}
+                            {trails.length === 1
+                              ? 'trilho'
+                              : 'trilhos'}
+                            {' · '}
+                            {points.length}{' '}
+                            {points.length === 1
+                              ? 'marcador'
+                              : 'marcadores'}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleExportMissionGeoJSON(
+                                mission,
+                              )
+                            }
+                            disabled={
+                              trails.length ===
+                                0 &&
+                              points.length ===
+                                0
+                            }
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[10px] font-semibold transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <FileJson className="h-3.5 w-3.5" />
+
+                            GeoJSON
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleExportMissionGPX(
+                                mission,
+                              )
+                            }
+                            disabled={
+                              trails.length ===
+                                0 &&
+                              points.length ===
+                                0
+                            }
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[10px] font-semibold transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+
+                            GPX
+                          </button>
+                        </div>
+                      </div>
                     )}
 
                     {expanded && (
