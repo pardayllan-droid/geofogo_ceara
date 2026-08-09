@@ -65,15 +65,30 @@ function formatMissionDate(
 function getMarkerCategoryLabel(
   category,
 ) {
-  switch (category) {
-    case 'fire':
-      return 'Foco';
-    case 'water':
-      return 'Água';
-    case 'base':
-      return 'Base';
+  switch (
+    category
+  ) {
+    case 'active-fire':
+      return 'Foco ativo';
+
+    case 'vehicle':
+      return 'Viatura';
+
+    case 'water-source':
+      return 'Ponto d’água';
+
+    case 'blockage':
+      return 'Bloqueio';
+
+    case 'risk':
+      return 'Área de risco';
+
+    case 'service':
+      return 'Atendimento';
+
     case 'observation':
       return 'Observação';
+
     default:
       return 'Marcador';
   }

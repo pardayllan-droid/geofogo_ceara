@@ -11,6 +11,7 @@ import {
   Activity,
   CalendarClock,
   Gauge,
+  LocateFixed,
   Mountain,
   Route,
   Satellite,
@@ -21,6 +22,10 @@ import {
 import {
   formatDistance,
 } from '../../utils/formatters';
+import {
+  EventBus,
+  EVENTS,
+} from '../../core/EventBus';
 
 function formatDuration(
   milliseconds,
@@ -238,6 +243,77 @@ function getPatternLabel(
     : 'Contínua';
 }
 
+/**
+ * Converte o objeto persistido do trilho em uma
+ * feição GeoJSON LineString somente para navegação
+ * e enquadramento no mapa.
+ */
+function createTrailFeature(
+  trail,
+) {
+  const coordinates =
+    Array.isArray(
+      trail?.samples,
+    )
+      ? trail.samples
+          .map(
+            (sample) =>
+              sample
+                ?.geometry
+                ?.coordinates,
+          )
+          .filter(
+            (coordinate) =>
+              Array.isArray(
+                coordinate,
+              ) &&
+              coordinate.length >=
+                2 &&
+              Number.isFinite(
+                Number(
+                  coordinate[0],
+                ),
+              ) &&
+              Number.isFinite(
+                Number(
+                  coordinate[1],
+                ),
+              ),
+          )
+      : [];
+
+  if (
+    coordinates.length <
+    2
+  ) {
+    return null;
+  }
+
+  return {
+    type:
+      'Feature',
+
+    id:
+      trail.id,
+
+    geometry: {
+      type:
+        'LineString',
+
+      coordinates,
+    },
+
+    properties: {
+      trailId:
+        trail.id,
+
+      name:
+        trail.name ||
+        null,
+    },
+  };
+}
+
 export default function FieldTrailDetails({
   trail,
   onClose,
@@ -260,6 +336,25 @@ export default function FieldTrailDetails({
     trail.samples
       ?.length ??
     0;
+
+  const trailFeature =
+    createTrailFeature(
+      trail,
+    );
+
+  function handleFocusOnMap() {
+    if (!trailFeature) {
+      return;
+    }
+
+    EventBus.emit(
+      EVENTS.MAP_FOCUS_FIELD_FEATURE,
+      {
+        feature:
+          trailFeature,
+      },
+    );
+  }
 
   return (
     <section className="mt-2 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
@@ -291,6 +386,21 @@ export default function FieldTrailDetails({
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
+
+      <button
+        type="button"
+        onClick={
+          handleFocusOnMap
+        }
+        disabled={
+          !trailFeature
+        }
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[10px] font-semibold text-blue-700 transition-colors hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-300"
+      >
+        <LocateFixed className="h-3.5 w-3.5" />
+
+        Ir para
+      </button>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Metric

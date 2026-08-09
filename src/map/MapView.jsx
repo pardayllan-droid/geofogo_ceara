@@ -2858,6 +2858,67 @@ export default function MapView({
   );
 
   /**
+   * Centraliza ou enquadra um registro do Modo Campo.
+   *
+   * A interface envia diretamente uma feição GeoJSON,
+   * mantendo o MapView responsável pela navegação
+   * cartográfica.
+   */
+  useEffect(
+    () => {
+      const handleFocusFieldFeature =
+        ({
+          feature,
+        } = {}) => {
+          const map =
+            mapRef.current;
+
+          if (
+            !map ||
+            !feature?.geometry
+          ) {
+            return;
+          }
+
+          const focused =
+            focusMapOnFeature(
+              map,
+              feature,
+            );
+
+          if (!focused) {
+            console.warn(
+              '[MapView] Não foi possível centralizar no registro de campo.',
+              {
+                featureId:
+                  feature.id ??
+                  feature.properties
+                    ?.id ??
+                  null,
+
+                geometryType:
+                  feature.geometry
+                    ?.type ??
+                  null,
+              },
+            );
+          }
+        };
+
+      const unsubscribe =
+        EventBus.on(
+          EVENTS.MAP_FOCUS_FIELD_FEATURE,
+          handleFocusFieldFeature,
+        );
+
+      return () => {
+        unsubscribe?.();
+      };
+    },
+    [],
+  );
+
+  /**
    * Atualização das camadas do Modo Campo.
    */
   useEffect(

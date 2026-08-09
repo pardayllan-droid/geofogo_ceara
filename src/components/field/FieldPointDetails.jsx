@@ -11,11 +11,16 @@ import {
   CalendarClock,
   Compass,
   Crosshair,
+  LocateFixed,
   MapPin,
   Mountain,
   Satellite,
   X,
 } from 'lucide-react';
+import {
+  EventBus,
+  EVENTS,
+} from '../../core/EventBus';
 
 function formatNumber(
   value,
@@ -254,6 +259,16 @@ export default function FieldPointDetails({
     properties.style ||
     {};
 
+  function handleFocusOnMap() {
+    EventBus.emit(
+      EVENTS.MAP_FOCUS_FIELD_FEATURE,
+      {
+        feature:
+          point,
+      },
+    );
+  }
+
   return (
     <section className="mt-2 rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
       <div className="flex items-start gap-2">
@@ -287,6 +302,17 @@ export default function FieldPointDetails({
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
+      <button
+        type="button"
+        onClick={
+          handleFocusOnMap
+        }
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[10px] font-semibold text-blue-700 transition-colors hover:bg-blue-500/15 dark:text-blue-300"
+      >
+        <LocateFixed className="h-3.5 w-3.5" />
+
+        Ir para
+      </button>
 
       {properties.observation && (
         <div className="mt-3 rounded-lg bg-accent/20 p-2.5">
