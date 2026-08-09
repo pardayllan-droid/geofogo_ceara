@@ -197,6 +197,130 @@ function MissionRecordRow({
   );
 }
 
+function MoveRecordToMission({
+  missions,
+  currentMissionId,
+  onMove,
+}) {
+  const [
+    destination,
+    setDestination,
+  ] = useState(
+    '',
+  );
+
+  const [
+    moving,
+    setMoving,
+  ] = useState(
+    false,
+  );
+
+  const destinations =
+    missions.filter(
+      (mission) =>
+        mission.id !==
+        currentMissionId,
+    );
+
+  const hasDestinations =
+    destinations.length >
+    0;
+
+  async function handleMove() {
+    if (
+      !destination ||
+      moving
+    ) {
+      return;
+    }
+
+    try {
+      setMoving(
+        true,
+      );
+
+      await onMove?.(
+        destination ===
+          '__unassigned__'
+          ? null
+          : destination,
+      );
+
+      setDestination(
+        '',
+      );
+    } finally {
+      setMoving(
+        false,
+      );
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-background/70 p-2">
+      <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Mover para
+      </p>
+
+      <div className="flex gap-1.5">
+        <select
+          value={
+            destination
+          }
+          onChange={(event) =>
+            setDestination(
+              event.target
+                .value,
+            )
+          }
+          className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-[10px]"
+        >
+          <option value="">
+            Selecione...
+          </option>
+
+          <option value="__unassigned__">
+            Sem missão
+          </option>
+
+          {hasDestinations &&
+            destinations.map(
+              (mission) => (
+                <option
+                  key={
+                    mission.id
+                  }
+                  value={
+                    mission.id
+                  }
+                >
+                  {mission.name}
+                </option>
+              ),
+            )}
+        </select>
+
+        <button
+          type="button"
+          disabled={
+            !destination ||
+            moving
+          }
+          onClick={
+            handleMove
+          }
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-[10px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {moving
+            ? 'Movendo...'
+            : 'Mover'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function FieldMissionPanel({
   missionState,
   getMissionRecords,
@@ -206,6 +330,8 @@ export default function FieldMissionPanel({
   onToggleMissionVisibility,
   onToggleTrailVisibility,
   onTogglePointVisibility,
+  onMoveTrailToMission,
+  onMovePointToMission,
   onDeleteTrail,
   onDeletePoint,
   onDeleteMission,
@@ -1088,16 +1214,39 @@ export default function FieldMissionPanel({
                                   />
 
                                   {selected && (
-                                    <FieldTrailDetails
-                                      trail={
-                                        trail
-                                      }
-                                      onClose={() =>
-                                        setSelectedTrailId(
-                                          null,
-                                        )
-                                      }
-                                    />
+                                    <>
+                                      <FieldTrailDetails
+                                        trail={
+                                          trail
+                                        }
+                                        onClose={() =>
+                                          setSelectedTrailId(
+                                            null,
+                                          )
+                                        }
+                                      />
+
+                                      <MoveRecordToMission
+                                        missions={
+                                          missions
+                                        }
+                                        currentMissionId={
+                                          mission.id
+                                        }
+                                        onMove={async (
+                                          destinationMissionId,
+                                        ) => {
+                                          await onMoveTrailToMission?.(
+                                            trail.id,
+                                            destinationMissionId,
+                                          );
+
+                                          setSelectedTrailId(
+                                            null,
+                                          );
+                                        }}
+                                      />
+                                    </>
                                   )}
                                 </div>
                               );
@@ -1171,16 +1320,39 @@ export default function FieldMissionPanel({
                                   />
 
                                   {selected && (
-                                    <FieldPointDetails
-                                      point={
-                                        point
-                                      }
-                                      onClose={() =>
-                                        setSelectedPointId(
-                                          null,
-                                        )
-                                      }
-                                    />
+                                    <>
+                                      <FieldPointDetails
+                                        point={
+                                          point
+                                        }
+                                        onClose={() =>
+                                          setSelectedPointId(
+                                            null,
+                                          )
+                                        }
+                                      />
+
+                                      <MoveRecordToMission
+                                        missions={
+                                          missions
+                                        }
+                                        currentMissionId={
+                                          mission.id
+                                        }
+                                        onMove={async (
+                                          destinationMissionId,
+                                        ) => {
+                                          await onMovePointToMission?.(
+                                            point.id,
+                                            destinationMissionId,
+                                          );
+
+                                          setSelectedPointId(
+                                            null,
+                                          );
+                                        }}
+                                      />
+                                    </>
                                   )}
                                 </div>
                               );
