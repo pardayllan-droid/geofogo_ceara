@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import FieldTrailDetails from './FieldTrailDetails';
+import FieldPointDetails from './FieldPointDetails';
 
 export default function FieldUnassignedPanel({
   getUnassignedRecords,

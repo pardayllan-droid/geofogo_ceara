@@ -31,6 +31,7 @@ import { useMemo, useState } from 'react';
 import FieldTrailDetails from './FieldTrailDetails';
 import FieldPointDetails from './FieldPointDetails';
 
+
 function formatMissionDate(
   timestamp,
 ) {
