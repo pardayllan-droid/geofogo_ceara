@@ -109,6 +109,12 @@ export default function GeoFogo() {
       toggleFieldPointVisibility={
         geo.toggleFieldPointVisibility
       }
+      moveFieldTrailToMission={
+        geo.moveFieldTrailToMission
+      }
+      moveFieldPointToMission={
+        geo.moveFieldPointToMission
+      }
       deleteFieldTrail={
         geo.deleteFieldTrail
       }

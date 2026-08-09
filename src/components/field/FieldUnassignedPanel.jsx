@@ -17,11 +17,12 @@ import FieldTrailDetails from './FieldTrailDetails';
 import FieldPointDetails from './FieldPointDetails';
 
 export default function FieldUnassignedPanel({
+  missionState,
   getUnassignedRecords,
-
   onToggleTrailVisibility,
   onTogglePointVisibility,
-
+  onMoveTrailToMission,
+  onMovePointToMission,
   onDeleteTrail,
   onDeletePoint,
 }) {
@@ -55,6 +56,14 @@ export default function FieldUnassignedPanel({
       records.points,
     )
       ? records.points
+      : [];
+
+  const missions =
+    Array.isArray(
+      missionState
+        ?.missions,
+    )
+      ? missionState.missions
       : [];
 
   return (
@@ -130,16 +139,36 @@ export default function FieldUnassignedPanel({
                 />
 
                 {selected && (
-                  <FieldTrailDetails
-                    trail={
-                      trail
-                    }
-                    onClose={() =>
-                      setSelectedTrailId(
-                        null,
-                      )
-                    }
-                  />
+                  <>
+                    <FieldTrailDetails
+                      trail={
+                        trail
+                      }
+                      onClose={() =>
+                        setSelectedTrailId(
+                          null,
+                        )
+                      }
+                    />
+
+                    <MoveToMission
+                      missions={
+                        missions
+                      }
+                      onMove={async (
+                        missionId,
+                      ) => {
+                        await onMoveTrailToMission?.(
+                          trail.id,
+                          missionId,
+                        );
+
+                        setSelectedTrailId(
+                          null,
+                        );
+                      }}
+                    />
+                  </>
                 )}
               </div>
             );
@@ -223,16 +252,36 @@ export default function FieldUnassignedPanel({
                 />
 
                 {selected && (
-                  <FieldPointDetails
-                    point={
-                      point
-                    }
-                    onClose={() =>
-                      setSelectedPointId(
-                        null,
-                      )
-                    }
-                  />
+                  <>
+                    <FieldPointDetails
+                      point={
+                        point
+                      }
+                      onClose={() =>
+                        setSelectedPointId(
+                          null,
+                        )
+                      }
+                    />
+
+                    <MoveToMission
+                      missions={
+                        missions
+                      }
+                      onMove={async (
+                        missionId,
+                      ) => {
+                        await onMovePointToMission?.(
+                          point.id,
+                          missionId,
+                        );
+
+                        setSelectedPointId(
+                          null,
+                        );
+                      }}
+                    />
+                  </>
                 )}
               </div>
             );
@@ -345,6 +394,119 @@ function RecordRow({
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
+    </div>
+  );
+}
+
+function MoveToMission({
+  missions,
+  onMove,
+}) {
+  const [
+    selectedMissionId,
+    setSelectedMissionId,
+  ] = useState(
+    '',
+  );
+
+  const [
+    moving,
+    setMoving,
+  ] = useState(
+    false,
+  );
+
+  if (
+    missions.length ===
+    0
+  ) {
+    return null;
+  }
+
+  async function handleMove() {
+    if (
+      !selectedMissionId ||
+      moving
+    ) {
+      return;
+    }
+
+    try {
+      setMoving(
+        true,
+      );
+
+      await onMove?.(
+        selectedMissionId,
+      );
+
+      setSelectedMissionId(
+        '',
+      );
+    } finally {
+      setMoving(
+        false,
+      );
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-background/70 p-2">
+      <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Mover para missão
+      </p>
+
+      <div className="flex gap-1.5">
+        <select
+          value={
+            selectedMissionId
+          }
+          onChange={(
+            event,
+          ) =>
+            setSelectedMissionId(
+              event.target
+                .value,
+            )
+          }
+          className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-[10px]"
+        >
+          <option value="">
+            Selecione...
+          </option>
+
+          {missions.map(
+            (mission) => (
+              <option
+                key={
+                  mission.id
+                }
+                value={
+                  mission.id
+                }
+              >
+                {mission.name}
+              </option>
+            ),
+          )}
+        </select>
+
+        <button
+          type="button"
+          disabled={
+            !selectedMissionId ||
+            moving
+          }
+          onClick={
+            handleMove
+          }
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-[10px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {moving
+            ? 'Movendo...'
+            : 'Mover'}
+        </button>
+      </div>
     </div>
   );
 }

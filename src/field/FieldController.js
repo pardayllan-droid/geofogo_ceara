@@ -2018,6 +2018,157 @@ class FieldControllerImpl {
   }
 
   /**
+   * Move um trilho para outra missão.
+   *
+   * missionId:
+   * - string: vincula à missão informada;
+   * - null: transforma em registro sem missão.
+   */
+  async moveTrailToMission(
+    trailId,
+    missionId =
+      null,
+  ) {
+    const trail =
+      this.trails.find(
+        (candidate) =>
+          candidate.id ===
+          trailId,
+      );
+
+    if (!trail) {
+      throw new Error(
+        'Trilho não encontrado.',
+      );
+    }
+
+    const updatedTrail = {
+      ...trail,
+
+      missionId:
+        missionId ||
+        null,
+
+      updated_date:
+        Date.now(),
+    };
+
+    this._updateTrailCollection(
+      updatedTrail,
+    );
+
+    if (
+      this.currentTrail
+        ?.id ===
+      trailId
+    ) {
+      this.currentTrail =
+        updatedTrail;
+    }
+
+    this._queueTrailSave(
+      updatedTrail,
+    );
+
+    await this.flushPersistence();
+
+    this._notify();
+
+    return updatedTrail;
+  }
+
+  /**
+   * Move um marcador para outra missão.
+   *
+   * Mantemos missionId tanto no nível principal quanto
+   * em properties para preservar compatibilidade com
+   * os registros GeoJSON já existentes.
+   */
+  async movePointToMission(
+    pointId,
+    missionId =
+      null,
+  ) {
+    const index =
+      this.points.findIndex(
+        (point) =>
+          point.id ===
+          pointId,
+      );
+
+    if (index < 0) {
+      throw new Error(
+        'Marcador não encontrado.',
+      );
+    }
+
+    if (
+      missionId &&
+      !FieldMissionController
+        .getMissionById?.(
+          missionId,
+        )
+    ) {
+      throw new Error(
+        'Missão de destino não encontrada.',
+      );
+    }
+
+    const point =
+      this.points[
+        index
+      ];
+
+    const now =
+      Date.now();
+
+    const updatedPoint = {
+      ...point,
+
+      missionId:
+        missionId ||
+        null,
+
+      updated_date:
+        now,
+
+      properties: {
+        ...point.properties,
+
+        missionId:
+          missionId ||
+          null,
+
+        updated_date:
+          now,
+      },
+    };
+
+    this.points = [
+      ...this.points.slice(
+        0,
+        index,
+      ),
+
+      updatedPoint,
+
+      ...this.points.slice(
+        index + 1,
+      ),
+    ];
+
+    this._queuePointSave(
+      updatedPoint,
+    );
+
+    await this.flushPersistence();
+
+    this._notify();
+
+    return updatedPoint;
+  }
+
+  /**
    * Exclui permanentemente um trilho.
    *
    * Pontos vinculados ao trilho não são excluídos:

@@ -53,6 +53,9 @@ export default function FieldModePanel({
   onToggleTrailVisibility,
   onTogglePointVisibility,
 
+  onMoveTrailToMission,
+  onMovePointToMission,
+
   onDeleteTrail,
   onDeletePoint,
 
@@ -395,6 +398,15 @@ export default function FieldModePanel({
             }
             onTogglePointVisibility={
               onTogglePointVisibility
+            }
+            missionState={
+              missionState
+            }
+            onMoveTrailToMission={
+              onMoveTrailToMission
+            }
+            onMovePointToMission={
+              onMovePointToMission
             }
             onDeleteTrail={
               onDeleteTrail
