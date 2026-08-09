@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import FieldTrailDetails from './FieldTrailDetails';
+import FieldPointDetails from './FieldPointDetails';
 
 function formatMissionDate(
   timestamp,
@@ -239,6 +240,13 @@ export default function FieldMissionPanel({
   const [
     selectedTrailId,
     setSelectedTrailId,
+  ] = useState(
+    null,
+  );
+
+  const [
+    selectedPointId,
+    setSelectedPointId,
   ] = useState(
     null,
   );
@@ -1165,49 +1173,82 @@ export default function FieldMissionPanel({
                             icon={MapPin}
                             emptyMessage="Nenhum marcador nesta missão."
                           >
-                            {points.map((point) => {
-                              const properties =
-                                point.properties ||
-                                {};
+                            {points.map(
+                              (point) => {
+                                const properties =
+                                  point.properties ||
+                                  {};
 
-                              const label =
-                                properties.label ||
-                                getMarkerCategoryLabel(
-                                  properties.category,
+                                const label =
+                                  properties.label ||
+                                  getMarkerCategoryLabel(
+                                    properties.category,
+                                  );
+
+                                const visible =
+                                  (
+                                    point.visible ??
+                                    properties.visible
+                                  ) !==
+                                  false;
+
+                                const selected =
+                                  selectedPointId ===
+                                  point.id;
+
+                                return (
+                                  <div
+                                    key={
+                                      point.id
+                                    }
+                                  >
+                                    <MissionRecordRow
+                                      label={
+                                        label ||
+                                        'Marcador'
+                                      }
+                                      visible={
+                                        visible
+                                      }
+                                      busy={
+                                        busyMissionId ===
+                                        `point:${point.id}`
+                                      }
+                                      onOpen={() =>
+                                        setSelectedPointId(
+                                          selected
+                                            ? null
+                                            : point.id,
+                                        )
+                                      }
+                                      onToggle={() =>
+                                        handleTogglePointVisibility(
+                                          point,
+                                        )
+                                      }
+                                      onDelete={() =>
+                                        handleDeletePoint(
+                                          point,
+                                        )
+                                      }
+                                    />
+
+                                    {selected && (
+                                      <FieldPointDetails
+                                        point={
+                                          point
+                                        }
+                                        onClose={() =>
+                                          setSelectedPointId(
+                                            null,
+                                          )
+                                        }
+                                      />
+                                    )}
+                                  </div>
                                 );
-
-                              const visible =
-                                (
-                                  point.visible ??
-                                  properties.visible
-                                ) !==
-                                false;
-
-                              return (
-                                <MissionRecordRow
-                                  key={point.id}
-                                  label={
-                                    label ||
-                                    'Marcador'
-                                  }
-                                  visible={visible}
-                                  busy={
-                                    busyMissionId ===
-                                    `point:${point.id}`
-                                  }
-                                  onToggle={() =>
-                                    handleTogglePointVisibility(
-                                      point,
-                                    )
-                                  }
-                                  onDelete={() =>
-                                    handleDeletePoint(
-                                      point,
-                                    )
-                                  }
-                                />
-                              );
-                            })}
+                              },
+                            )}
                           </MissionRecordGroup>
                         </div>
                       )}

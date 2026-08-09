@@ -30,6 +30,12 @@ export default function FieldUnassignedPanel({
   ] = useState(
     null,
   );
+  const [
+    selectedPointId,
+    setSelectedPointId,
+  ] = useState(
+    null,
+  );
   const records =
     getUnassignedRecords?.() || {
       trails: [],
@@ -166,35 +172,68 @@ export default function FieldUnassignedPanel({
               ) !==
               false;
 
+            const selected =
+              selectedPointId ===
+              point.id;
+
             return (
-              <RecordRow
+              <div
                 key={
                   point.id
                 }
-                label={
-                  label
-                }
-                visible={
-                  visible
-                }
-                onToggle={() =>
-                  onTogglePointVisibility?.(
-                    point.id,
-                  )
-                }
-                onDelete={() => {
-                  const confirmed =
-                    window.confirm(
-                      `Excluir definitivamente o marcador “${label}”?`,
-                    );
-
-                  if (confirmed) {
-                    onDeletePoint?.(
-                      point.id,
-                    );
+              >
+                <RecordRow
+                  label={
+                    label
                   }
-                }}
-              />
+                  visible={
+                    visible
+                  }
+                  onOpen={() =>
+                    setSelectedPointId(
+                      selected
+                        ? null
+                        : point.id,
+                    )
+                  }
+                  onToggle={() =>
+                    onTogglePointVisibility?.(
+                      point.id,
+                    )
+                  }
+                  onDelete={() => {
+                    const confirmed =
+                      window.confirm(
+                        `Excluir definitivamente o marcador “${label}”?`,
+                      );
+
+                    if (confirmed) {
+                      onDeletePoint?.(
+                        point.id,
+                      );
+
+                      if (selected) {
+                        setSelectedPointId(
+                          null,
+                        );
+                      }
+                    }
+                  }}
+                />
+
+                {selected && (
+                  <FieldPointDetails
+                    point={
+                      point
+                    }
+                    onClose={() =>
+                      setSelectedPointId(
+                        null,
+                      )
+                    }
+                  />
+                )}
+              </div>
             );
           },
         )}
