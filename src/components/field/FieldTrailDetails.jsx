@@ -336,10 +336,6 @@ export default function FieldTrailDetails({
   trail,
   onClose,
 }) {
-  if (!trail) {
-    return null;
-  }
-
   const [
     editingStyle,
     setEditingStyle,
@@ -351,27 +347,27 @@ export default function FieldTrailDetails({
     draftStyle,
     setDraftStyle,
   ] = useState(
-    {
+    () => ({
       color:
-        trail.style
+        trail?.style
           ?.color ||
         '#16a34a',
 
       width:
-        trail.style
+        trail?.style
           ?.width ??
         4,
 
       opacity:
-        trail.style
+        trail?.style
           ?.opacity ??
         0.9,
 
       linePattern:
-        trail.style
+        trail?.style
           ?.linePattern ||
         'solid',
-    },
+    }),
   );
 
   const [
@@ -390,6 +386,10 @@ export default function FieldTrailDetails({
 
   useEffect(
     () => {
+      if (!trail) {
+        return;
+      }
+
       setDraftStyle({
         color:
           trail.style
@@ -421,13 +421,13 @@ export default function FieldTrailDetails({
       );
     },
     [
-      trail.id,
-      trail.style?.color,
-      trail.style?.width,
-      trail.style?.opacity,
-      trail.style?.linePattern,
+      trail?.id,
     ],
   );
+
+  if (!trail) {
+    return null;
+  }
 
   const duration =
     calculateTrailDuration(
