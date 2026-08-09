@@ -1,8 +1,12 @@
 /**
  * FieldGpsCard
  *
- * Exibe o estado do GPS e as opções relacionadas
- * exclusivamente ao acompanhamento da posição.
+ * Exibe de forma compacta:
+ * - disponibilidade do GPS;
+ * - provedor;
+ * - precisão;
+ * - capacidade de segundo plano;
+ * - opção "Seguir", que controla a centralização automática.
  */
 
 import {
@@ -48,17 +52,30 @@ export default function FieldGpsCard({
         ?.currentPosition,
     );
 
+  const followPosition =
+    Boolean(
+      fieldState
+        ?.followPosition,
+    );
+
   const backgroundSupported =
     Boolean(
       fieldState
         ?.supportsBackgroundTracking,
     );
 
+  function handleToggleFollow() {
+    FieldController
+      .setFollowPosition(
+        !followPosition,
+      );
+  }
+
   return (
     <section className="rounded-xl border border-border bg-card p-3">
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-3">
         <div
-          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
             available
               ? 'bg-green-500/10'
               : 'bg-amber-500/10'
@@ -78,64 +95,63 @@ export default function FieldGpsCard({
               : 'Aguardando posição GPS'}
           </p>
 
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
-            Provedor:{' '}
-            {fieldState
-              ?.locationProvider ||
-              '—'}
-          </p>
-
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
-            Precisão atual:{' '}
+          <p className="mt-0.5 text-[9px] text-muted-foreground">
+            Precisão:{' '}
             {formatMeters(
               fieldState
                 ?.currentAccuracy,
             )}
+            {' · '}
+            {fieldState
+              ?.locationProvider ||
+              'provedor indefinido'}
           </p>
+        </div>
 
-          <p
-            className={`mt-1 text-[9px] ${
-              backgroundSupported
-                ? 'text-green-600'
-                : 'text-amber-600'
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-[9px] font-semibold text-muted-foreground">
+            Seguir
+          </span>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={
+              followPosition
+            }
+            aria-label="Centralizar automaticamente na posição atual"
+            title="Centralizar automaticamente"
+            onClick={
+              handleToggleFollow
+            }
+            className={`relative h-5 w-9 rounded-full transition-colors ${
+              followPosition
+                ? 'bg-blue-600'
+                : 'bg-muted'
             }`}
           >
-            {backgroundSupported
-              ? 'Rastreamento em segundo plano disponível'
-              : 'Rastreamento em segundo plano indisponível nesta plataforma'}
-          </p>
+            <span
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                followPosition
+                  ? 'translate-x-[18px]'
+                  : 'translate-x-0.5'
+              }`}
+            />
+          </button>
         </div>
       </div>
 
-      <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-accent/20 px-3 py-2.5">
-        <input
-          type="checkbox"
-          checked={
-            Boolean(
-              fieldState
-                ?.followPosition,
-            )
-          }
-          onChange={(event) => {
-            FieldController
-              .setFollowPosition(
-                event.target
-                  .checked,
-              );
-          }}
-          className="mt-0.5"
-        />
-
-        <span className="min-w-0">
-          <span className="block text-[10px] font-semibold">
-            Centralizar automaticamente
-          </span>
-
-          <span className="mt-0.5 block text-[9px] leading-relaxed text-muted-foreground">
-            Mantém o mapa acompanhando sua posição enquanto o Modo Campo estiver ativo.
-          </span>
-        </span>
-      </label>
+      <p
+        className={`mt-2 text-[9px] ${
+          backgroundSupported
+            ? 'text-green-600'
+            : 'text-amber-600'
+        }`}
+      >
+        {backgroundSupported
+          ? 'Rastreamento em segundo plano disponível'
+          : 'Rastreamento em segundo plano indisponível nesta plataforma'}
+      </p>
 
       {fieldState
         ?.locationError && (

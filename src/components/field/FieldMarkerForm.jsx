@@ -440,7 +440,7 @@ export default function FieldMarkerForm({
     );
   }
 
-  function handleCreateCurrentPosition() {
+  async function handleCreateCurrentPosition() {
     resetFeedback();
 
     if (
@@ -454,7 +454,7 @@ export default function FieldMarkerForm({
     }
 
     try {
-      onCreateCurrentPosition?.(
+      await onCreateCurrentPosition?.(
         label,
         observation,
         {
@@ -484,11 +484,20 @@ export default function FieldMarkerForm({
         '',
       );
 
+      setLinkToActiveTrail(
+        false,
+      );
+
+      /**
+       * A criação foi concluída.
+       * Fecha novamente o formulário.
+       */
+      setOpen(
+        false,
+      );
+
       setActionMessage(
-        linkToActiveTrail &&
-          trailOpen
-          ? 'Marcador criado e vinculado ao trilho.'
-          : 'Marcador independente criado.',
+        null,
       );
     } catch (error) {
       setActionError(
@@ -616,7 +625,7 @@ export default function FieldMarkerForm({
     );
   }
 
-  function handleCreateLocatedCoordinate() {
+  async function handleCreateLocatedCoordinate() {
     resetFeedback();
 
     if (!locatedCoordinate) {
@@ -629,12 +638,9 @@ export default function FieldMarkerForm({
 
     try {
       const trailId =
-        linkToActiveTrail &&
-        trailOpen
-          ? null
-          : null;
+        null;
 
-      onCreateAtCoordinates?.({
+      await onCreateAtCoordinates?.({
         longitude:
           locatedCoordinate.longitude,
 
@@ -645,10 +651,6 @@ export default function FieldMarkerForm({
         observation,
         category,
 
-        /**
-         * Use estas propriedades caso a personalização
-         * visual já tenha sido aplicada no seu arquivo.
-         */
         style:
           typeof normalizeMarkerStyle ===
             'function'
@@ -692,8 +694,16 @@ export default function FieldMarkerForm({
         '',
       );
 
+      setLinkToActiveTrail(
+        false,
+      );
+
+      setOpen(
+        false,
+      );
+
       setActionMessage(
-        'Marcador criado na coordenada informada.',
+        null,
       );
     } catch (error) {
       setActionError(

@@ -646,6 +646,9 @@ export default function AppShell({
             ) ||
             0
           }
+          fieldState={
+            fieldState
+          }
           onSelect={
             toggleMobilePanel
           }
@@ -1253,6 +1256,7 @@ function BottomNavigation({
   activePanel,
   panelOpen,
   alertsCount,
+  fieldState,
   onSelect,
 }) {
   return (
@@ -1269,6 +1273,24 @@ function BottomNavigation({
             panel.id &&
           panelOpen;
 
+        const fieldOperational =
+          panel.id ===
+          'field';
+
+        const fieldRecording =
+          fieldOperational &&
+          Boolean(
+            fieldState
+              ?.recording,
+          );
+
+        const fieldGpsActive =
+          fieldOperational &&
+          Boolean(
+            fieldState
+              ?.active,
+          );
+
         return (
           <button
             type="button"
@@ -1279,9 +1301,13 @@ function BottomNavigation({
               )
             }
             className={`relative flex min-w-0 flex-col items-center justify-center gap-1 px-0.5 py-2 transition-colors ${
-              active
-                ? 'text-amber-500'
-                : 'text-muted-foreground hover:text-foreground'
+              fieldRecording
+                ? 'text-blue-500'
+                : fieldGpsActive
+                  ? 'text-green-500'
+                  : active
+                    ? 'text-amber-500'
+                    : 'text-muted-foreground hover:text-foreground'
             }`}
             aria-label={
               panel.fullLabel ||
@@ -1290,7 +1316,15 @@ function BottomNavigation({
             aria-pressed={active}
           >
             {active && (
-              <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-amber-500" />
+              <span
+                className={`absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full ${
+                  fieldRecording
+                    ? 'bg-blue-500'
+                    : fieldGpsActive
+                      ? 'bg-green-500'
+                      : 'bg-amber-500'
+                }`}
+              />
             )}
 
             <div className="relative">

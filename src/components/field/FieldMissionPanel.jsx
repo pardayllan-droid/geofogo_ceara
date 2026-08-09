@@ -216,11 +216,6 @@ export default function FieldMissionPanel({
   ] = useState(false);
 
   const [
-    managerOpen,
-    setManagerOpen,
-  ] = useState(false);
-
-  const [
     expandedMissionIds,
     setExpandedMissionIds,
   ] = useState(
@@ -274,11 +269,6 @@ export default function FieldMissionPanel({
     )
       ? missionState.missions
       : [];
-
-  const activeMission =
-    missionState
-      ?.activeMission ||
-    null;
 
   const visibleMissionsCount =
     useMemo(
@@ -675,67 +665,20 @@ export default function FieldMissionPanel({
 
   return (
     <section className="rounded-xl border border-border bg-card">
-      <div className="flex items-start gap-3 p-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
-          <Briefcase className="h-4 w-4 text-orange-600" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Missão ativa
+      <div className="flex items-center justify-between gap-3 p-3">
+        <div>
+          <p className="text-xs font-semibold">
+            Missões
           </p>
 
-          {activeMission ? (
-            <>
-              <p className="mt-1 truncate text-xs font-semibold">
-                {activeMission.name}
-              </p>
-
-              <p className="mt-0.5 text-[9px] text-muted-foreground">
-                Iniciada em{' '}
-                {formatMissionDate(
-                  activeMission.startedAt,
-                )}
-              </p>
-
-              {activeMission.description && (
-                <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-muted-foreground">
-                  {activeMission.description}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="mt-1 text-xs font-semibold">
-                Nenhuma missão ativa
-              </p>
-
-              <p className="mt-0.5 text-[9px] leading-relaxed text-muted-foreground">
-                Trilhos e marcadores novos serão criados como registros
-                avulsos.
-              </p>
-            </>
-          )}
+          <p className="mt-0.5 text-[9px] text-muted-foreground">
+            {missions.length ===
+            0
+              ? 'Nenhuma missão criada'
+              : `${visibleMissionsCount} visível(is) de ${missions.length}`}
+          </p>
         </div>
 
-        {activeMission && (
-          <span
-            className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${
-              activeMission.visible !==
-              false
-                ? 'bg-green-500/10 text-green-700 dark:text-green-300'
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {activeMission.visible !==
-            false
-              ? 'Visível'
-              : 'Oculta'}
-          </span>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 border-t border-border p-3">
         <button
           type="button"
           onClick={() => {
@@ -751,27 +694,6 @@ export default function FieldMissionPanel({
           <Plus className="h-3.5 w-3.5" />
 
           Nova missão
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            clearFeedback();
-
-            setManagerOpen(
-              (current) =>
-                !current,
-            );
-          }}
-          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[10px] font-semibold transition-colors hover:bg-accent"
-        >
-          Gerenciar
-
-          {managerOpen ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
         </button>
       </div>
 
@@ -874,408 +796,406 @@ export default function FieldMissionPanel({
         </div>
       )}
 
-      {managerOpen && (
-        <div className="border-t border-border p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold">
-              Missões salvas
+      <div className="border-t border-border p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-[10px] font-semibold">
+            Missões salvas
+          </p>
+
+          <span className="text-[9px] text-muted-foreground">
+            {visibleMissionsCount} visível(is) de {missions.length}
+          </span>
+        </div>
+
+        {missions.length ===
+        0 ? (
+          <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center">
+            <Briefcase className="mx-auto h-5 w-5 text-muted-foreground" />
+
+            <p className="mt-2 text-[10px] font-semibold">
+              Nenhuma missão criada
             </p>
-
-            <span className="text-[9px] text-muted-foreground">
-              {visibleMissionsCount} visível(is) de {missions.length}
-            </span>
           </div>
-
-          {missions.length ===
-          0 ? (
-            <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center">
-              <Briefcase className="mx-auto h-5 w-5 text-muted-foreground" />
-
-              <p className="mt-2 text-[10px] font-semibold">
-                Nenhuma missão criada
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={
-                  onClearActiveMission
-                }
-                className={`mb-2 flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+        ) : (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={
+                onClearActiveMission
+              }
+              className={`mb-2 flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                !missionState
+                  ?.activeMissionId
+                  ? 'border-orange-500 bg-orange-500/5'
+                  : 'border-border bg-background hover:bg-accent/30'
+              }`}
+            >
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
                   !missionState
                     ?.activeMissionId
-                    ? 'border-orange-500 bg-orange-500/5'
-                    : 'border-border bg-background hover:bg-accent/30'
+                    ? 'border-orange-600 bg-orange-600 text-white'
+                    : 'border-border text-muted-foreground'
                 }`}
               >
-                <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                    !missionState
-                      ?.activeMissionId
-                      ? 'border-orange-600 bg-orange-600 text-white'
-                      : 'border-border text-muted-foreground'
-                  }`}
-                >
-                  {!missionState
-                    ?.activeMissionId && (
-                    <Check className="h-3.5 w-3.5" />
-                  )}
+                {!missionState
+                  ?.activeMissionId && (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+              </span>
+
+              <span className="min-w-0">
+                <span className="block text-[10px] font-semibold">
+                  Sem missão ativa
                 </span>
 
-                <span className="min-w-0">
-                  <span className="block text-[10px] font-semibold">
-                    Sem missão ativa
-                  </span>
-
-                  <span className="mt-0.5 block text-[9px] text-muted-foreground">
-                    Novos registros serão criados como avulsos.
-                  </span>
+                <span className="mt-0.5 block text-[9px] text-muted-foreground">
+                  Novos registros serão criados como avulsos.
                 </span>
-              </button>
-              {missions.map(
-                (mission) => {
-                  const isActive =
-                    mission.id ===
-                    missionState
-                      ?.activeMissionId;
+              </span>
+            </button>
+            {missions.map(
+              (mission) => {
+                const isActive =
+                  mission.id ===
+                  missionState
+                    ?.activeMissionId;
 
-                  const isBusy =
-                    busyMissionId ===
-                    mission.id;
+                const isBusy =
+                  busyMissionId ===
+                  mission.id;
 
-                  const expanded =
-                    expandedMissionIds.has(
-                      mission.id,
-                    );
+                const expanded =
+                  expandedMissionIds.has(
+                    mission.id,
+                  );
 
-                  const records =
-                    getMissionRecords?.(
-                      mission.id,
-                    ) || {
-                      trails: [],
-                      points: [],
-                    };
+                const records =
+                  getMissionRecords?.(
+                    mission.id,
+                  ) || {
+                    trails: [],
+                    points: [],
+                  };
 
-                  const trails =
-                    Array.isArray(
-                      records.trails,
-                    )
-                      ? records.trails
-                      : [];
+                const trails =
+                  Array.isArray(
+                    records.trails,
+                  )
+                    ? records.trails
+                    : [];
 
-                  const points =
-                    Array.isArray(
-                      records.points,
-                    )
-                      ? records.points
-                      : [];
+                const points =
+                  Array.isArray(
+                    records.points,
+                  )
+                    ? records.points
+                    : [];
 
-                  return (
-                    <article
-                      key={
-                        mission.id
-                      }
-                      className={`rounded-lg border p-2.5 ${
-                        isActive
-                          ? 'border-orange-500 bg-orange-500/5'
-                          : 'border-border bg-background'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleMissionExpanded(
-                              mission.id,
-                            )
-                          }
-                          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          aria-expanded={
-                            expanded
-                          }
-                          aria-label={
-                            expanded
-                              ? `Recolher ${mission.name}`
-                              : `Expandir ${mission.name}`
-                          }
-                        >
-                          {expanded ? (
-                            <ChevronUp className="h-3.5 w-3.5" />
-                          ) : (
-                            <ChevronDown className="h-3.5 w-3.5" />
+                return (
+                  <article
+                    key={
+                      mission.id
+                    }
+                    className={`rounded-lg border p-2.5 ${
+                      isActive
+                        ? 'border-orange-500 bg-orange-500/5'
+                        : 'border-border bg-background'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleMissionExpanded(
+                            mission.id,
+                          )
+                        }
+                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        aria-expanded={
+                          expanded
+                        }
+                        aria-label={
+                          expanded
+                            ? `Recolher ${mission.name}`
+                            : `Expandir ${mission.name}`
+                        }
+                      >
+                        {expanded ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleActivateMission(
+                            mission,
+                          )
+                        }
+                        disabled={
+                          isBusy ||
+                          isActive
+                        }
+                        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                          isActive
+                            ? 'border-orange-600 bg-orange-600 text-white'
+                            : 'border-border text-muted-foreground hover:bg-accent'
+                        }`}
+                        aria-label={`Ativar missão ${mission.name}`}
+                        title={
+                          isActive
+                            ? 'Missão ativa'
+                            : 'Definir como ativa'
+                        }
+                      >
+                        {isActive && (
+                          <Check className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[10px] font-semibold">
+                          {mission.name}
+                        </p>
+
+                        <p className="mt-0.5 text-[9px] text-muted-foreground">
+                          {formatMissionDate(
+                            mission.startedAt,
                           )}
-                        </button>
+                        </p>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleActivateMission(
-                              mission,
-                            )
-                          }
-                          disabled={
-                            isBusy ||
-                            isActive
-                          }
-                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                            isActive
-                              ? 'border-orange-600 bg-orange-600 text-white'
-                              : 'border-border text-muted-foreground hover:bg-accent'
-                          }`}
-                          aria-label={`Ativar missão ${mission.name}`}
-                          title={
-                            isActive
-                              ? 'Missão ativa'
-                              : 'Definir como ativa'
-                          }
-                        >
-                          {isActive && (
-                            <Check className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[10px] font-semibold">
-                            {mission.name}
-                          </p>
-
-                          <p className="mt-0.5 text-[9px] text-muted-foreground">
-                            {formatMissionDate(
-                              mission.startedAt,
-                            )}
-                          </p>
-
-                          <p className="mt-0.5 text-[9px] text-muted-foreground">
-                            {trails.length}{' '}
-                            {trails.length === 1
-                              ? 'trilho'
-                              : 'trilhos'}
-                            {' · '}
-                            {points.length}{' '}
-                            {points.length === 1
-                              ? 'marcador'
-                              : 'marcadores'}
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleToggleVisibility(
-                              mission,
-                            )
-                          }
-                          disabled={
-                            isBusy
-                          }
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-                          aria-label={
-                            mission.visible !==
-                            false
-                              ? `Ocultar missão ${mission.name}`
-                              : `Exibir missão ${mission.name}`
-                          }
-                          title={
-                            mission.visible !==
-                            false
-                              ? 'Ocultar missão'
-                              : 'Exibir missão'
-                          }
-                        >
-                          {mission.visible !==
-                          false ? (
-                            <Eye className="h-3.5 w-3.5" />
-                          ) : (
-                            <EyeOff className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDeleteMission(
-                              mission,
-                            )
-                          }
-                          disabled={
-                            isBusy
-                          }
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                          aria-label={`Excluir missão ${mission.name}`}
-                          title="Excluir missão"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <p className="mt-0.5 text-[9px] text-muted-foreground">
+                          {trails.length}{' '}
+                          {trails.length === 1
+                            ? 'trilho'
+                            : 'trilhos'}
+                          {' · '}
+                          {points.length}{' '}
+                          {points.length === 1
+                            ? 'marcador'
+                            : 'marcadores'}
+                        </p>
                       </div>
 
-                      {mission.description && (
-                        <p className="mt-2 line-clamp-2 text-[9px] leading-relaxed text-muted-foreground">
-                          {mission.description}
-                        </p>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleToggleVisibility(
+                            mission,
+                          )
+                        }
+                        disabled={
+                          isBusy
+                        }
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                        aria-label={
+                          mission.visible !==
+                          false
+                            ? `Ocultar missão ${mission.name}`
+                            : `Exibir missão ${mission.name}`
+                        }
+                        title={
+                          mission.visible !==
+                          false
+                            ? 'Ocultar missão'
+                            : 'Exibir missão'
+                        }
+                      >
+                        {mission.visible !==
+                        false ? (
+                          <Eye className="h-3.5 w-3.5" />
+                        ) : (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        )}
+                      </button>
 
-                      {expanded && (
-                        <div className="mt-2 space-y-3 border-t border-border/70 pt-2">
-                          <MissionRecordGroup
-                            title="Trilhos"
-                            icon={Route}
-                            emptyMessage="Nenhum trilho nesta missão."
-                          >
-                            {trails.map(
-                              (trail) => {
-                                const selected =
-                                  selectedTrailId ===
-                                  trail.id;
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDeleteMission(
+                            mission,
+                          )
+                        }
+                        disabled={
+                          isBusy
+                        }
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                        aria-label={`Excluir missão ${mission.name}`}
+                        title="Excluir missão"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
 
-                                return (
-                                  <div
-                                    key={
-                                      trail.id
+                    {mission.description && (
+                      <p className="mt-2 line-clamp-2 text-[9px] leading-relaxed text-muted-foreground">
+                        {mission.description}
+                      </p>
+                    )}
+
+                    {expanded && (
+                      <div className="mt-2 space-y-3 border-t border-border/70 pt-2">
+                        <MissionRecordGroup
+                          title="Trilhos"
+                          icon={Route}
+                          emptyMessage="Nenhum trilho nesta missão."
+                        >
+                          {trails.map(
+                            (trail) => {
+                              const selected =
+                                selectedTrailId ===
+                                trail.id;
+
+                              return (
+                                <div
+                                  key={
+                                    trail.id
+                                  }
+                                >
+                                  <MissionRecordRow
+                                    label={
+                                      trail.name ||
+                                      'Trilho sem nome'
                                     }
-                                  >
-                                    <MissionRecordRow
-                                      label={
-                                        trail.name ||
-                                        'Trilho sem nome'
+                                    visible={
+                                      trail.visible !==
+                                      false
+                                    }
+                                    busy={
+                                      busyMissionId ===
+                                      `trail:${trail.id}`
+                                    }
+                                    onOpen={() =>
+                                      setSelectedTrailId(
+                                        selected
+                                          ? null
+                                          : trail.id,
+                                      )
+                                    }
+                                    onToggle={() =>
+                                      handleToggleTrailVisibility(
+                                        trail,
+                                      )
+                                    }
+                                    onDelete={() =>
+                                      handleDeleteTrail(
+                                        trail,
+                                      )
+                                    }
+                                  />
+
+                                  {selected && (
+                                    <FieldTrailDetails
+                                      trail={
+                                        trail
                                       }
-                                      visible={
-                                        trail.visible !==
-                                        false
-                                      }
-                                      busy={
-                                        busyMissionId ===
-                                        `trail:${trail.id}`
-                                      }
-                                      onOpen={() =>
+                                      onClose={() =>
                                         setSelectedTrailId(
-                                          selected
-                                            ? null
-                                            : trail.id,
-                                        )
-                                      }
-                                      onToggle={() =>
-                                        handleToggleTrailVisibility(
-                                          trail,
-                                        )
-                                      }
-                                      onDelete={() =>
-                                        handleDeleteTrail(
-                                          trail,
+                                          null,
                                         )
                                       }
                                     />
+                                  )}
+                                </div>
+                              );
+                            },
+                          )}
+                        </MissionRecordGroup>
 
-                                    {selected && (
-                                      <FieldTrailDetails
-                                        trail={
-                                          trail
-                                        }
-                                        onClose={() =>
-                                          setSelectedTrailId(
-                                            null,
-                                          )
-                                        }
-                                      />
-                                    )}
-                                  </div>
+                        <MissionRecordGroup
+                          title="Marcadores"
+                          icon={MapPin}
+                          emptyMessage="Nenhum marcador nesta missão."
+                        >
+                          {points.map(
+                            (point) => {
+                              const properties =
+                                point.properties ||
+                                {};
+
+                              const label =
+                                properties.label ||
+                                getMarkerCategoryLabel(
+                                  properties.category,
                                 );
-                              },
-                            )}
-                          </MissionRecordGroup>
 
-                          <MissionRecordGroup
-                            title="Marcadores"
-                            icon={MapPin}
-                            emptyMessage="Nenhum marcador nesta missão."
-                          >
-                            {points.map(
-                              (point) => {
-                                const properties =
-                                  point.properties ||
-                                  {};
+                              const visible =
+                                (
+                                  point.visible ??
+                                  properties.visible
+                                ) !==
+                                false;
 
-                                const label =
-                                  properties.label ||
-                                  getMarkerCategoryLabel(
-                                    properties.category,
-                                  );
+                              const selected =
+                                selectedPointId ===
+                                point.id;
 
-                                const visible =
-                                  (
-                                    point.visible ??
-                                    properties.visible
-                                  ) !==
-                                  false;
-
-                                const selected =
-                                  selectedPointId ===
-                                  point.id;
-
-                                return (
-                                  <div
-                                    key={
-                                      point.id
+                              return (
+                                <div
+                                  key={
+                                    point.id
+                                  }
+                                >
+                                  <MissionRecordRow
+                                    label={
+                                      label ||
+                                      'Marcador'
                                     }
-                                  >
-                                    <MissionRecordRow
-                                      label={
-                                        label ||
-                                        'Marcador'
+                                    visible={
+                                      visible
+                                    }
+                                    busy={
+                                      busyMissionId ===
+                                      `point:${point.id}`
+                                    }
+                                    onOpen={() =>
+                                      setSelectedPointId(
+                                        selected
+                                          ? null
+                                          : point.id,
+                                      )
+                                    }
+                                    onToggle={() =>
+                                      handleTogglePointVisibility(
+                                        point,
+                                      )
+                                    }
+                                    onDelete={() =>
+                                      handleDeletePoint(
+                                        point,
+                                      )
+                                    }
+                                  />
+
+                                  {selected && (
+                                    <FieldPointDetails
+                                      point={
+                                        point
                                       }
-                                      visible={
-                                        visible
-                                      }
-                                      busy={
-                                        busyMissionId ===
-                                        `point:${point.id}`
-                                      }
-                                      onOpen={() =>
+                                      onClose={() =>
                                         setSelectedPointId(
-                                          selected
-                                            ? null
-                                            : point.id,
-                                        )
-                                      }
-                                      onToggle={() =>
-                                        handleTogglePointVisibility(
-                                          point,
-                                        )
-                                      }
-                                      onDelete={() =>
-                                        handleDeletePoint(
-                                          point,
+                                          null,
                                         )
                                       }
                                     />
-
-                                    {selected && (
-                                      <FieldPointDetails
-                                        point={
-                                          point
-                                        }
-                                        onClose={() =>
-                                          setSelectedPointId(
-                                            null,
-                                          )
-                                        }
-                                      />
-                                    )}
-                                  </div>
-                                );
-                              },
-                            )}
-                          </MissionRecordGroup>
-                        </div>
-                      )}
-                    </article>
-                  );
-                },
-              )}
-            </div>
-          )}
-        </div>
-      )}
+                                  )}
+                                </div>
+                              );
+                            },
+                          )}
+                        </MissionRecordGroup>
+                      </div>
+                    )}
+                  </article>
+                );
+              },
+            )}
+          </div>
+        )}
+      </div>
 
       {actionMessage && (
         <div className="border-t border-border bg-green-500/10 px-3 py-2 text-[10px] text-green-700 dark:text-green-300">
