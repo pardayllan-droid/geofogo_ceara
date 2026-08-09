@@ -10,17 +10,23 @@
 import {
   Activity,
   CalendarClock,
+  Download,
+  FileJson,
   Gauge,
   LocateFixed,
   Mountain,
+  Palette,
   Route,
   Satellite,
+  Save,
   Timer,
   X,
-  Download,
-  FileJson,
 } from 'lucide-react';
 
+import {
+  useEffect,
+  useState,
+} from 'react';
 import {
   formatDistance,
 } from '../../utils/formatters';
@@ -334,6 +340,92 @@ export default function FieldTrailDetails({
     return null;
   }
 
+  const [
+    editingStyle,
+    setEditingStyle,
+  ] = useState(
+    false,
+  );
+
+  const [
+    draftStyle,
+    setDraftStyle,
+  ] = useState(
+    {
+      color:
+        trail.style
+          ?.color ||
+        '#16a34a',
+
+      width:
+        trail.style
+          ?.width ??
+        4,
+
+      opacity:
+        trail.style
+          ?.opacity ??
+        0.9,
+
+      linePattern:
+        trail.style
+          ?.linePattern ||
+        'solid',
+    },
+  );
+
+  const [
+    savingStyle,
+    setSavingStyle,
+  ] = useState(
+    false,
+  );
+
+  const [
+    styleError,
+    setStyleError,
+  ] = useState(
+    null,
+  );
+
+  useEffect(
+    () => {
+      setDraftStyle({
+        color:
+          trail.style
+            ?.color ||
+          '#16a34a',
+
+        width:
+          trail.style
+            ?.width ??
+          4,
+
+        opacity:
+          trail.style
+            ?.opacity ??
+          0.9,
+
+        linePattern:
+          trail.style
+            ?.linePattern ||
+          'solid',
+      });
+
+      setEditingStyle(
+        false,
+      );
+
+      setStyleError(
+        null,
+      );
+    },
+    [
+      trail.id,
+      trail.style,
+    ],
+  );
+
   const duration =
     calculateTrailDuration(
       trail,
@@ -416,6 +508,75 @@ export default function FieldTrailDetails({
       mimeType:
         'application/gpx+xml',
     });
+  }
+
+  function handleCancelStyleEdit() {
+    setDraftStyle({
+      color:
+        trail.style
+          ?.color ||
+        '#16a34a',
+
+      width:
+        trail.style
+          ?.width ??
+        4,
+
+      opacity:
+        trail.style
+          ?.opacity ??
+        0.9,
+
+      linePattern:
+        trail.style
+          ?.linePattern ||
+        'solid',
+    });
+
+    setStyleError(
+      null,
+    );
+
+    setEditingStyle(
+      false,
+    );
+  }
+
+  async function handleSaveStyle() {
+    if (
+      savingStyle
+    ) {
+      return;
+    }
+
+    try {
+      setSavingStyle(
+        true,
+      );
+
+      setStyleError(
+        null,
+      );
+
+      await FieldController
+        .updateTrailStyle(
+          trail.id,
+          draftStyle,
+        );
+
+      setEditingStyle(
+        false,
+      );
+    } catch (error) {
+      setStyleError(
+        error?.message ||
+          'Não foi possível salvar a aparência do trilho.',
+      );
+    } finally {
+      setSavingStyle(
+        false,
+      );
+    }
   }
 
   return (
@@ -654,53 +815,288 @@ export default function FieldTrailDetails({
       </div>
 
       <div className="mt-2 rounded-lg border border-border/70 bg-background/70 p-2.5">
-        <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Aparência
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Aparência
+          </p>
 
-        <div className="mt-2 flex items-center gap-3">
-          <span
-            className="h-6 w-6 shrink-0 rounded-md border border-border"
-            style={{
-              backgroundColor:
-                style.color ||
-                '#16a34a',
-            }}
-            title={
-              style.color ||
-              '#16a34a'
-            }
-          />
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium">
-              {style.color ||
-                '#16a34a'}
-            </p>
-
-            <p className="text-[9px] text-muted-foreground">
-              {getPatternLabel(
-                style.linePattern,
-              )}
-              {' · '}
-              {Number(
-                style.width ||
-                  4,
-              ).toLocaleString(
-                'pt-BR',
-              )}
-              {' px · '}
-              {Math.round(
-                Number(
-                  style.opacity ??
-                    0.9,
-                ) *
-                  100,
-              )}
-              % opacidade
-            </p>
-          </div>
+          {!editingStyle && (
+            <button
+              type="button"
+              onClick={() =>
+                setEditingStyle(
+                  true,
+                )
+              }
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Editar aparência"
+              aria-label="Editar aparência do trilho"
+            >
+              <Palette className="h-4 w-4" />
+            </button>
+          )}
         </div>
+
+        {!editingStyle ? (
+          <div className="mt-2 flex items-center gap-3">
+            <span
+              className="h-6 w-6 shrink-0 rounded-md border border-border"
+              style={{
+                backgroundColor:
+                  style.color ||
+                  '#16a34a',
+              }}
+              title={
+                style.color ||
+                '#16a34a'
+              }
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium">
+                {style.color ||
+                  '#16a34a'}
+              </p>
+
+              <p className="text-[9px] text-muted-foreground">
+                {getPatternLabel(
+                  style.linePattern,
+                )}
+                {' · '}
+                {Number(
+                  style.width ||
+                    4,
+                ).toLocaleString(
+                  'pt-BR',
+                )}
+                {' px · '}
+                {Math.round(
+                  Number(
+                    style.opacity ??
+                      0.9,
+                  ) *
+                    100,
+                )}
+                % opacidade
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="mb-1 block text-[9px] font-semibold text-muted-foreground">
+                Cor
+              </label>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={
+                    draftStyle.color
+                  }
+                  onChange={(event) =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        color:
+                          event.target
+                            .value,
+                      }),
+                    )
+                  }
+                  className="h-8 w-10 cursor-pointer rounded border border-border bg-background p-1"
+                />
+
+                <input
+                  type="text"
+                  value={
+                    draftStyle.color
+                  }
+                  onChange={(event) =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        color:
+                          event.target
+                            .value,
+                      }),
+                    )
+                  }
+                  maxLength={7}
+                  className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-[10px]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="text-[9px] font-semibold text-muted-foreground">
+                  Espessura
+                </label>
+
+                <span className="text-[9px] text-muted-foreground">
+                  {draftStyle.width} px
+                </span>
+              </div>
+
+              <input
+                type="range"
+                min="1"
+                max="12"
+                step="1"
+                value={
+                  draftStyle.width
+                }
+                onChange={(event) =>
+                  setDraftStyle(
+                    (current) => ({
+                      ...current,
+
+                      width:
+                        Number(
+                          event.target
+                            .value,
+                        ),
+                    }),
+                  )
+                }
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="text-[9px] font-semibold text-muted-foreground">
+                  Opacidade
+                </label>
+
+                <span className="text-[9px] text-muted-foreground">
+                  {Math.round(
+                    draftStyle.opacity *
+                      100,
+                  )}
+                  %
+                </span>
+              </div>
+
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={
+                  draftStyle.opacity
+                }
+                onChange={(event) =>
+                  setDraftStyle(
+                    (current) => ({
+                      ...current,
+
+                      opacity:
+                        Number(
+                          event.target
+                            .value,
+                        ),
+                    }),
+                  )
+                }
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[9px] font-semibold text-muted-foreground">
+                Padrão
+              </label>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        linePattern:
+                          'solid',
+                      }),
+                    )
+                  }
+                  className={`rounded-md border px-2 py-2 text-[10px] font-semibold transition-colors ${
+                    draftStyle.linePattern ===
+                    'solid'
+                      ? 'border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                      : 'border-border bg-background hover:bg-accent'
+                  }`}
+                >
+                  Contínua
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraftStyle(
+                      (current) => ({
+                        ...current,
+
+                        linePattern:
+                          'dashed',
+                      }),
+                    )
+                  }
+                  className={`rounded-md border px-2 py-2 text-[10px] font-semibold transition-colors ${
+                    draftStyle.linePattern ===
+                    'dashed'
+                      ? 'border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                      : 'border-border bg-background hover:bg-accent'
+                  }`}
+                >
+                  Tracejada
+                </button>
+              </div>
+            </div>
+
+            {styleError && (
+              <p className="rounded-md bg-destructive/10 px-2 py-1.5 text-[9px] text-destructive">
+                {styleError}
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={
+                  handleCancelStyleEdit
+                }
+                disabled={
+                  savingStyle
+                }
+                className="rounded-lg border border-border bg-background px-3 py-2 text-[10px] font-semibold transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  handleSaveStyle
+                }
+                disabled={
+                  savingStyle
+                }
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-[10px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5" />
+
+                {savingStyle
+                  ? 'Salvando...'
+                  : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

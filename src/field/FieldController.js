@@ -40,6 +40,10 @@ import {
 } from './TrailModel';
 
 import {
+  normalizeTrailStyle,
+} from './FieldStyles';
+
+import {
   TrailRepository,
 } from './TrailRepository';
 
@@ -2922,6 +2926,74 @@ class FieldControllerImpl {
     this._notify();
 
     return true;
+  }
+
+  /**
+   * Atualiza e persiste a aparência individual de um trilho.
+   *
+   * A normalização central garante:
+   * - cor hexadecimal válida;
+   * - largura entre 1 e 12;
+   * - opacidade entre 0 e 1;
+   * - padrão solid ou dashed.
+   */
+  async updateTrailStyle(
+    trailId,
+    style,
+  ) {
+    const trail =
+      this.trails.find(
+        (candidate) =>
+          candidate.id ===
+          trailId,
+      );
+
+    if (!trail) {
+      throw new Error(
+        'Trilho não encontrado.',
+      );
+    }
+
+    const normalizedStyle =
+      normalizeTrailStyle(
+        {
+          ...trail.style,
+          ...style,
+        },
+      );
+
+    const updatedTrail = {
+      ...trail,
+
+      style:
+        normalizedStyle,
+
+      updated_date:
+        Date.now(),
+    };
+
+    this._updateTrailCollection(
+      updatedTrail,
+    );
+
+    if (
+      this.currentTrail
+        ?.id ===
+      trailId
+    ) {
+      this.currentTrail =
+        updatedTrail;
+    }
+
+    this._queueTrailSave(
+      updatedTrail,
+    );
+
+    await this.flushPersistence();
+
+    this._notify();
+
+    return updatedTrail;
   }
 
   /**
