@@ -26,8 +26,6 @@ import {
 import {
   AlertTriangle,
   BarChart3,
-  ChevronDown,
-  ChevronUp,
   Clock,
   Flame,
   LocateFixed,
@@ -54,6 +52,8 @@ import {
 import {
   timeAgoShort,
 } from '../../utils/dates';
+
+import ExpandableSection from '../ui/ExpandableSection';
 
 const EVENT_AGE_COLORS = {
   recent:
@@ -496,17 +496,17 @@ export default function StatsPanel({
       </div>
 
       <div className="space-y-2 p-3">
-        <InteractiveCard
+        <ExpandableSection
+          title="Eventos ativos"
           icon={Flame}
-          label="Eventos ativos"
-          value={formatNumber(
+          accent="red"
+          badge={formatNumber(
             stats.eventsCount,
           )}
-          color="#ef4444"
           expanded={
             eventsExpanded
           }
-          onClick={() =>
+          onToggle={() =>
             setEventsExpanded(
               (
                 current,
@@ -514,14 +514,8 @@ export default function StatsPanel({
                 !current,
             )
           }
-          actionLabel={
-            eventsExpanded
-              ? 'Fechar lista de eventos'
-              : 'Abrir lista de eventos'
-          }
-        />
-
-        {eventsExpanded && (
+          contentClassName="p-0"
+        >
           <EventDrawer
             events={
               orderedEvents
@@ -530,7 +524,7 @@ export default function StatsPanel({
               handleSelectEvent
             }
           />
-        )}
+        </ExpandableSection>
 
         <InteractiveCard
           icon={Maximize}
@@ -631,15 +625,7 @@ function EventDrawer({
   }
 
   return (
-    <div
-      className="
-        overflow-hidden
-        rounded-xl
-        border border-red-500/20
-        bg-card
-        shadow-sm
-      "
-    >
+    <div className="overflow-hidden">
       <div className="border-b border-border/60 bg-red-500/5 px-3 py-2">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-400">
           Mais recentes primeiro

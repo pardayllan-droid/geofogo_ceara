@@ -9,6 +9,7 @@
 
 import {
   CalendarClock,
+  ChevronDown,
   Compass,
   Crosshair,
   Download,
@@ -19,7 +20,6 @@ import {
   Palette,
   Satellite,
   Save,
-  X,
 } from 'lucide-react';
 
 import {
@@ -536,26 +536,28 @@ export default function FieldPointDetails({
   }
 
   return (
-    <section className="mt-2 rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
-      <div className="flex items-start gap-2">
-        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-purple-600" />
+    <section className="mt-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-3 px-3 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <MapPin className="h-4 w-4 shrink-0 text-purple-500" />
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold">
-            {label}
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold uppercase tracking-wide">
+              {label}
+            </p>
 
-          <p className="mt-0.5 text-[9px] text-muted-foreground">
-            {getCategoryLabel(
-              category,
-            )}
+            <p className="mt-0.5 truncate text-[9px] text-muted-foreground">
+              {getCategoryLabel(
+                category,
+              )}
 
-            {' · '}
+              {' · '}
 
-            {getStatusLabel(
-              properties.status,
-            )}
-          </p>
+              {getStatusLabel(
+                properties.status,
+              )}
+            </p>
+          </div>
         </div>
 
         <button
@@ -564,12 +566,14 @@ export default function FieldPointDetails({
             onClose
           }
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          title="Fechar detalhes"
-          aria-label="Fechar detalhes do marcador"
+          title="Recolher detalhes"
+          aria-label="Recolher detalhes do marcador"
         >
-          <X className="h-3.5 w-3.5" />
+          <ChevronDown className="h-4 w-4" />
         </button>
       </div>
+
+      <div className="border-t border-border px-3 py-3">
 
       <button
         type="button"
@@ -1009,6 +1013,7 @@ export default function FieldPointDetails({
             </div>
           </div>
         )}
+        </div>
       </div>
     </section>
   );

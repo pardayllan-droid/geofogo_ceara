@@ -20,7 +20,7 @@ import {
   Satellite,
   Save,
   Timer,
-  X,
+  ChevronDown,
 } from 'lucide-react';
 
 import {
@@ -583,21 +583,23 @@ export default function FieldTrailDetails({
   }
 
   return (
-    <section className="mt-2 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
-      <div className="flex items-start gap-2">
-        <Route className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+    <section className="mt-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-3 px-3 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Route className="h-4 w-4 shrink-0 text-blue-500" />
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold">
-            {trail.name ||
-              'Trilho sem nome'}
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold uppercase tracking-wide">
+              {trail.name ||
+                'Trilho sem nome'}
+            </p>
 
-          <p className="mt-0.5 text-[9px] text-muted-foreground">
-            {getStatusLabel(
-              trail.status,
-            )}
-          </p>
+            <p className="mt-0.5 truncate text-[9px] text-muted-foreground">
+              {getStatusLabel(
+                trail.status,
+              )}
+            </p>
+          </div>
         </div>
 
         <button
@@ -606,12 +608,14 @@ export default function FieldTrailDetails({
             onClose
           }
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          title="Fechar detalhes"
-          aria-label="Fechar detalhes do trilho"
+          title="Recolher detalhes"
+          aria-label="Recolher detalhes do trilho"
         >
-          <X className="h-3.5 w-3.5" />
+          <ChevronDown className="h-4 w-4" />
         </button>
       </div>
+
+      <div className="border-t border-border px-3 py-3">
 
       <button
         type="button"
@@ -1100,6 +1104,7 @@ export default function FieldTrailDetails({
             </div>
           </div>
         )}
+      </div>
       </div>
     </section>
   );
