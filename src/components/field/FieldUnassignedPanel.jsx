@@ -6,6 +6,8 @@
  */
 
 import {
+  ChevronDown,
+  ChevronRight,
   Eye,
   EyeOff,
   MapPin,
@@ -92,85 +94,83 @@ export default function FieldUnassignedPanel({
               trail.id;
 
             return (
-              <div
+              <RecordRow
                 key={
                   trail.id
                 }
-              >
-                <RecordRow
-                  label={
-                    trail.name ||
-                    'Trilho sem nome'
-                  }
-                  visible={
-                    trail.visible !==
-                    false
-                  }
-                  onOpen={() =>
-                    setSelectedTrailId(
-                      selected
-                        ? null
-                        : trail.id,
-                    )
-                  }
-                  onToggle={() =>
-                    onToggleTrailVisibility?.(
+                label={
+                  trail.name ||
+                  'Trilho sem nome'
+                }
+                visible={
+                  trail.visible !==
+                  false
+                }
+                expanded={
+                  selected
+                }
+                onOpen={() => {
+                  setSelectedPointId(
+                    null,
+                  );
+
+                  setSelectedTrailId(
+                    selected
+                      ? null
+                      : trail.id,
+                  );
+                }}
+                onToggle={() =>
+                  onToggleTrailVisibility?.(
+                    trail.id,
+                  )
+                }
+                onDelete={() => {
+                  const confirmed =
+                    window.confirm(
+                      `Excluir definitivamente o trilho “${trail.name || 'Trilho sem nome'}”?`,
+                    );
+
+                  if (confirmed) {
+                    onDeleteTrail?.(
                       trail.id,
-                    )
-                  }
-                  onDelete={() => {
-                    const confirmed =
-                      window.confirm(
-                        `Excluir definitivamente o trilho “${trail.name || 'Trilho sem nome'}”?`,
-                      );
+                    );
 
-                    if (confirmed) {
-                      onDeleteTrail?.(
-                        trail.id,
+                    if (selected) {
+                      setSelectedTrailId(
+                        null,
                       );
-
-                      if (selected) {
-                        setSelectedTrailId(
-                          null,
-                        );
-                      }
                     }
-                  }}
+                  }
+                }}
+              >
+                <FieldTrailDetails
+                  trail={
+                    trail
+                  }
+                  embedded
                 />
 
-                {selected && (
-                  <>
-                    <FieldTrailDetails
-                      trail={
-                        trail
-                      }
-                      onClose={() =>
-                        setSelectedTrailId(
-                          null,
-                        )
-                      }
-                    />
-
-                    <MoveToMission
-                      missions={
-                        missions
-                      }
-                      onMove={async (
+                <div className="px-3 pb-3">
+                  <MoveToMission
+                    missions={
+                      missions
+                    }
+                    onMove={async (
+                      missionId,
+                    ) => {
+                      await onMoveTrailToMission?.(
+                        trail.id,
                         missionId,
-                      ) => {
-                        await onMoveTrailToMission?.(
-                          trail.id,
-                          missionId,
-                        );
+                      );
 
-                        setSelectedTrailId(
-                          null,
-                        );
-                      }}
-                    />
-                  </>
-                )}
-              </div>
+                      setSelectedTrailId(
+                        null,
+                      );
+                    }}
+                  />
+                </div>
+              </RecordRow>
             );
           },
         )}
@@ -207,83 +207,81 @@ export default function FieldUnassignedPanel({
               point.id;
 
             return (
-              <div
+              <RecordRow
                 key={
                   point.id
                 }
-              >
-                <RecordRow
-                  label={
-                    label
-                  }
-                  visible={
-                    visible
-                  }
-                  onOpen={() =>
-                    setSelectedPointId(
-                      selected
-                        ? null
-                        : point.id,
-                    )
-                  }
-                  onToggle={() =>
-                    onTogglePointVisibility?.(
+                label={
+                  label
+                }
+                visible={
+                  visible
+                }
+                expanded={
+                  selected
+                }
+                onOpen={() => {
+                  setSelectedTrailId(
+                    null,
+                  );
+
+                  setSelectedPointId(
+                    selected
+                      ? null
+                      : point.id,
+                  );
+                }}
+                onToggle={() =>
+                  onTogglePointVisibility?.(
+                    point.id,
+                  )
+                }
+                onDelete={() => {
+                  const confirmed =
+                    window.confirm(
+                      `Excluir definitivamente o marcador “${label}”?`,
+                    );
+
+                  if (confirmed) {
+                    onDeletePoint?.(
                       point.id,
-                    )
-                  }
-                  onDelete={() => {
-                    const confirmed =
-                      window.confirm(
-                        `Excluir definitivamente o marcador “${label}”?`,
-                      );
+                    );
 
-                    if (confirmed) {
-                      onDeletePoint?.(
-                        point.id,
+                    if (selected) {
+                      setSelectedPointId(
+                        null,
                       );
-
-                      if (selected) {
-                        setSelectedPointId(
-                          null,
-                        );
-                      }
                     }
-                  }}
+                  }
+                }}
+              >
+                <FieldPointDetails
+                  point={
+                    point
+                  }
+                  embedded
                 />
 
-                {selected && (
-                  <>
-                    <FieldPointDetails
-                      point={
-                        point
-                      }
-                      onClose={() =>
-                        setSelectedPointId(
-                          null,
-                        )
-                      }
-                    />
-
-                    <MoveToMission
-                      missions={
-                        missions
-                      }
-                      onMove={async (
+                <div className="px-3 pb-3">
+                  <MoveToMission
+                    missions={
+                      missions
+                    }
+                    onMove={async (
+                      missionId,
+                    ) => {
+                      await onMovePointToMission?.(
+                        point.id,
                         missionId,
-                      ) => {
-                        await onMovePointToMission?.(
-                          point.id,
-                          missionId,
-                        );
+                      );
 
-                        setSelectedPointId(
-                          null,
-                        );
-                      }}
-                    />
-                  </>
-                )}
-              </div>
+                      setSelectedPointId(
+                        null,
+                      );
+                    }}
+                  />
+                </div>
+              </RecordRow>
             );
           },
         )}
@@ -338,62 +336,97 @@ function RecordGroup({
 function RecordRow({
   label,
   visible,
+  expanded,
   onOpen,
   onToggle,
   onDelete,
+  children,
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-accent/20 px-2.5 py-2">
-      <button
-        type="button"
-        onClick={
-          onOpen
-        }
-        disabled={
-          !onOpen
-        }
-        className={`min-w-0 flex-1 truncate text-left text-[10px] ${
-          visible
-            ? 'text-foreground'
-            : 'text-muted-foreground'
-        } ${
-          onOpen
-            ? 'cursor-pointer hover:text-blue-600'
-            : 'cursor-default'
-        }`}
-      >
-        {label}
-      </button>
+    <div className="overflow-hidden rounded-lg border border-border/70 bg-background">
+      <div className="flex min-w-0 items-center gap-2 px-2.5 py-2">
+        <button
+          type="button"
+          onClick={
+            onOpen
+          }
+          disabled={
+            !onOpen
+          }
+          aria-expanded={
+            Boolean(
+              expanded,
+            )
+          }
+          className={`flex min-w-0 flex-1 items-center gap-2 text-left text-[10px] ${
+            visible
+              ? 'text-foreground'
+              : 'text-muted-foreground'
+          } ${
+            onOpen
+              ? 'cursor-pointer'
+              : 'cursor-default'
+          }`}
+        >
+          {expanded ? (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
 
-      <button
-        type="button"
-        onClick={
-          onToggle
-        }
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        title={
-          visible
-            ? 'Ocultar no mapa'
-            : 'Exibir no mapa'
-        }
-      >
-        {visible ? (
-          <Eye className="h-3.5 w-3.5" />
-        ) : (
-          <EyeOff className="h-3.5 w-3.5" />
-        )}
-      </button>
+          <span
+            className={`min-w-0 flex-1 truncate ${
+              onOpen
+                ? 'transition-colors hover:text-blue-600'
+                : ''
+            }`}
+          >
+            {label}
+          </span>
+        </button>
 
-      <button
-        type="button"
-        onClick={
-          onDelete
-        }
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-        title="Excluir definitivamente"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+        <button
+          type="button"
+          onClick={
+            onToggle
+          }
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          title={
+            visible
+              ? 'Ocultar no mapa'
+              : 'Exibir no mapa'
+          }
+          aria-label={
+            visible
+              ? `Ocultar ${label}`
+              : `Exibir ${label}`
+          }
+        >
+          {visible ? (
+            <Eye className="h-3.5 w-3.5" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            onDelete
+          }
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          title="Excluir definitivamente"
+          aria-label={`Excluir ${label}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-border">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
