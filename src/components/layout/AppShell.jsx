@@ -1155,7 +1155,7 @@ function MobilePanel({
       />
 
       <section
-        className={`geofogo-mobile-sheet absolute left-0 right-0 z-30 flex max-h-[72%] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border bg-card shadow-2xl transition-transform duration-200 ease-out lg:hidden ${
+        className={`geofogo-mobile-sheet absolute left-0 right-0 z-30 flex max-h-[45%] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border bg-card shadow-2xl transition-transform duration-200 ease-out lg:hidden ${
           open
             ? 'translate-y-0'
             : 'translate-y-[calc(100%+1rem)]'

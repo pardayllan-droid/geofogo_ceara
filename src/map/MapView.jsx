@@ -528,31 +528,79 @@ function findFireEventById(
 }
 
 /**
- * Padding aplicado ao enquadrar um evento.
+ * Calcula o padding real disponível para operações
+ * de foco no mapa.
  *
- * No desktop, reserva espaço para o painel lateral.
- * No celular, reserva espaço para o painel inferior.
+ * Celular/tablet:
+ * - considera o layout móvel até 1023 px;
+ * - detecta a altura REAL da gaveta inferior aberta;
+ * - mantém a feição centralizada apenas na região
+ *   visível do mapa.
+ *
+ * Desktop:
+ * - continua reservando espaço para o painel lateral.
  */
 function getFocusPadding() {
-  const mobile =
-    typeof window !==
-      'undefined' &&
-    window.innerWidth <
-      768;
+  if (
+    typeof window ===
+      'undefined' ||
+    typeof document ===
+      'undefined'
+  ) {
+    return {
+      top: 70,
+      right: 35,
+      bottom: 35,
+      left: 35,
+    };
+  }
 
-  if (mobile) {
+  const mobileOrTablet =
+    window.innerWidth <
+    1024;
+
+  if (
+    mobileOrTablet
+  ) {
+    const sheet =
+      document.querySelector(
+        '.geofogo-mobile-sheet[aria-hidden="false"]',
+      );
+
+    let sheetHeight =
+      0;
+
+    if (sheet) {
+      const rectangle =
+        sheet.getBoundingClientRect();
+
+      if (
+        Number.isFinite(
+          rectangle.height,
+        )
+      ) {
+        sheetHeight =
+          rectangle.height;
+      }
+    }
+
     return {
       top:
-        70,
+        35,
 
       right:
-        35,
+        28,
 
       bottom:
-        260,
+        Math.max(
+          28,
+          Math.round(
+            sheetHeight,
+          ) + 24,
+        ),
 
       left:
-        35,
+        28,
     };
   }
 
@@ -638,6 +686,9 @@ function focusMapOnFeature(
             14,
           ),
 
+        padding:
+          getFocusPadding(),
+
         duration:
           900,
       });
@@ -702,6 +753,9 @@ function focusMapOnFeature(
               0,
             14,
           ),
+
+        padding:
+          getFocusPadding(),
 
         duration:
           900,
