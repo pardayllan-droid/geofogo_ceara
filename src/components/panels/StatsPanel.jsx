@@ -332,6 +332,17 @@ function getEventPersistence(
   return value;
 }
 
+/**
+ * Centraliza um evento no mapa.
+ *
+ * Importante:
+ * selecionar um evento pelo painel Resumo
+ * deve apenas navegar até ele.
+ *
+ * Os detalhes/estatísticas continuam disponíveis
+ * quando o usuário toca diretamente no evento no mapa,
+ * mas não são mais abertos automaticamente.
+ */
 function focusFeature(
   feature,
 ) {
@@ -349,19 +360,6 @@ function focusFeature(
     {
       eventId,
       feature,
-    },
-  );
-
-  /**
-   * O useGeoFogo já trata layer:click e abre
-   * o popup com o polígono original.
-   */
-  EventBus.emit(
-    'layer:click',
-    {
-      feature,
-      layerId:
-        'fire-events',
     },
   );
 }

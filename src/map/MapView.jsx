@@ -528,17 +528,19 @@ function findFireEventById(
 }
 
 /**
- * Calcula o padding real disponível para operações
+ * Calcula o espaço realmente disponível para operações
  * de foco no mapa.
  *
- * Celular/tablet:
- * - considera o layout móvel até 1023 px;
- * - detecta a altura REAL da gaveta inferior aberta;
- * - mantém a feição centralizada apenas na região
- *   visível do mapa.
+ * Em celular/tablet não basta conhecer a altura da gaveta:
+ * precisamos descobrir onde começa a área coberta.
  *
- * Desktop:
- * - continua reservando espaço para o painel lateral.
+ * Isso considera:
+ * - gaveta inferior;
+ * - navegação inferior;
+ * - posição real da gaveta;
+ * - eventual deslocamento durante o gesto;
+ * - margem adicional para que polígonos não encostem
+ *   visualmente no painel.
  */
 function getFocusPadding() {
   if (
@@ -562,13 +564,37 @@ function getFocusPadding() {
   if (
     mobileOrTablet
   ) {
+    const mapRegion =
+      document.querySelector(
+        '.geofogo-map-region',
+      );
+
     const sheet =
       document.querySelector(
         '.geofogo-mobile-sheet[aria-hidden="false"]',
       );
 
-    let sheetHeight =
-      0;
+    const bottomNavigation =
+      document.querySelector(
+        '.geofogo-bottom-navigation',
+      );
+
+    const mapRectangle =
+      mapRegion
+        ?.getBoundingClientRect?.();
+
+    /**
+     * Determina o ponto mais alto a partir do qual
+     * algum elemento da interface cobre o mapa.
+     *
+     * Com a gaveta aberta, normalmente será o topo
+     * da própria gaveta.
+     *
+     * Sem gaveta, continuará considerando a
+     * navegação inferior.
+     */
+    const overlayTops =
+      [];
 
     if (sheet) {
       const rectangle =
@@ -576,31 +602,85 @@ function getFocusPadding() {
 
       if (
         Number.isFinite(
-          rectangle.height,
+          rectangle.top,
         )
       ) {
-        sheetHeight =
-          rectangle.height;
+        overlayTops.push(
+          rectangle.top,
+        );
       }
     }
 
+    if (
+      bottomNavigation
+    ) {
+      const rectangle =
+        bottomNavigation
+          .getBoundingClientRect();
+
+      if (
+        Number.isFinite(
+          rectangle.top,
+        )
+      ) {
+        overlayTops.push(
+          rectangle.top,
+        );
+      }
+    }
+
+    let coveredBottom =
+      0;
+
+    if (
+      mapRectangle &&
+      Number.isFinite(
+        mapRectangle.bottom,
+      ) &&
+      overlayTops.length >
+        0
+    ) {
+      const firstCoveredY =
+        Math.min(
+          ...overlayTops,
+        );
+
+      coveredBottom =
+        Math.max(
+          0,
+          mapRectangle.bottom -
+            firstCoveredY,
+        );
+    }
+
+    /**
+     * Margem cartográfica adicional.
+     *
+     * Além de simplesmente evitar a sobreposição,
+     * deixamos algum respiro entre o limite sul
+     * do evento e o painel.
+     */
+    const safetyMargin =
+      42;
+
     return {
       top:
-        35,
+        40,
 
       right:
-        28,
+        32,
 
       bottom:
         Math.max(
-          28,
+          32,
           Math.round(
-            sheetHeight,
-          ) + 24,
+            coveredBottom,
+          ) +
+            safetyMargin,
         ),
 
       left:
-        28,
+        32,
     };
   }
 

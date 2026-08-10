@@ -428,8 +428,8 @@ function FieldActivation({
       </p>
 
       <p className="mt-2 max-w-xs text-[10px] leading-relaxed text-muted-foreground">
-        Missões e registros armazenados podem ser gerenciados pelas outras abas
-        mesmo com o GPS desligado.
+        Missões e registros armazenados podem ser
+        gerenciados mesmo com o GPS desligado.
       </p>
 
       {error && (
@@ -561,12 +561,12 @@ function PanelHeader({
         )}
 
         <div
-          className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10"
+          className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white-500/10"
           title="Modo Campo"
           aria-label="Modo Campo"
         >
-          <Navigation className="h-4 w-4 text-blue-500" />
-
+          <Navigation className="h-4 w-4 text-blue-500" /> 
+          
           {recording && (
             <span
               className="absolute right-0.5 top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"

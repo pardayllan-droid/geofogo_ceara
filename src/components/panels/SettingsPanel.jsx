@@ -88,7 +88,6 @@ export default function SettingsPanel({ alertDistanceKm, onAlertDistance, baseMa
         <div className="pt-2 border-t border-border/50">
           <p className="text-[10px] text-muted-foreground leading-relaxed">
             GeoFogo Ceará — Monitoramento de incêndios florestais no Estado do Ceará.
-            Os alertas não dependem da localização do usuário.
             O GPS é ativado apenas no Modo Campo.
           </p>
         </div>
