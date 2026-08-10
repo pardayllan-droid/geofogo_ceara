@@ -765,14 +765,8 @@ function InteractiveCard({
   description,
   color,
   onClick,
-  expanded = false,
   actionLabel,
 }) {
-  const ExpansionIcon =
-    expanded
-      ? ChevronUp
-      : ChevronDown;
-
   return (
     <button
       type="button"
@@ -782,12 +776,6 @@ function InteractiveCard({
       disabled={
         typeof onClick !==
         'function'
-      }
-      aria-expanded={
-        label ===
-        'Eventos ativos'
-          ? expanded
-          : undefined
       }
       aria-label={
         actionLabel ||
@@ -842,12 +830,7 @@ function InteractiveCard({
         )}
       </div>
 
-      {label ===
-      'Eventos ativos' ? (
-        <ExpansionIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-      ) : (
-        <LocateFixed className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover:opacity-100" />
-      )}
+      <LocateFixed className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover:opacity-100" />
     </button>
   );
 }
