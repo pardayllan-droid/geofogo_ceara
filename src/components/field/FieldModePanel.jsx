@@ -15,7 +15,10 @@
 
 import {
   AlertTriangle,
+  Briefcase,
   CheckCircle2,
+  Crosshair,
+  FolderOpen,
   Navigation,
   Pause,
   Play,
@@ -215,6 +218,18 @@ export default function FieldModePanel({
           fieldState
             ?.recording
         }
+        activeTab={
+          activeTab
+        }
+        missionsCount={
+          missionsCount
+        }
+        unassignedCount={
+          unassignedCount
+        }
+        onSelectTab={
+          setActiveTab
+        }
         onStop={
           fieldState
             ?.active
@@ -222,57 +237,6 @@ export default function FieldModePanel({
             : null
         }
       />
-
-      <div className="grid grid-cols-3 border-b border-border bg-card/40">
-        <FieldTabButton
-          active={
-            activeTab ===
-            'field'
-          }
-          onClick={() =>
-            setActiveTab(
-              'field',
-            )
-          }
-        >
-          Campo
-        </FieldTabButton>
-
-        <FieldTabButton
-          active={
-            activeTab ===
-            'missions'
-          }
-          onClick={() =>
-            setActiveTab(
-              'missions',
-            )
-          }
-        >
-          Missões
-          {missionsCount >
-            0 &&
-            ` (${missionsCount})`}
-        </FieldTabButton>
-
-        <FieldTabButton
-          active={
-            activeTab ===
-            'unassigned'
-          }
-          onClick={() =>
-            setActiveTab(
-              'unassigned',
-            )
-          }
-        >
-          Sem missão
-          {unassignedCount >
-            0 &&
-            ` (${unassignedCount})`}
-        </FieldTabButton>
-      </div>
-
       <div className="space-y-3 p-3">
         {activeTab ===
           'field' && (
@@ -303,9 +267,6 @@ export default function FieldModePanel({
                     setActiveTab(
                       'missions',
                     )
-                  }
-                  onClearActiveMission={
-                    onClearActiveMission
                   }
                 />
 
@@ -564,10 +525,129 @@ function TrailControls({
   );
 }
 
-function FieldTabButton({
+function PanelHeader({
+  recording = false,
+  activeTab = 'field',
+  missionsCount = 0,
+  unassignedCount = 0,
+  onSelectTab = null,
+  onStop = null,
+}) {
+  return (
+    <div className="flex flex-shrink-0 items-center border-b border-border bg-card/95 px-2 py-2">
+      {/*
+       * Metade esquerda:
+       * Encerrar primeiro, conforme definido,
+       * seguido da identidade visual do módulo Campo.
+       */}
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        {onStop ? (
+          <button
+            type="button"
+            onClick={
+              onStop
+            }
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-destructive transition-colors hover:bg-destructive/10"
+            title="Encerrar Modo Campo e desligar GPS"
+            aria-label="Encerrar Modo Campo"
+          >
+            <Square className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <span
+            className="h-8 w-8 shrink-0"
+            aria-hidden="true"
+          />
+        )}
+
+        <div
+          className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10"
+          title="Modo Campo"
+          aria-label="Modo Campo"
+        >
+          <Navigation className="h-4 w-4 text-blue-500" />
+
+          {recording && (
+            <span
+              className="absolute right-0.5 top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"
+              title="Gravando trilho"
+            />
+          )}
+        </div>
+      </div>
+
+      {/*
+       * Metade direita:
+       * navegação interna do módulo Campo.
+       */}
+      <nav
+        className="grid min-w-0 flex-1 grid-cols-3 gap-1"
+        aria-label="Seções do Modo Campo"
+      >
+        <HeaderTabButton
+          active={
+            activeTab ===
+            'field'
+          }
+          icon={
+            Crosshair
+          }
+          label="Campo"
+          onClick={() =>
+            onSelectTab?.(
+              'field',
+            )
+          }
+        />
+
+        <HeaderTabButton
+          active={
+            activeTab ===
+            'missions'
+          }
+          icon={
+            Briefcase
+          }
+          label="Missões"
+          badge={
+            missionsCount
+          }
+          onClick={() =>
+            onSelectTab?.(
+              'missions',
+            )
+          }
+        />
+
+        <HeaderTabButton
+          active={
+            activeTab ===
+            'unassigned'
+          }
+          icon={
+            FolderOpen
+          }
+          label="Sem missão"
+          badge={
+            unassignedCount
+          }
+          onClick={() =>
+            onSelectTab?.(
+              'unassigned',
+            )
+          }
+        />
+      </nav>
+    </div>
+  );
+}
+
+function HeaderTabButton({
   active,
+  icon: Icon,
+  label,
+  badge = 0,
   onClick,
-  children,
 }) {
   return (
     <button
@@ -575,59 +655,35 @@ function FieldTabButton({
       onClick={
         onClick
       }
-      className={`min-w-0 border-b-2 px-1 py-2.5 text-[10px] font-semibold transition-colors ${
+      title={
+        label
+      }
+      aria-label={
+        badge > 0
+          ? `${label}: ${badge}`
+          : label
+      }
+      aria-current={
         active
-          ? 'border-blue-500 bg-blue-500/5 text-foreground'
-          : 'border-transparent text-muted-foreground hover:bg-accent/30 hover:text-foreground'
+          ? 'page'
+          : undefined
+      }
+      className={`relative flex h-8 min-w-0 items-center justify-center rounded-lg transition-colors ${
+        active
+          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
       }`}
     >
-      <span className="block truncate">
-        {children}
-      </span>
-    </button>
-  );
-}
+      <Icon className="h-4 w-4" />
 
-function PanelHeader({
-  recording =
-    false,
-
-  onStop =
-    null,
-}) {
-  return (
-    <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3">
-      <div className="flex items-center gap-2">
-        <Navigation className="h-4 w-4 text-blue-500" />
-
-        <h2 className="text-sm font-semibold">
-          Campo
-        </h2>
-
-        {recording && (
-          <span className="flex items-center gap-1 text-[10px] text-red-500">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-
-            REC
-          </span>
-        )}
-      </div>
-
-      {onStop && (
-        <button
-          type="button"
-          onClick={
-            onStop
-          }
-          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
-          title="Encerrar Modo Campo e desligar GPS"
-        >
-          <Square className="h-3.5 w-3.5" />
-
-          Encerrar Campo
-        </button>
+      {badge > 0 && (
+        <span className="absolute right-0.5 top-0.5 flex min-h-3.5 min-w-3.5 items-center justify-center rounded-full bg-muted px-0.5 text-[7px] font-bold leading-none text-muted-foreground">
+          {badge > 99
+            ? '99+'
+            : badge}
+        </span>
       )}
-    </div>
+    </button>
   );
 }
 

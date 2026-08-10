@@ -651,12 +651,17 @@ export default function FieldMissionPanel({
     }
   }
 
-  async function handleActivateMission(
+  async function handleToggleActiveMission(
     mission,
   ) {
     if (!mission?.id) {
       return;
     }
+
+    const isActive =
+      mission.id ===
+      missionState
+        ?.activeMissionId;
 
     clearFeedback();
 
@@ -664,6 +669,16 @@ export default function FieldMissionPanel({
       setBusyMissionId(
         mission.id,
       );
+
+      if (isActive) {
+        await onClearActiveMission?.();
+
+        setActionMessage(
+          `Missão “${mission.name}” desmarcada. Novos registros serão criados sem missão.`,
+        );
+
+        return;
+      }
 
       await onSetActiveMission?.(
         mission.id,
@@ -675,7 +690,7 @@ export default function FieldMissionPanel({
     } catch (error) {
       setActionError(
         error?.message ||
-          'Não foi possível ativar a missão.',
+          'Não foi possível alterar a missão ativa.',
       );
     } finally {
       setBusyMissionId(
@@ -1090,42 +1105,6 @@ export default function FieldMissionPanel({
           </div>
         ) : (
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={
-                onClearActiveMission
-              }
-              className={`mb-2 flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                !missionState
-                  ?.activeMissionId
-                  ? 'border-orange-500 bg-orange-500/5'
-                  : 'border-border bg-background hover:bg-accent/30'
-              }`}
-            >
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                  !missionState
-                    ?.activeMissionId
-                    ? 'border-orange-600 bg-orange-600 text-white'
-                    : 'border-border text-muted-foreground'
-                }`}
-              >
-                {!missionState
-                  ?.activeMissionId && (
-                  <Check className="h-3.5 w-3.5" />
-                )}
-              </span>
-
-              <span className="min-w-0">
-                <span className="block text-[10px] font-semibold">
-                  Sem missão ativa
-                </span>
-
-                <span className="mt-0.5 block text-[9px] text-muted-foreground">
-                  Novos registros serão criados como avulsos.
-                </span>
-              </span>
-            </button>
             {missions.map(
               (mission) => {
                 const isActive =
@@ -1202,27 +1181,33 @@ export default function FieldMissionPanel({
 
                       <button
                         type="button"
-                        onClick={() =>
-                          handleActivateMission(
-                            mission,
-                          )
-                        }
-                        disabled={
-                          isBusy ||
-                          isActive
-                        }
-                        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                          isActive
-                            ? 'border-orange-600 bg-orange-600 text-white'
-                            : 'border-border text-muted-foreground hover:bg-accent'
-                        }`}
-                        aria-label={`Ativar missão ${mission.name}`}
-                        title={
-                          isActive
-                            ? 'Missão ativa'
-                            : 'Definir como ativa'
-                        }
-                      >
+                          onClick={() =>
+                            handleToggleActiveMission(
+                              mission,
+                            )
+                          }
+                          disabled={
+                            isBusy
+                          }
+                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors disabled:opacity-50 ${
+                            isActive
+                              ? 'border-orange-600 bg-orange-600 text-white'
+                              : 'border-border bg-background text-muted-foreground hover:border-orange-500 hover:bg-orange-500/5 hover:text-orange-600'
+                          }`}
+                          aria-pressed={
+                            isActive
+                          }
+                          aria-label={
+                            isActive
+                              ? `Desativar missão ${mission.name}`
+                              : `Ativar missão ${mission.name}`
+                          }
+                          title={
+                            isActive
+                              ? 'Desmarcar missão ativa'
+                              : 'Definir como missão ativa'
+                          }
+                        >
                         {isActive && (
                           <Check className="h-3.5 w-3.5" />
                         )}
