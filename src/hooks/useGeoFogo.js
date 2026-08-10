@@ -726,16 +726,25 @@ export function useGeoFogo() {
           );
 
           /**
-           * Carrega o catálogo de missões sem ativar o GPS.
+           * Inicializa todo o acervo persistente do módulo Campo
+           * sem solicitar localização e sem ativar o GPS.
            *
-           * Isso permite mostrar e administrar missões antes
-           * de o usuário iniciar o Modo Campo.
+           * Isso disponibiliza imediatamente:
+           * - missões;
+           * - trilhos;
+           * - marcadores;
+           * - registros sem missão;
+           * - dados necessários para visualização e exportação.
            */
-          await FieldMissionController.initialize();
+          await FieldController.initialize();
 
           if (
             mountedRef.current
           ) {
+            setFieldState(
+              FieldController.getState(),
+            );
+
             setMissionState(
               FieldMissionController.getState(),
             );

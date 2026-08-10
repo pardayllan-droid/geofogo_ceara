@@ -323,7 +323,10 @@ class FieldControllerImpl {
       [];
 
     /**
-     * Pontos carregados nesta sessão do Modo Campo.
+     * Todos os marcadores persistentes carregados.
+     *
+     * Permanecem disponíveis independentemente
+     * do estado do GPS/Modo Campo.
      */
     this.points =
       [];
@@ -352,6 +355,22 @@ class FieldControllerImpl {
 
     this._persistenceQueue =
       Promise.resolve();
+
+    /**
+     * A inicialização do acervo de campo é independente
+     * da ativação do GPS.
+     *
+     * _initialized indica que missões, trilhos e marcadores
+     * já foram carregados do armazenamento persistente.
+     *
+     * _initializingPromise impede duas inicializações
+     * concorrentes durante o cold start.
+     */
+    this._initialized =
+      false;
+
+    this._initializingPromise =
+      null;
 
     this._starting =
       false;
@@ -388,6 +407,135 @@ class FieldControllerImpl {
       provider;
   }
 
+  /**
+   * Inicializa o acervo persistente do módulo Campo.
+   *
+   * Esta operação NÃO:
+   * - solicita permissão de localização;
+   * - inicia o GPS;
+   * - ativa o Modo Campo.
+   *
+   * Ela apenas disponibiliza para a aplicação:
+   * - missões;
+   * - trilhos;
+   * - marcadores;
+   * - referência ao último trilho persistido.
+   *
+   * Pode ser chamada várias vezes com segurança.
+   */
+  async initialize() {
+    if (this._initialized) {
+      return this.getState();
+    }
+
+    if (this._initializingPromise) {
+      return this._initializingPromise;
+    }
+
+    this._initializingPromise =
+      (async () => {
+        try {
+          /**
+           * Missões fazem parte do mesmo acervo operacional,
+           * mas continuam sob responsabilidade do
+           * FieldMissionController.
+           */
+          await FieldMissionController
+            .initialize();
+
+          /**
+           * Carrega todo o histórico de trilhos para que
+           * Missões, Sem missão, mapa e exportação funcionem
+           * mesmo com o GPS desligado.
+           */
+          this.trails =
+            await TrailRepository
+              .getAll();
+
+          /**
+           * Recupera a referência ao trilho mais recente/aberto.
+           *
+           * A simples recuperação NÃO significa que estamos
+           * gravando. recording permanece false enquanto o
+           * Modo Campo estiver desligado.
+           */
+          const storedTrail =
+            await TrailRepository
+              .getCurrentOrLatestTrail();
+
+          if (storedTrail) {
+            this.currentTrail =
+              normalizeTrail(
+                storedTrail,
+              );
+
+            this.trail =
+              Array.isArray(
+                this.currentTrail
+                  .samples,
+              )
+                ? [
+                    ...this.currentTrail
+                      .samples,
+                  ]
+                : [];
+          } else {
+            this.currentTrail =
+              null;
+
+            this.trail =
+              [];
+          }
+
+          /**
+           * Sem GPS ativo não existe coleta em andamento
+           * nesta instância da aplicação.
+           *
+           * Se o trilho persistido estiver ACTIVE, start()
+           * poderá restaurar a gravação quando o usuário
+           * efetivamente ativar o Modo Campo.
+           */
+          this.recording =
+            false;
+
+          /**
+           * Carrega todos os marcadores persistentes para
+           * consulta, edição, movimentação, visibilidade
+           * e exportação independentemente do GPS.
+           */
+          this.points =
+            await FieldPointRepository
+              .getAll();
+
+          this._initialized =
+            true;
+
+          this._notify();
+
+          return this.getState();
+        } catch (error) {
+          this._initialized =
+            false;
+
+          ErrorManager.report(
+            'storage',
+            error,
+            {
+              operation:
+                'initialize-field-records',
+            },
+          );
+
+          throw error;
+        } finally {
+          this._initializingPromise =
+            null;
+        }
+      })();
+
+    return this._initializingPromise;
+  }
+
   async start() {
     if (
       this.active ||
@@ -401,10 +549,14 @@ class FieldControllerImpl {
 
     try {
       /**
-       * Carrega as missões antes de recuperar trilhos,
-       * marcadores e iniciar o GPS.
+       * Garante que o acervo persistente esteja disponível
+       * antes de qualquer operação relacionada ao GPS.
+       *
+       * Normalmente initialize() já terá sido executado
+       * durante o bootstrap da aplicação, mas start()
+       * continua seguro quando chamado isoladamente.
        */
-      await FieldMissionController.initialize();
+      await this.initialize();
 
       this.permissionStatus =
         await this.locationProvider
@@ -420,67 +572,17 @@ class FieldControllerImpl {
       }
 
       /**
-       * Carrega todo o histórico para permitir a exibição de
-       * várias missões simultaneamente.
+       * Se havia um trilho ACTIVE persistido por fechamento,
+       * suspensão ou encerramento inesperado, ele volta a
+       * receber amostras somente agora, quando o usuário
+       * efetivamente ativa o Modo Campo.
+       *
+       * Trilhos pausados e concluídos permanecem sem gravação.
        */
-      this.trails =
-        await TrailRepository
-          .getAll();
-
-      /**
-       * Recupera um trilho deixado aberto por:
-       * - fechamento inesperado;
-       * - suspensão;
-       * - recarga da aplicação;
-       * - encerramento do processo pelo sistema.
-       */
-      const storedTrail =
-        await TrailRepository
-          .getCurrentOrLatestTrail();
-
-      if (storedTrail) {
-        this.currentTrail =
-          normalizeTrail(
-            storedTrail,
-          );
-
-        this.trail =
-          Array.isArray(
-            this.currentTrail
-              .samples,
-          )
-            ? [
-                ...this.currentTrail
-                  .samples,
-              ]
-            : [];
-
-        /**
-         * Trilhos concluídos continuam carregados e visíveis,
-         * mas não retomam automaticamente a gravação.
-         */
-        this.recording =
-          this.currentTrail
-            .status ===
-          TRAIL_STATUS.ACTIVE;
-      } else {
-        this.currentTrail =
-          null;
-
-        this.trail =
-          [];
-
-        this.recording =
-          false;
-      }
-
-      /**
-       * Carrega os pontos persistentes para exibição
-       * e exportação.
-       */
-      this.points =
-        await FieldPointRepository
-          .getAll();
+      this.recording =
+        this.currentTrail
+          ?.status ===
+        TRAIL_STATUS.ACTIVE;
 
       this.active =
         true;
@@ -529,7 +631,8 @@ class FieldControllerImpl {
             'unknown',
 
           recoveredTrailId:
-            storedTrail?.id ||
+            this.currentTrail
+              ?.id ||
             null,
         },
       );
@@ -545,6 +648,14 @@ class FieldControllerImpl {
       this.locationError =
         error?.message ||
         'Falha ao iniciar o Modo Campo.';
+
+      /**
+       * Importante:
+       *
+       * falhar ao iniciar o GPS NÃO descarrega trails/points.
+       * O acervo continua disponível para consulta e gestão.
+       */
+      this._notify();
 
       throw error;
     } finally {
