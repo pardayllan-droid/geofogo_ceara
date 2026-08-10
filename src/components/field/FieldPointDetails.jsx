@@ -307,6 +307,7 @@ function createStyleDraft(
 export default function FieldPointDetails({
   point,
   onClose,
+  embedded = false,
 }) {
   const [
     editingStyle,
@@ -346,15 +347,11 @@ export default function FieldPointDetails({
       }
 
       /*
-       * Não fechamos o editor por qualquer
-       * re-renderização do componente.
+       * Reinicializa o formulário somente quando
+       * outro marcador é selecionado.
        *
-       * Ele somente será reinicializado quando
-       * outro marcador for selecionado.
-       *
-       * Isso evita o problema que anteriormente
-       * fazia o formulário de aparência fechar
-       * sozinho durante a edição.
+       * Atualizações do próprio marcador não devem
+       * fechar o editor de aparência.
        */
       setDraftStyle(
         createStyleDraft(
@@ -535,52 +532,14 @@ export default function FieldPointDetails({
     }
   }
 
-  return (
-    <section className="mt-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between gap-3 px-3 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <MapPin className="h-4 w-4 shrink-0 text-purple-500" />
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold uppercase tracking-wide">
-              {label}
-            </p>
-
-            <p className="mt-0.5 truncate text-[9px] text-muted-foreground">
-              {getCategoryLabel(
-                category,
-              )}
-
-              {' · '}
-
-              {getStatusLabel(
-                properties.status,
-              )}
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={
-            onClose
-          }
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          title="Recolher detalhes"
-          aria-label="Recolher detalhes do marcador"
-        >
-          <ChevronDown className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="border-t border-border px-3 py-3">
-
+  const detailsContent = (
+    <>
       <button
         type="button"
         onClick={
           handleFocusOnMap
         }
-        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[10px] font-semibold text-blue-700 transition-colors hover:bg-blue-500/15 dark:text-blue-300"
+        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[10px] font-semibold text-blue-700 transition-colors hover:bg-blue-500/15 dark:text-blue-300"
       >
         <LocateFixed className="h-3.5 w-3.5" />
 
@@ -822,11 +781,14 @@ export default function FieldPointDetails({
                   }
                   onChange={(event) =>
                     setDraftStyle(
-                      (current) => ({
+                      (
+                        current,
+                      ) => ({
                         ...current,
 
                         color:
-                          event.target
+                          event
+                            .target
                             .value,
                       }),
                     )
@@ -841,11 +803,14 @@ export default function FieldPointDetails({
                   }
                   onChange={(event) =>
                     setDraftStyle(
-                      (current) => ({
+                      (
+                        current,
+                      ) => ({
                         ...current,
 
                         color:
-                          event.target
+                          event
+                            .target
                             .value,
                       }),
                     )
@@ -868,42 +833,73 @@ export default function FieldPointDetails({
                 }
                 onChange={(event) =>
                   setDraftStyle(
-                    (current) => ({
+                    (
+                      current,
+                    ) => ({
                       ...current,
 
                       iconId:
-                        event.target
+                        event
+                          .target
                           .value,
                     }),
                   )
                 }
                 className="w-full rounded-md border border-border bg-background px-2 py-2 text-[10px]"
               >
-                <option value={FIELD_MARKER_ICON.FLAME}>
+                <option
+                  value={
+                    FIELD_MARKER_ICON.FLAME
+                  }
+                >
                   Fogo
                 </option>
 
-                <option value={FIELD_MARKER_ICON.VEHICLE}>
+                <option
+                  value={
+                    FIELD_MARKER_ICON.VEHICLE
+                  }
+                >
                   Viatura
                 </option>
 
-                <option value={FIELD_MARKER_ICON.WATER}>
+                <option
+                  value={
+                    FIELD_MARKER_ICON.WATER
+                  }
+                >
                   Água
                 </option>
 
-                <option value={FIELD_MARKER_ICON.BLOCKAGE}>
+                <option
+                  value={
+                    FIELD_MARKER_ICON.BLOCKAGE
+                  }
+                >
                   Bloqueio
                 </option>
 
-                <option value={FIELD_MARKER_ICON.RISK}>
+                <option
+                  value={
+                    FIELD_MARKER_ICON.RISK
+                  }
+                >
                   Risco
                 </option>
 
-                <option value={FIELD_MARKER_ICON.SERVICE}>
+                <option
+                  value={
+                    FIELD_MARKER_ICON.SERVICE
+                  }
+                >
                   Atendimento
                 </option>
 
-                <option value={FIELD_MARKER_ICON.OBSERVATION}>
+                <option
+                  value={
+                    FIELD_MARKER_ICON.OBSERVATION
+                  }
+                >
                   Observação
                 </option>
               </select>
@@ -922,7 +918,9 @@ export default function FieldPointDetails({
                   }
                   onClick={() =>
                     setDraftStyle(
-                      (current) => ({
+                      (
+                        current,
+                      ) => ({
                         ...current,
 
                         size:
@@ -941,7 +939,9 @@ export default function FieldPointDetails({
                   }
                   onClick={() =>
                     setDraftStyle(
-                      (current) => ({
+                      (
+                        current,
+                      ) => ({
                         ...current,
 
                         size:
@@ -960,7 +960,9 @@ export default function FieldPointDetails({
                   }
                   onClick={() =>
                     setDraftStyle(
-                      (current) => ({
+                      (
+                        current,
+                      ) => ({
                         ...current,
 
                         size:
@@ -1013,7 +1015,72 @@ export default function FieldPointDetails({
             </div>
           </div>
         )}
+      </div>
+    </>
+  );
+
+  /**
+   * Quando estiver dentro da própria linha
+   * expansível de Missões/Sem missão,
+   * mostra apenas o conteúdo dos detalhes.
+   */
+  if (embedded) {
+    return (
+      <div className="px-3 py-3">
+        {detailsContent}
+      </div>
+    );
+  }
+
+  /**
+   * Uso independente.
+   *
+   * Mantém o cabeçalho completo para qualquer local
+   * que ainda use FieldPointDetails diretamente.
+   */
+  return (
+    <section className="mt-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-3 px-3 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <MapPin className="h-4 w-4 shrink-0 text-purple-500" />
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold uppercase tracking-wide">
+              {label}
+            </p>
+
+            <p className="mt-0.5 truncate text-[9px] text-muted-foreground">
+              {getCategoryLabel(
+                category,
+              )}
+
+              {' · '}
+
+              {getStatusLabel(
+                properties.status,
+              )}
+            </p>
+          </div>
         </div>
+
+        {typeof onClose ===
+          'function' && (
+          <button
+            type="button"
+            onClick={
+              onClose
+            }
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title="Recolher detalhes"
+            aria-label="Recolher detalhes do marcador"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="border-t border-border px-3 py-3">
+        {detailsContent}
       </div>
     </section>
   );

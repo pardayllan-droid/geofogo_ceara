@@ -19,6 +19,7 @@ import {
   Briefcase,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Download,
   Eye,
@@ -141,69 +142,108 @@ function MissionRecordRow({
   label,
   visible,
   busy,
+  expanded,
   onOpen,
   onToggle,
   onDelete,
+  children,
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-background px-2.5 py-2">
-      <button
-        type="button"
-        onClick={
-          onOpen
-        }
-        disabled={
-          !onOpen
-        }
-        className={`min-w-0 flex-1 truncate text-left text-[9px] font-medium ${
-          onOpen
-            ? 'cursor-pointer hover:text-blue-600'
-            : 'cursor-default'
-        }`}
-        title={
-          onOpen
-            ? `Abrir detalhes de ${label}`
-            : undefined
-        }
-      >
-        {label}
-      </button>
-
-      <div className="flex shrink-0 items-center gap-1">
+    <div className="overflow-hidden rounded-lg border border-border/70 bg-background">
+      <div className="flex items-center justify-between gap-2 px-2.5 py-2">
         <button
           type="button"
-          onClick={onToggle}
-          disabled={busy}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-          aria-label={
-            visible
-              ? `Ocultar ${label}`
-              : `Exibir ${label}`
+          onClick={
+            onOpen
           }
+          disabled={
+            !onOpen
+          }
+          aria-expanded={
+            Boolean(
+              expanded,
+            )
+          }
+          className={`flex min-w-0 flex-1 items-center gap-2 text-left ${
+            onOpen
+              ? 'cursor-pointer'
+              : 'cursor-default'
+          }`}
           title={
-            visible
-              ? 'Ocultar no mapa'
-              : 'Exibir no mapa'
+            onOpen
+              ? expanded
+                ? `Recolher detalhes de ${label}`
+                : `Abrir detalhes de ${label}`
+              : undefined
           }
         >
-          {visible ? (
-            <Eye className="h-3.5 w-3.5" />
+          {expanded ? (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           ) : (
-            <EyeOff className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           )}
+
+          <span
+            className={`min-w-0 flex-1 truncate text-[9px] font-medium ${
+              onOpen
+                ? 'transition-colors hover:text-blue-600'
+                : ''
+            }`}
+          >
+            {label}
+          </span>
         </button>
 
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={busy}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-          aria-label={`Excluir ${label}`}
-          title="Excluir"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={
+              onToggle
+            }
+            disabled={
+              busy
+            }
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+            aria-label={
+              visible
+                ? `Ocultar ${label}`
+                : `Exibir ${label}`
+            }
+            title={
+              visible
+                ? 'Ocultar no mapa'
+                : 'Exibir no mapa'
+            }
+          >
+            {visible ? (
+              <Eye className="h-3.5 w-3.5" />
+            ) : (
+              <EyeOff className="h-3.5 w-3.5" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={
+              onDelete
+            }
+            disabled={
+              busy
+            }
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+            aria-label={`Excluir ${label}`}
+            title="Excluir"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
+
+      {expanded && (
+        <div className="border-t border-border">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -1375,79 +1415,77 @@ export default function FieldMissionPanel({
                                 trail.id;
 
                               return (
-                                <div
+                                <MissionRecordRow
                                   key={
                                     trail.id
                                   }
+                                  label={
+                                    trail.name ||
+                                    'Trilho sem nome'
+                                  }
+                                  visible={
+                                    trail.visible !==
+                                    false
+                                  }
+                                  busy={
+                                    busyMissionId ===
+                                    `trail:${trail.id}`
+                                  }
+                                  expanded={
+                                    selected
+                                  }
+                                  onOpen={() => {
+                                    setSelectedPointId(
+                                      null,
+                                    );
+
+                                    setSelectedTrailId(
+                                      selected
+                                        ? null
+                                        : trail.id,
+                                    );
+                                  }}
+                                  onToggle={() =>
+                                    handleToggleTrailVisibility(
+                                      trail,
+                                    )
+                                  }
+                                  onDelete={() =>
+                                    handleDeleteTrail(
+                                      trail,
+                                    )
+                                  }
                                 >
-                                  <MissionRecordRow
-                                    label={
-                                      trail.name ||
-                                      'Trilho sem nome'
+                                  <FieldTrailDetails
+                                    trail={
+                                      trail
                                     }
-                                    visible={
-                                      trail.visible !==
-                                      false
-                                    }
-                                    busy={
-                                      busyMissionId ===
-                                      `trail:${trail.id}`
-                                    }
-                                    onOpen={() =>
-                                      setSelectedTrailId(
-                                        selected
-                                          ? null
-                                          : trail.id,
-                                      )
-                                    }
-                                    onToggle={() =>
-                                      handleToggleTrailVisibility(
-                                        trail,
-                                      )
-                                    }
-                                    onDelete={() =>
-                                      handleDeleteTrail(
-                                        trail,
-                                      )
-                                    }
+                                    embedded
                                   />
 
-                                  {selected && (
-                                    <>
-                                      <FieldTrailDetails
-                                        trail={
-                                          trail
-                                        }
-                                        onClose={() =>
-                                          setSelectedTrailId(
-                                            null,
-                                          )
-                                        }
-                                      />
-
-                                      <MoveRecordToMission
-                                        missions={
-                                          missions
-                                        }
-                                        currentMissionId={
-                                          mission.id
-                                        }
-                                        onMove={async (
+                                  <div className="px-3 pb-3">
+                                    <MoveRecordToMission
+                                      missions={
+                                        missions
+                                      }
+                                      currentMissionId={
+                                        mission.id
+                                      }
+                                      onMove={async (
+                                        destinationMissionId,
+                                      ) => {
+                                        await onMoveTrailToMission?.(
+                                          trail.id,
                                           destinationMissionId,
-                                        ) => {
-                                          await onMoveTrailToMission?.(
-                                            trail.id,
-                                            destinationMissionId,
-                                          );
+                                        );
 
-                                          setSelectedTrailId(
-                                            null,
-                                          );
-                                        }}
-                                      />
-                                    </>
-                                  )}
-                                </div>
+                                        setSelectedTrailId(
+                                          null,
+                                        );
+                                      }}
+                                    />
+                                  </div>
+                                </MissionRecordRow>
                               );
                             },
                           )}
@@ -1482,78 +1520,76 @@ export default function FieldMissionPanel({
                                 point.id;
 
                               return (
-                                <div
+                                <MissionRecordRow
                                   key={
                                     point.id
                                   }
+                                  label={
+                                    label ||
+                                    'Marcador'
+                                  }
+                                  visible={
+                                    visible
+                                  }
+                                  busy={
+                                    busyMissionId ===
+                                    `point:${point.id}`
+                                  }
+                                  expanded={
+                                    selected
+                                  }
+                                  onOpen={() => {
+                                    setSelectedTrailId(
+                                      null,
+                                    );
+
+                                    setSelectedPointId(
+                                      selected
+                                        ? null
+                                        : point.id,
+                                    );
+                                  }}
+                                  onToggle={() =>
+                                    handleTogglePointVisibility(
+                                      point,
+                                    )
+                                  }
+                                  onDelete={() =>
+                                    handleDeletePoint(
+                                      point,
+                                    )
+                                  }
                                 >
-                                  <MissionRecordRow
-                                    label={
-                                      label ||
-                                      'Marcador'
+                                  <FieldPointDetails
+                                    point={
+                                      point
                                     }
-                                    visible={
-                                      visible
-                                    }
-                                    busy={
-                                      busyMissionId ===
-                                      `point:${point.id}`
-                                    }
-                                    onOpen={() =>
-                                      setSelectedPointId(
-                                        selected
-                                          ? null
-                                          : point.id,
-                                      )
-                                    }
-                                    onToggle={() =>
-                                      handleTogglePointVisibility(
-                                        point,
-                                      )
-                                    }
-                                    onDelete={() =>
-                                      handleDeletePoint(
-                                        point,
-                                      )
-                                    }
+                                    embedded
                                   />
 
-                                  {selected && (
-                                    <>
-                                      <FieldPointDetails
-                                        point={
-                                          point
-                                        }
-                                        onClose={() =>
-                                          setSelectedPointId(
-                                            null,
-                                          )
-                                        }
-                                      />
-
-                                      <MoveRecordToMission
-                                        missions={
-                                          missions
-                                        }
-                                        currentMissionId={
-                                          mission.id
-                                        }
-                                        onMove={async (
+                                  <div className="px-3 pb-3">
+                                    <MoveRecordToMission
+                                      missions={
+                                        missions
+                                      }
+                                      currentMissionId={
+                                        mission.id
+                                      }
+                                      onMove={async (
+                                        destinationMissionId,
+                                      ) => {
+                                        await onMovePointToMission?.(
+                                          point.id,
                                           destinationMissionId,
-                                        ) => {
-                                          await onMovePointToMission?.(
-                                            point.id,
-                                            destinationMissionId,
-                                          );
+                                        );
 
-                                          setSelectedPointId(
-                                            null,
-                                          );
-                                        }}
-                                      />
-                                    </>
-                                  )}
-                                </div>
+                                        setSelectedPointId(
+                                          null,
+                                        );
+                                      }}
+                                    />
+                                  </div>
+                                </MissionRecordRow>
                               );
                             },
                           )}
