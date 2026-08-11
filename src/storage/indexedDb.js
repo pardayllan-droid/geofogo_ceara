@@ -236,18 +236,13 @@ export const db = {
     const record =
       key !== undefined
         ? {
-            id:
-              key,
-
-            data:
-              value,
-
+            id: key,
+            data: value,
             updated_date:
               Date.now(),
           }
         : {
             ...value,
-
             updated_date:
               Date.now(),
           };
@@ -257,25 +252,76 @@ export const db = {
         resolve,
         reject,
       ) => {
+        const transaction =
+          getDatabase()
+            .transaction(
+              store,
+              'readwrite',
+            );
+
+        const objectStore =
+          transaction
+            .objectStore(
+              store,
+            );
+
+        let requestResult;
+
         const request =
-          tx(
-            store,
-            'readwrite',
-          ).put(
+          objectStore.put(
             record,
           );
 
         request.onsuccess =
           () => {
-            resolve(
-              request.result,
-            );
+            /*
+            * O request terminou, mas a transação ainda
+            * pode abortar.
+            *
+            * Guardamos apenas o resultado e esperamos
+            * transaction.oncomplete para resolver.
+            */
+            requestResult =
+              request.result;
           };
 
         request.onerror =
           () => {
+            /*
+            * O erro da transação será tratado por
+            * onabort/onerror abaixo.
+            *
+            * Não resolvemos nem rejeitamos aqui para
+            * manter uma única fonte de término.
+            */
+          };
+
+        transaction.oncomplete =
+          () => {
+            resolve(
+              requestResult,
+            );
+          };
+
+        transaction.onerror =
+          () => {
             reject(
-              request.error,
+              transaction.error ||
+                request.error ||
+                new Error(
+                  'Falha ao gravar no IndexedDB.',
+                ),
+            );
+          };
+
+        transaction.onabort =
+          () => {
+            reject(
+              transaction.error ||
+                request.error ||
+                new Error(
+                  'A transação de gravação no IndexedDB foi abortada.',
+                ),
             );
           };
       },
@@ -343,21 +389,46 @@ export const db = {
         resolve,
         reject,
       ) => {
-        const request =
-          tx(
-            store,
-            'readwrite',
-          ).clear();
+        const transaction =
+          getDatabase()
+            .transaction(
+              store,
+              'readwrite',
+            );
 
-        request.onsuccess =
+        const objectStore =
+          transaction
+            .objectStore(
+              store,
+            );
+
+        const request =
+          objectStore.clear();
+
+        transaction.oncomplete =
           () => {
             resolve();
           };
 
-        request.onerror =
+        transaction.onerror =
           () => {
             reject(
-              request.error,
+              transaction.error ||
+                request.error ||
+                new Error(
+                  'Falha ao limpar dados do IndexedDB.',
+                ),
+            );
+          };
+
+        transaction.onabort =
+          () => {
+            reject(
+              transaction.error ||
+                request.error ||
+                new Error(
+                  'A transação de limpeza do IndexedDB foi abortada.',
+                ),
             );
           };
       },
@@ -373,23 +444,48 @@ export const db = {
         resolve,
         reject,
       ) => {
+        const transaction =
+          getDatabase()
+            .transaction(
+              store,
+              'readwrite',
+            );
+
+        const objectStore =
+          transaction
+            .objectStore(
+              store,
+            );
+
         const request =
-          tx(
-            store,
-            'readwrite',
-          ).delete(
+          objectStore.delete(
             key,
           );
 
-        request.onsuccess =
+        transaction.oncomplete =
           () => {
             resolve();
           };
 
-        request.onerror =
+        transaction.onerror =
           () => {
             reject(
-              request.error,
+              transaction.error ||
+                request.error ||
+                new Error(
+                  'Falha ao excluir dado do IndexedDB.',
+                ),
+            );
+          };
+
+        transaction.onabort =
+          () => {
+            reject(
+              transaction.error ||
+                request.error ||
+                new Error(
+                  'A transação de exclusão do IndexedDB foi abortada.',
+                ),
             );
           };
       },

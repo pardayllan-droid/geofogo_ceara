@@ -49,6 +49,9 @@ import FeaturePopup from '../panels/FeaturePopup';
 import LayerPanel from '../panels/LayerPanel';
 import SettingsPanel from '../panels/SettingsPanel';
 import StatsPanel from '../panels/StatsPanel';
+import {
+  ErrorManager,
+} from '../../core/ErrorManager';
 
 const PANELS = [
   {
@@ -467,17 +470,77 @@ export default function AppShell({
         </div>
       )}
 
-      {errors.length > 0 && !syncing && (
-        <button
-          type="button"
-          onClick={openDiagnosticPanel}
-          className="relative z-40 flex-shrink-0 border-b border-destructive/20 bg-destructive/10 px-3 py-1.5 text-center text-[11px] text-destructive transition-colors hover:bg-destructive/15"
-        >
-          {errors[errors.length - 1].message}
-          {' — '}
-          toque para abrir o diagnóstico
-        </button>
-      )}
+      {errors.length > 0 &&
+        !syncing &&
+        (() => {
+          const latestError =
+            errors[
+              errors.length - 1
+            ];
+
+          return (
+            <div
+              role="alert"
+              className="
+                relative z-40
+                flex min-h-8
+                flex-shrink-0
+                items-center
+                border-b
+                border-destructive/20
+                bg-destructive/10
+                text-destructive
+              "
+            >
+              <button
+                type="button"
+                onClick={
+                  openDiagnosticPanel
+                }
+                className="
+                  min-w-0 flex-1
+                  px-3 py-1.5
+                  text-center
+                  text-[11px]
+                  transition-colors
+                  hover:bg-destructive/15
+                "
+              >
+                {latestError.message}
+                {' — '}
+                toque para abrir o
+                diagnóstico
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    latestError?.key
+                  ) {
+                    ErrorManager.clear(
+                      latestError.key,
+                    );
+                  }
+                }}
+                aria-label="Fechar aviso de erro"
+                title="Fechar aviso"
+                className="
+                  mr-1
+                  flex h-7 w-7
+                  flex-shrink-0
+                  items-center
+                  justify-center
+                  rounded-md
+                  transition-colors
+                  hover:bg-destructive/15
+                "
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })()}
 
       {startupAlertVisible &&
         Number(

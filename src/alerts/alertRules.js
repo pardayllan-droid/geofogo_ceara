@@ -41,55 +41,39 @@ export function classifyAlert(
   distanceMeters,
   intersectsSensitiveArea,
 ) {
-  if (
-    intersectsSensitiveArea
-  ) {
-    return CRITICALITY.CRITICO;
-  }
-
-  if (
-    distanceMeters <= 500
-  ) {
-    return CRITICALITY.CRITICO;
-  }
-
-  if (
-    distanceMeters <= 1000
-  ) {
-    return CRITICALITY.ALTO;
-  }
-
-  if (
-    distanceMeters <= 3000
-  ) {
-    return CRITICALITY.ATENCAO;
-  }
-
-  return null;
+  return classifyWithLimit(
+    distanceMeters,
+    intersectsSensitiveArea,
+    3,
+  );
 }
 
 /**
  * Classificação usando distância máxima configurável.
- */
-/**
- * Classificação usando distância máxima configurável.
  *
- * O limite configurado é realmente a distância máxima
- * operacional para geração de alertas.
+ * Ordem obrigatória:
  *
- * Regras:
- * - interseção: Crítico;
- * - até 500 m: Crítico;
- * - acima de 500 m e até 1 km: Alto;
- * - acima de 1 km e até o limite configurado: Atenção;
- * - acima do limite configurado: sem alerta.
+ * 1. interseção real sempre é crítica;
+ * 2. acima do limite configurado não gera alerta;
+ * 3. até 500 m é crítico;
+ * 4. acima de 500 m até 1 km é alto;
+ * 5. acima de 1 km até o limite é atenção.
+ *
+ * O limite máximo sempre prevalece sobre as faixas
+ * internas de criticidade.
  */
 export function classifyWithLimit(
   distanceMeters,
   intersectsSensitiveArea,
   limitKm,
 ) {
-  const numericDistance =
+  if (
+    intersectsSensitiveArea
+  ) {
+    return CRITICALITY.CRITICO;
+  }
+
+  const numericDistanceMeters =
     Number(
       distanceMeters,
     );
@@ -101,65 +85,47 @@ export function classifyWithLimit(
 
   if (
     !Number.isFinite(
-      numericDistance,
+      numericDistanceMeters,
     ) ||
-    numericDistance < 0
+    numericDistanceMeters < 0 ||
+    !Number.isFinite(
+      numericLimitKm,
+    ) ||
+    numericLimitKm < 0
   ) {
     return null;
   }
 
-  /**
-   * Caso o limite recebido seja inválido,
-   * preserva o limite operacional padrão
-   * de 3 km.
-   */
-  const maximumDistanceMeters =
-    (
-      Number.isFinite(
-        numericLimitKm,
-      ) &&
-      numericLimitKm >= 0
-    )
-      ? numericLimitKm *
-        1000
-      : 3000;
+  const limitMeters =
+    numericLimitKm *
+    1000;
 
-  /**
-   * Uma interseção representa distância zero
-   * e é sempre crítica.
-   */
-  if (
-    intersectsSensitiveArea
-  ) {
-    return CRITICALITY.CRITICO;
-  }
-
-  /**
-   * Primeiro respeitamos o limite escolhido
-   * pelo operador.
+  /*
+   * A distância máxima configurada é uma barreira absoluta.
    *
    * Exemplo:
-   * limite = 500 m
-   * evento = 800 m
+   * limite = 300 m
+   * distância = 400 m
    *
-   * Resultado: nenhum alerta.
+   * Mesmo estando abaixo da faixa genérica de 500 m,
+   * não deve existir alerta.
    */
   if (
-    numericDistance >
-    maximumDistanceMeters
+    numericDistanceMeters >
+    limitMeters
   ) {
     return null;
   }
 
   if (
-    numericDistance <=
+    numericDistanceMeters <=
     500
   ) {
     return CRITICALITY.CRITICO;
   }
 
   if (
-    numericDistance <=
+    numericDistanceMeters <=
     1000
   ) {
     return CRITICALITY.ALTO;

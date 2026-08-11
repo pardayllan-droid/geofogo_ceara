@@ -327,6 +327,31 @@ function buildUrl(
   );
 }
 
+function sanitizeSipamUrl(
+  url,
+) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsed =
+      new URL(url);
+
+    parsed.searchParams.delete(
+      'api_key',
+    );
+
+    return parsed.toString();
+  } catch {
+    return String(url)
+      .replace(
+        /([?&])api_key=[^&]*/gi,
+        '$1api_key=[redacted]',
+      );
+  }
+}
+
 async function getCachedCollection() {
   try {
     const cached =
@@ -377,7 +402,10 @@ async function saveCache(
         SIPAM_LAYERS
           .INDIGENOUS_LANDS,
 
-      url,
+      url:
+        sanitizeSipamUrl(
+          url,
+        ),
 
       updated_date:
         Date.now(),
@@ -407,10 +435,7 @@ async function parseResponse(
       await response.text();
 
     throw new Error(
-      `O SIPAM não retornou GeoJSON para Terras Indígenas: ${text.slice(
-        0,
-        500,
-      )}`,
+      'O SIPAM não retornou GeoJSON para Terras Indígenas.',
     );
   }
 
@@ -546,7 +571,10 @@ export async function loadIndigenousLands(
         bbox:
           cearaBbox,
 
-        url,
+        url:
+          sanitizeSipamUrl(
+            url,
+          ),
 
         cachedAvailable:
           false,

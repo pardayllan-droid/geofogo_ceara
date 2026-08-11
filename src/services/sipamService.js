@@ -88,6 +88,31 @@ function buildSipamUrl({
   return `${config.sipamWfsUrl}?${params.toString()}`;
 }
 
+function sanitizeSipamUrl(
+  url,
+) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsed =
+      new URL(url);
+
+    parsed.searchParams.delete(
+      'api_key',
+    );
+
+    return parsed.toString();
+  } catch {
+    return String(url)
+      .replace(
+        /([?&])api_key=[^&]*/gi,
+        '$1api_key=[redacted]',
+      );
+  }
+}
+
 async function getValidCache(
   cacheStore,
 ) {
@@ -125,7 +150,10 @@ async function saveCache(
     updated_date: Date.now(),
     source: 'sipam',
     typeName,
-    url,
+    url:
+      sanitizeSipamUrl(
+        url,
+      ),
   });
 
   return true;
@@ -144,16 +172,32 @@ async function parseGeoJsonResponse(
     contentType.includes('xml') ||
     contentType.includes('html')
   ) {
-    const text = await response.text();
+    const text =
+      await response.text();
 
-      console.error(
-        '[SIPAM XML COMPLETO]',
-        text,
-      );
+    const preview =
+      text
+        .replace(
+          /\s+/g,
+          ' ',
+        )
+        .trim()
+        .slice(
+          0,
+          300,
+        );
 
-      throw new Error(
-        `O SIPAM não retornou GeoJSON para ${typeName}. Consulte o console para o XML completo.`,
-      );
+    console.warn(
+      '[sipamService] Resposta inesperada do SIPAM:',
+      {
+        typeName,
+        preview,
+      },
+    );
+
+    throw new Error(
+      `O SIPAM não retornou GeoJSON para ${typeName}.`,
+    );
   }
 
   let data;
@@ -357,7 +401,10 @@ async function fetchWfs(
         operation: 'fetchWfs',
         typeName,
         bbox,
-        url,
+        url:
+          sanitizeSipamUrl(
+            url,
+          ),
         cachedAvailable: false,
       },
     );

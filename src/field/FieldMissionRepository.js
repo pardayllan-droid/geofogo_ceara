@@ -16,6 +16,9 @@ import {
   normalizeFieldMission,
 } from './FieldMissionModel';
 
+const ACTIVE_MISSION_SETTING_KEY =
+  'field-active-mission';
+
 class FieldMissionRepositoryImpl {
   async save(
     mission,
@@ -23,7 +26,6 @@ class FieldMissionRepositoryImpl {
     const normalized =
       normalizeFieldMission({
         ...mission,
-
         updated_date:
           Date.now(),
       });
@@ -103,6 +105,86 @@ class FieldMissionRepositoryImpl {
     );
   }
 
+  /**
+   * Persiste a missão explicitamente selecionada para
+   * receber novos registros.
+   *
+   * missionId = null é um valor válido e significa:
+   * "Sem missão".
+   *
+   * Esse estado é independente de mission.status.
+   */
+  async saveActiveMissionId(
+    missionId,
+  ) {
+    await db.put(
+      db.stores.settings,
+      {
+        missionId:
+          missionId ??
+          null,
+
+        /*
+         * Permite distinguir:
+         *
+         * - configuração nunca criada;
+         * - configuração criada explicitamente como null.
+         */
+        hasSelection:
+          true,
+      },
+      ACTIVE_MISSION_SETTING_KEY,
+    );
+  }
+
+  /**
+   * Recupera a seleção persistida.
+   *
+   * Retorna:
+   *
+   * {
+   *   exists: false,
+   *   missionId: null
+   * }
+   *
+   * quando a configuração nunca foi salva.
+   *
+   * Quando o operador escolheu explicitamente
+   * "Sem missão", retorna exists=true e missionId=null.
+   */
+  async getActiveMissionSelection() {
+    const record =
+      await db.get(
+        db.stores.settings,
+        ACTIVE_MISSION_SETTING_KEY,
+      );
+
+    if (
+      !record ||
+      record?.data
+        ?.hasSelection !==
+        true
+    ) {
+      return {
+        exists:
+          false,
+
+        missionId:
+          null,
+      };
+    }
+
+    return {
+      exists:
+        true,
+
+      missionId:
+        record.data
+          .missionId ??
+        null,
+    };
+  }
+
   async getVisibleMissions() {
     const missions =
       await this.getAll();
@@ -130,6 +212,10 @@ class FieldMissionRepositoryImpl {
   async clear() {
     await db.clear(
       db.stores.fieldMissions,
+    );
+
+    await this.saveActiveMissionId(
+      null,
     );
   }
 }

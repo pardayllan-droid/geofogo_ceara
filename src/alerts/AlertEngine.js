@@ -582,6 +582,478 @@ function createEventSearchBbox(
 }
 
 /**
+ * Cria um buffer seguro ao redor de uma feição.
+ *
+ * Retorna null quando:
+ * - a distância é inválida;
+ * - a distância é zero;
+ * - Turf não consegue produzir uma geometria válida.
+ */
+function createFeatureBufferSafe(
+  feature,
+  distanceKm,
+) {
+  const numericDistanceKm =
+    Number(distanceKm);
+
+  if (
+    !feature?.geometry ||
+    !Number.isFinite(
+      numericDistanceKm,
+    ) ||
+    numericDistanceKm <= 0
+  ) {
+    return null;
+  }
+
+  try {
+    const buffered =
+      turf.buffer(
+        feature,
+        numericDistanceKm,
+        {
+          units:
+            'kilometers',
+        },
+      );
+
+    return buffered?.geometry
+      ? buffered
+      : null;
+  } catch (error) {
+    console.warn(
+      '[AlertEngine] Buffer geométrico falhou:',
+      error,
+    );
+
+    return null;
+  }
+}
+
+/**
+ * Prepara, uma única vez por evento, as regiões geométricas
+ * utilizadas para classificar os alertas.
+ *
+ * Os limites são sempre recortados pela distância máxima
+ * configurada.
+ *
+ * Exemplos:
+ *
+ * limite = 3 km
+ * - critical: 0,5 km
+ * - high:     1 km
+ * - limit:    3 km
+ *
+ * limite = 0,8 km
+ * - critical: 0,5 km
+ * - high:     0,8 km
+ * - limit:    0,8 km
+ *
+ * Isso garante que a distância máxima configurada seja
+ * respeitada antes das faixas de criticidade.
+ */
+function createEventAlertZones(
+  event,
+  limitKm,
+) {
+  const numericLimitKm =
+    Math.max(
+      0,
+      Number(limitKm) ||
+        0,
+    );
+
+  /*
+   * Limite zero significa:
+   * somente interseções reais podem produzir alerta.
+   */
+  if (
+    numericLimitKm ===
+    0
+  ) {
+    return {
+      valid: true,
+
+      critical:
+        null,
+
+      high:
+        null,
+
+      limit:
+        null,
+
+      criticalKm:
+        0,
+
+      highKm:
+        0,
+
+      limitKm:
+        0,
+    };
+  }
+
+  const criticalKm =
+    Math.min(
+      0.5,
+      numericLimitKm,
+    );
+
+  const highKm =
+    Math.min(
+      1,
+      numericLimitKm,
+    );
+
+  /*
+   * Evita produzir duas ou três vezes o mesmo buffer
+   * quando o limite configurado coincide com 500 m ou
+   * 1 km.
+   */
+  const buffers =
+    new Map();
+
+  const distances =
+    [
+      criticalKm,
+      highKm,
+      numericLimitKm,
+    ];
+
+  for (
+    const distance
+    of distances
+  ) {
+    if (
+      distance <= 0 ||
+      buffers.has(
+        distance,
+      )
+    ) {
+      continue;
+    }
+
+    const buffered =
+      createFeatureBufferSafe(
+        event,
+        distance,
+      );
+
+    if (!buffered) {
+      return {
+        valid: false,
+
+        critical:
+          null,
+
+        high:
+          null,
+
+        limit:
+          null,
+
+        criticalKm,
+
+        highKm,
+
+        limitKm:
+          numericLimitKm,
+      };
+    }
+
+    buffers.set(
+      distance,
+      buffered,
+    );
+  }
+
+  return {
+    valid: true,
+
+    critical:
+      buffers.get(
+        criticalKm,
+      ) ||
+      null,
+
+    high:
+      buffers.get(
+        highKm,
+      ) ||
+      null,
+
+    limit:
+      buffers.get(
+        numericLimitKm,
+      ) ||
+      null,
+
+    criticalKm,
+
+    highKm,
+
+    limitKm:
+      numericLimitKm,
+  };
+}
+
+/**
+ * Classifica uma Área Sensível usando as zonas geométricas
+ * do evento.
+ *
+ * A primeira pergunta é sempre:
+ *
+ * "A Área Sensível está dentro do limite máximo?"
+ *
+ * Somente depois disso as faixas de 500 m e 1 km são
+ * avaliadas.
+ */
+function classifyByAlertZones(
+  sensitiveArea,
+  intersects,
+  zones,
+) {
+  if (intersects) {
+    return CRITICALITY.CRITICO;
+  }
+
+  if (
+    !zones?.valid
+  ) {
+    return null;
+  }
+
+  /*
+   * Com limite zero somente interseções reais geram
+   * alerta. A interseção já foi tratada acima.
+   */
+  if (
+    zones.limitKm <=
+    0
+  ) {
+    return null;
+  }
+
+  /*
+   * Antes de qualquer criticidade verificamos o limite
+   * operacional máximo.
+   */
+  if (
+    !zones.limit ||
+    !booleanIntersectsSafe(
+      zones.limit,
+      sensitiveArea,
+    )
+  ) {
+    return null;
+  }
+
+  if (
+    zones.critical &&
+    booleanIntersectsSafe(
+      zones.critical,
+      sensitiveArea,
+    )
+  ) {
+    return CRITICALITY.CRITICO;
+  }
+
+  if (
+    zones.high &&
+    booleanIntersectsSafe(
+      zones.high,
+      sensitiveArea,
+    )
+  ) {
+    return CRITICALITY.ALTO;
+  }
+
+  return CRITICALITY.ATENCAO;
+}
+
+/**
+ * Define o intervalo em que a distância precisa estar
+ * segundo a criticidade geométrica encontrada.
+ *
+ * Retorno em metros.
+ */
+function getDistanceBracket(
+  criticality,
+  limitKm,
+) {
+  const limitMeters =
+    Math.max(
+      0,
+      Number(limitKm) *
+        1000 ||
+        0,
+    );
+
+  if (
+    criticality ===
+    CRITICALITY.CRITICO
+  ) {
+    return {
+      minimum: 0,
+
+      maximum:
+        Math.min(
+          500,
+          limitMeters,
+        ),
+    };
+  }
+
+  if (
+    criticality ===
+    CRITICALITY.ALTO
+  ) {
+    return {
+      minimum:
+        Math.min(
+          500,
+          limitMeters,
+        ),
+
+      maximum:
+        Math.min(
+          1000,
+          limitMeters,
+        ),
+    };
+  }
+
+  if (
+    criticality ===
+    CRITICALITY.ATENCAO
+  ) {
+    return {
+      minimum:
+        Math.min(
+          1000,
+          limitMeters,
+        ),
+
+      maximum:
+        limitMeters,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Refina a distância somente para pares que já foram
+ * confirmados como alerta.
+ *
+ * Em vez de comparar todos os vértices/segmentos das duas
+ * geometrias, fazemos uma busca binária sobre a distância
+ * do buffer do evento.
+ *
+ * Com 7 iterações:
+ * - uma faixa de 500 m fica com resolução < 4 m;
+ * - uma faixa de 1 km fica com resolução < 8 m;
+ * - uma faixa de 2 km fica com resolução < 16 m.
+ *
+ * Essa precisão é mais que suficiente para a finalidade
+ * operacional das faixas de alerta e o custo é pago apenas
+ * pelos poucos alertas efetivamente encontrados.
+ */
+function refineAlertDistance(
+  event,
+  sensitiveArea,
+  criticality,
+  limitKm,
+) {
+  const bracket =
+    getDistanceBracket(
+      criticality,
+      limitKm,
+    );
+
+  if (!bracket) {
+    return null;
+  }
+
+  let lower =
+    bracket.minimum;
+
+  let upper =
+    bracket.maximum;
+
+  if (
+    !Number.isFinite(
+      lower,
+    ) ||
+    !Number.isFinite(
+      upper,
+    ) ||
+    upper < lower
+  ) {
+    return null;
+  }
+
+  if (
+    upper === lower
+  ) {
+    return upper;
+  }
+
+  const iterations =
+    7;
+
+  for (
+    let index = 0;
+    index < iterations;
+    index += 1
+  ) {
+    const middle =
+      (
+        lower +
+        upper
+      ) /
+      2;
+
+    const buffered =
+      createFeatureBufferSafe(
+        event,
+        middle /
+          1000,
+      );
+
+    if (!buffered) {
+      /*
+       * Não arriscamos invalidar um alerta já confirmado.
+       * O limite superior da faixa é um fallback
+       * conservador e coerente com a criticidade.
+       */
+      return upper;
+    }
+
+    if (
+      booleanIntersectsSafe(
+        buffered,
+        sensitiveArea,
+      )
+    ) {
+      upper =
+        middle;
+    } else {
+      lower =
+        middle;
+    }
+  }
+
+  /*
+   * Retornamos o limite superior da busca.
+   *
+   * Isso evita subestimar a distância real.
+   */
+  return upper;
+}
+
+/**
  * Calcula a área do evento uma única vez.
  */
 function computeEventAreaSafe(
@@ -779,13 +1251,35 @@ export async function computeAlerts(
           )
         : sensitiveAreaIndex;
 
-    candidatePairs +=
-      candidates.length;
+        candidatePairs +=
+          candidates.length;
 
-    for (
-      const entry
-      of candidates
-    ) {
+        /*
+        * Nenhuma Área Sensível passou pela pré-seleção.
+        * Não há motivo para criar buffers geométricos.
+        */
+        if (
+          candidates.length ===
+          0
+        ) {
+          continue;
+        }
+
+        /*
+        * As zonas são criadas uma única vez por evento e
+        * reutilizadas para todas as Áreas Sensíveis que
+        * passaram pelo filtro barato de bbox.
+        */
+        const alertZones =
+          createEventAlertZones(
+            event,
+            numericLimitKm,
+          );
+
+        for (
+          const entry
+          of candidates
+        ) {
       const sensitiveArea =
         entry.feature;
 
@@ -804,53 +1298,124 @@ export async function computeAlerts(
           sensitiveAreaId,
         );
 
-      let distance =
-        Infinity;
+            let distance =
+              Infinity;
 
-      let intersects =
-        false;
+            let intersects =
+              false;
 
-      exactComparisons +=
-        1;
+            let criticality =
+              null;
 
-      try {
-        intersects =
-          booleanIntersectsSafe(
-            event,
-            sensitiveArea,
-          );
+            exactComparisons +=
+              1;
 
-        distance =
-          intersects
-            ? 0
-            : distanceBetween(
-                event,
-                sensitiveArea,
+            try {
+              /*
+              * Primeiro caso e também o mais importante:
+              * interseção real sempre significa distância zero.
+              */
+              intersects =
+                booleanIntersectsSafe(
+                  event,
+                  sensitiveArea,
+                );
+
+              if (intersects) {
+                distance =
+                  0;
+
+                criticality =
+                  CRITICALITY.CRITICO;
+              } else if (
+                alertZones.valid
+              ) {
+                /*
+                * Caminho principal:
+                *
+                * a classificação é determinada pela geometria
+                * real dos buffers, e não por pontos
+                * representativos.
+                */
+                criticality =
+                  classifyByAlertZones(
+                    sensitiveArea,
+                    false,
+                    alertZones,
+                  );
+
+                if (criticality) {
+                  /*
+                  * A distância numérica só é refinada depois de
+                  * sabermos que este par realmente gera alerta.
+                  */
+                  const refinedDistance =
+                    refineAlertDistance(
+                      event,
+                      sensitiveArea,
+                      criticality,
+                      numericLimitKm,
+                    );
+
+                  const bracket =
+                    getDistanceBracket(
+                      criticality,
+                      numericLimitKm,
+                    );
+
+                  distance =
+                    Number.isFinite(
+                      refinedDistance,
+                    )
+                      ? refinedDistance
+                      : (
+                          bracket
+                            ?.maximum ??
+                          Infinity
+                        );
+                }
+              } else {
+                /*
+                * Fallback defensivo.
+                *
+                * Caso Turf não consiga produzir os buffers para
+                * uma geometria incomum, preservamos o
+                * comportamento anterior em vez de eliminar
+                * silenciosamente um possível alerta.
+                */
+                distance =
+                  distanceBetween(
+                    event,
+                    sensitiveArea,
+                  );
+
+                criticality =
+                  classifyWithLimit(
+                    distance,
+                    false,
+                    numericLimitKm,
+                  );
+              }
+            } catch (error) {
+              console.error(
+                '[AlertEngine] Classificação entre evento e Área Sensível falhou:',
+                {
+                  error,
+                  eventId,
+                  sensitiveAreaId,
+                },
               );
-      } catch (error) {
-        console.error(
-          '[AlertEngine] Distância entre evento e Área Sensível falhou:',
-          {
-            error,
-            eventId,
-            sensitiveAreaId,
-          },
-        );
 
-        distance =
-          Infinity;
-      }
+              distance =
+                Infinity;
 
-      const criticality =
-        classifyWithLimit(
-          distance,
-          intersects,
-          numericLimitKm,
-        );
+              criticality =
+                null;
+            }
 
-      if (!criticality) {
-        continue;
-      }
+            if (!criticality) {
+              continue;
+            }
 
       const existing =
         alertsById.get(

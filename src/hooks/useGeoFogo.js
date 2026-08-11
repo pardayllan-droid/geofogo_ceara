@@ -1653,11 +1653,14 @@ export function useGeoFogo() {
 
   const clearActiveFieldMission =
     useCallback(
-      () => {
+      async () => {
         try {
+          await FieldMissionController
+            .clearActiveMission();
+
           const state =
             FieldMissionController
-              .clearActiveMission();
+              .getState();
 
           setMissionState(
             state,

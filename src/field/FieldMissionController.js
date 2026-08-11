@@ -7,7 +7,10 @@
  * Apenas administra as missões e informa qual está ativa.
  */
 
-import { FieldMissionRepository } from './FieldMissionRepository';
+import {
+  FieldMissionRepository,
+} from './FieldMissionRepository';
+
 import {
   createFieldMission,
   completeFieldMission,
@@ -17,11 +20,20 @@ import {
 
 class FieldMissionControllerClass {
   constructor() {
-    this.missions = [];
-    this.activeMissionId = null;
-    this.listeners = [];
-    this.initialized = false;
-    this.initializePromise = null;
+    this.missions =
+      [];
+
+    this.activeMissionId =
+      null;
+
+    this.listeners =
+      [];
+
+    this.initialized =
+      false;
+
+    this.initializePromise =
+      null;
   }
 
   async initialize() {
@@ -43,16 +55,83 @@ class FieldMissionControllerClass {
           await FieldMissionRepository
             .getAll();
 
-        const active =
-          this.missions.find(
-            (mission) =>
-              mission.status ===
-              'active',
-          );
+        const selection =
+          await FieldMissionRepository
+            .getActiveMissionSelection();
 
-        this.activeMissionId =
-          active?.id ??
-          null;
+        if (
+          selection.exists
+        ) {
+          /*
+           * A seleção persistida é a fonte de verdade.
+           *
+           * null significa explicitamente "Sem missão".
+           */
+          if (
+            selection.missionId ===
+            null
+          ) {
+            this.activeMissionId =
+              null;
+          } else {
+            const selectedMission =
+              this.missions.find(
+                (mission) =>
+                  mission.id ===
+                  selection.missionId,
+              );
+
+            /*
+             * Missão removida ou registro inválido:
+             * limpa a seleção em vez de escolher outra
+             * missão automaticamente.
+             */
+            if (
+              !selectedMission
+            ) {
+              this.activeMissionId =
+                null;
+
+              await FieldMissionRepository
+                .saveActiveMissionId(
+                  null,
+                );
+            } else {
+              this.activeMissionId =
+                selectedMission.id;
+            }
+          }
+        } else {
+          /*
+           * Compatibilidade com instalações anteriores.
+           *
+           * Antes desta versão, a missão selecionada não
+           * era persistida separadamente. No primeiro
+           * carregamento após a atualização mantemos o
+           * comportamento antigo uma única vez:
+           *
+           * - primeira missão com status active;
+           * - ou Sem missão se não houver nenhuma.
+           *
+           * Em seguida persistimos a decisão para que os
+           * próximos cold starts sejam determinísticos.
+           */
+          const legacyActive =
+            this.missions.find(
+              (mission) =>
+                mission.status ===
+                'active',
+            );
+
+          this.activeMissionId =
+            legacyActive?.id ??
+            null;
+
+          await FieldMissionRepository
+            .saveActiveMissionId(
+              this.activeMissionId,
+            );
+        }
 
         this.initialized =
           true;
@@ -71,27 +150,39 @@ class FieldMissionControllerClass {
   }
 
   subscribe(listener) {
-    this.listeners.push(listener);
+    this.listeners.push(
+      listener,
+    );
 
     return () => {
       this.listeners =
         this.listeners.filter(
-          (item) => item !== listener,
+          (item) =>
+            item !==
+            listener,
         );
     };
   }
 
   notify() {
-    this.listeners.forEach((listener) =>
-      listener(this.getState()),
+    this.listeners.forEach(
+      (listener) =>
+        listener(
+          this.getState(),
+        ),
     );
   }
 
   getState() {
     return {
-      missions: this.missions,
-      activeMissionId: this.activeMissionId,
-      activeMission: this.getActiveMission(),
+      missions:
+        this.missions,
+
+      activeMissionId:
+        this.activeMissionId,
+
+      activeMission:
+        this.getActiveMission(),
     };
   }
 
@@ -99,22 +190,35 @@ class FieldMissionControllerClass {
     return (
       this.missions.find(
         (mission) =>
-          mission.id === this.activeMissionId,
-      ) || null
+          mission.id ===
+          this.activeMissionId,
+      ) ||
+      null
     );
   }
 
   async createMission(data) {
     const mission =
-      createFieldMission(data);
+      createFieldMission(
+        data,
+      );
 
-    await FieldMissionRepository.save(
+    await FieldMissionRepository
+      .save(
+        mission,
+      );
+
+    this.missions.unshift(
       mission,
     );
 
-    this.missions.unshift(mission);
+    this.activeMissionId =
+      mission.id;
 
-    this.activeMissionId = mission.id;
+    await FieldMissionRepository
+      .saveActiveMissionId(
+        mission.id,
+      );
 
     this.notify();
 
@@ -122,15 +226,24 @@ class FieldMissionControllerClass {
   }
 
   async setActiveMission(id) {
-    if (
-      !this.missions.some(
-        (mission) => mission.id === id,
-      )
-    ) {
+    const mission =
+      this.missions.find(
+        (candidate) =>
+          candidate.id ===
+          id,
+      );
+
+    if (!mission) {
       return;
     }
 
-    this.activeMissionId = id;
+    this.activeMissionId =
+      mission.id;
+
+    await FieldMissionRepository
+      .saveActiveMissionId(
+        mission.id,
+      );
 
     this.notify();
   }
@@ -141,20 +254,31 @@ class FieldMissionControllerClass {
    *
    * A partir desse momento, novos trilhos e marcadores
    * serão criados com missionId = null.
+   *
+   * A escolha "Sem missão" também é persistida.
    */
-  clearActiveMission() {
+  async clearActiveMission() {
     this.activeMissionId =
       null;
+
+    await FieldMissionRepository
+      .saveActiveMissionId(
+        null,
+      );
 
     this.notify();
 
     return this.getState();
   }
 
-  async renameMission(id, values) {
+  async renameMission(
+    id,
+    values,
+  ) {
     const index =
       this.missions.findIndex(
-        (mission) => mission.id === id,
+        (mission) =>
+          mission.id === id,
       );
 
     if (index < 0) {
@@ -164,14 +288,17 @@ class FieldMissionControllerClass {
     const updated = {
       ...this.missions[index],
       ...values,
-      updated_date: Date.now(),
+      updated_date:
+        Date.now(),
     };
 
-    await FieldMissionRepository.save(
-      updated,
-    );
+    await FieldMissionRepository
+      .save(
+        updated,
+      );
 
-    this.missions[index] = updated;
+    this.missions[index] =
+      updated;
 
     this.notify();
 
@@ -181,7 +308,8 @@ class FieldMissionControllerClass {
   async completeMission(id) {
     const mission =
       this.missions.find(
-        (item) => item.id === id,
+        (item) =>
+          item.id === id,
       );
 
     if (!mission) {
@@ -189,18 +317,39 @@ class FieldMissionControllerClass {
     }
 
     const completed =
-      completeFieldMission(mission);
+      completeFieldMission(
+        mission,
+      );
 
-    await FieldMissionRepository.save(
-      completed,
-    );
+    await FieldMissionRepository
+      .save(
+        completed,
+      );
 
     this.missions =
-      this.missions.map((item) =>
-        item.id === id
-          ? completed
-          : item,
+      this.missions.map(
+        (item) =>
+          item.id === id
+            ? completed
+            : item,
       );
+
+    /*
+     * Uma missão concluída deixa de receber novos
+     * registros.
+     */
+    if (
+      this.activeMissionId ===
+      id
+    ) {
+      this.activeMissionId =
+        null;
+
+      await FieldMissionRepository
+        .saveActiveMissionId(
+          null,
+        );
+    }
 
     this.notify();
   }
@@ -208,7 +357,8 @@ class FieldMissionControllerClass {
   async archiveMission(id) {
     const mission =
       this.missions.find(
-        (item) => item.id === id,
+        (item) =>
+          item.id === id,
       );
 
     if (!mission) {
@@ -216,18 +366,39 @@ class FieldMissionControllerClass {
     }
 
     const archived =
-      archiveFieldMission(mission);
+      archiveFieldMission(
+        mission,
+      );
 
-    await FieldMissionRepository.save(
-      archived,
-    );
+    await FieldMissionRepository
+      .save(
+        archived,
+      );
 
     this.missions =
-      this.missions.map((item) =>
-        item.id === id
-          ? archived
-          : item,
+      this.missions.map(
+        (item) =>
+          item.id === id
+            ? archived
+            : item,
       );
+
+    /*
+     * Uma missão arquivada não pode continuar como
+     * destino de novos registros.
+     */
+    if (
+      this.activeMissionId ===
+      id
+    ) {
+      this.activeMissionId =
+        null;
+
+      await FieldMissionRepository
+        .saveActiveMissionId(
+          null,
+        );
+    }
 
     this.notify();
   }
@@ -252,7 +423,8 @@ class FieldMissionControllerClass {
     const mission =
       this.missions.find(
         (candidate) =>
-          candidate.id === missionId,
+          candidate.id ===
+          missionId,
       );
 
     if (!mission) {
@@ -260,14 +432,16 @@ class FieldMissionControllerClass {
     }
 
     return (
-      mission.visible !== false
+      mission.visible !==
+      false
     );
   }
 
   async toggleVisibility(id) {
     const mission =
       this.missions.find(
-        (item) => item.id === id,
+        (item) =>
+          item.id === id,
       );
 
     if (!mission) {
@@ -280,30 +454,46 @@ class FieldMissionControllerClass {
         !mission.visible,
       );
 
-    await FieldMissionRepository.save(
-      updated,
-    );
+    await FieldMissionRepository
+      .save(
+        updated,
+      );
 
     this.missions =
-      this.missions.map((item) =>
-        item.id === id
-          ? updated
-          : item,
+      this.missions.map(
+        (item) =>
+          item.id === id
+            ? updated
+            : item,
       );
 
     this.notify();
   }
 
   async deleteMission(id) {
-    await FieldMissionRepository.delete(id);
+    await FieldMissionRepository
+      .delete(
+        id,
+      );
 
     this.missions =
       this.missions.filter(
-        (mission) => mission.id !== id,
+        (mission) =>
+          mission.id !==
+          id,
       );
 
-    if (this.activeMissionId === id) {
-      this.activeMissionId = null;
+    if (
+      this.activeMissionId ===
+      id
+    ) {
+      this.activeMissionId =
+        null;
+
+      await FieldMissionRepository
+        .saveActiveMissionId(
+          null,
+        );
     }
 
     this.notify();

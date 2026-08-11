@@ -357,6 +357,21 @@ class FieldControllerImpl {
       Promise.resolve();
 
     /**
+     * Gravações que falharam e ainda não foram confirmadas
+     * no armazenamento persistente.
+     *
+     * A chave identifica a entidade:
+     *
+     * - trail:<id>
+     * - point:<id>
+     *
+     * Uma gravação posterior bem-sucedida da mesma entidade
+     * substitui naturalmente uma falha anterior.
+     */
+    this._persistenceFailures =
+      new Map();
+
+    /**
      * A inicialização do acervo de campo é independente
      * da ativação do GPS.
      *
@@ -3289,6 +3304,50 @@ class FieldControllerImpl {
     ];
   }
 
+  _getPersistenceKey(
+    type,
+    id,
+  ) {
+    return `${type}:${id}`;
+  }
+
+  _registerPersistenceFailure(
+    key,
+    {
+      error,
+      operation,
+      entityId,
+      retry,
+    },
+  ) {
+    this._persistenceFailures.set(
+      key,
+      {
+        error,
+        operation,
+        entityId,
+        retry,
+      },
+    );
+
+    ErrorManager.report(
+      'storage',
+      error,
+      {
+        operation,
+        entityId,
+      },
+    );
+  }
+
+  _clearPersistenceFailure(
+    key,
+  ) {
+    this._persistenceFailures.delete(
+      key,
+    );
+  }
+
   _queueTrailSave(
     trail,
   ) {
@@ -3305,30 +3364,61 @@ class FieldControllerImpl {
         trail,
       );
 
+    const key =
+      this._getPersistenceKey(
+        'trail',
+        snapshot.id,
+      );
+
+    const save =
+      async () => {
+        await TrailRepository.save(
+          snapshot,
+        );
+    };
+
     this._persistenceQueue =
       this._persistenceQueue
+        /*
+        * Uma falha anterior não pode bloquear as próximas
+        * gravações da fila.
+        *
+        * O erro continua registrado separadamente em
+        * _persistenceFailures.
+        */
         .catch(
           () => undefined,
         )
         .then(
-          () =>
-            TrailRepository.save(
-              snapshot,
-            ),
-        )
-        .catch(
-          (error) => {
-            ErrorManager.report(
-              'storage',
-              error,
-              {
-                operation:
-                  'save-field-trail',
+          async () => {
+            try {
+              await save();
 
-                trailId:
-                  snapshot.id,
-              },
-            );
+              /*
+              * Um snapshot mais recente salvo com sucesso
+              * também torna irrelevante uma falha anterior
+              * da mesma entidade.
+              */
+              this._clearPersistenceFailure(
+                key,
+              );
+            } catch (error) {
+              this._registerPersistenceFailure(
+                key,
+                {
+                  error,
+
+                  operation:
+                    'save-field-trail',
+
+                  entityId:
+                    snapshot.id,
+
+                  retry:
+                    save,
+                },
+              );
+            }
           },
         );
   }
@@ -3433,10 +3523,27 @@ class FieldControllerImpl {
   _queuePointSave(
     point,
   ) {
+    if (!point?.id) {
+      return;
+    }
+
     const snapshot =
       cloneData(
         point,
       );
+
+    const key =
+      this._getPersistenceKey(
+        'point',
+        snapshot.id,
+      );
+
+    const save =
+      async () => {
+        await FieldPointRepository.save(
+          snapshot,
+        );
+    };
 
     this._persistenceQueue =
       this._persistenceQueue
@@ -3444,33 +3551,137 @@ class FieldControllerImpl {
           () => undefined,
         )
         .then(
-          () =>
-            FieldPointRepository.save(
-              snapshot,
-            ),
-        )
-        .catch(
-          (error) => {
-            ErrorManager.report(
-              'storage',
-              error,
-              {
-                operation:
-                  'save-field-point',
+          async () => {
+            try {
+              await save();
 
-                pointId:
-                  snapshot.id,
-              },
-            );
+              this._clearPersistenceFailure(
+                key,
+              );
+            } catch (error) {
+              this._registerPersistenceFailure(
+                key,
+                {
+                  error,
+
+                  operation:
+                    'save-field-point',
+
+                  entityId:
+                    snapshot.id,
+
+                  retry:
+                    save,
+                },
+              );
+            }
           },
         );
   }
 
   async flushPersistence() {
+    /*
+    * Primeiro aguarda todas as gravações já enfileiradas.
+    */
     await this._persistenceQueue
       .catch(
         () => undefined,
       );
+
+    if (
+      this._persistenceFailures.size ===
+      0
+    ) {
+      return;
+    }
+
+    /*
+    * Uma falha de IndexedDB pode ser transitória.
+    *
+    * Antes de declarar perda de persistência, fazemos uma
+    * única tentativa adicional de cada entidade pendente.
+    *
+    * Não criamos loop infinito nem retry contínuo.
+    */
+    const pendingFailures = [
+      ...this._persistenceFailures.entries(),
+    ];
+
+    for (
+      const [
+        key,
+        failure,
+      ]
+      of pendingFailures
+    ) {
+      try {
+        await failure.retry();
+
+        this._clearPersistenceFailure(
+          key,
+        );
+      } catch (error) {
+        /*
+        * Mantemos a falha pendente com o erro mais recente.
+        *
+        * Não precisamos reportar novamente ao ErrorManager:
+        * a primeira falha já deixou um aviso visível e um
+        * registro no diagnóstico.
+        */
+        this._persistenceFailures.set(
+          key,
+          {
+            ...failure,
+            error,
+          },
+        );
+      }
+    }
+
+    if (
+      this._persistenceFailures.size ===
+      0
+    ) {
+      return;
+    }
+
+    const firstFailure =
+      this._persistenceFailures
+        .values()
+        .next()
+        .value;
+
+    const error =
+      new Error(
+        'Não foi possível confirmar a gravação de todos os registros de campo.',
+      );
+
+    error.cause =
+      firstFailure?.error;
+
+    error.persistenceFailures =
+      [
+        ...this._persistenceFailures
+          .values(),
+      ].map(
+        (failure) => ({
+          operation:
+            failure.operation,
+
+          entityId:
+            failure.entityId,
+
+          message:
+            failure.error
+              ?.message ||
+            String(
+              failure.error ||
+              '',
+            ),
+        }),
+      );
+
+    throw error;
   }
 
   _notify() {
