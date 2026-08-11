@@ -17,7 +17,7 @@ export default function SettingsPanel({ alertDistanceKm, onAlertDistance, baseMa
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Ruler className="w-3.5 h-3.5 text-muted-foreground" />
-            <label className="text-xs font-medium">Distância de alerta (UC)</label>
+            <label className="text-xs font-medium">Distância de alerta</label>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {config.alertDistances.map((d) => (
@@ -35,7 +35,7 @@ export default function SettingsPanel({ alertDistanceKm, onAlertDistance, baseMa
             ))}
           </div>
           <p className="text-[10px] text-muted-foreground mt-1.5">
-            Distância padrão: 3 km. Alertas são calculados entre eventos de fogo e Unidades de Conservação.
+            Distância máxima para alertas entre eventos de fogo e Áreas Sensíveis. Padrão: 3 km.
           </p>
         </div>
 

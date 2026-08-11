@@ -12,10 +12,10 @@
  *
  * Interações:
  * - Eventos ativos: abre e fecha uma lista ordenada por idade;
- * - Evento da lista: centraliza no mapa e abre o popup;
+ * - Evento da lista: centraliza no mapa;
  * - Área total: restaura o enquadramento do Ceará;
  * - Alertas ativos: abre a aba de alertas;
- * - Maior evento: centraliza no maior evento e abre o popup.
+ * - Maior evento: centraliza no maior evento.
  */
 
 import {
@@ -28,6 +28,7 @@ import {
   BarChart3,
   Clock,
   Flame,
+  Info,
   LocateFixed,
   Maximize,
   RefreshCw,
@@ -394,11 +395,19 @@ export default function StatsPanel({
   stats,
   online,
   syncing,
+  alertDistanceKm = 3,
   onOpenAlerts,
 }) {
   const [
     eventsExpanded,
     setEventsExpanded,
+  ] = useState(
+    false,
+  );
+
+  const [
+    legendExpanded,
+    setLegendExpanded,
   ] = useState(
     false,
   );
@@ -596,6 +605,29 @@ export default function StatsPanel({
           color="#3b82f6"
         />
 
+        <ExpandableSection
+          title="Legenda operacional"
+          icon={Info}
+          accent="blue"
+          expanded={
+            legendExpanded
+          }
+          onToggle={() =>
+            setLegendExpanded(
+              (
+                current,
+              ) =>
+                !current,
+            )
+          }
+        >
+          <OperationalLegend
+            alertDistanceKm={
+              alertDistanceKm
+            }
+          />
+        </ExpandableSection>
+
         {stats.fromCache && (
           <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
             <Clock className="h-3 w-3" />
@@ -606,6 +638,189 @@ export default function StatsPanel({
       </div>
     </div>
   );
+}
+
+function OperationalLegend({
+  alertDistanceKm,
+}) {
+  const numericLimitKm =
+    Number(
+      alertDistanceKm,
+    );
+
+  const limitKm =
+    Number.isFinite(
+      numericLimitKm,
+    ) &&
+    numericLimitKm >= 0
+      ? numericLimitKm
+      : 3;
+
+  const limitMeters =
+    limitKm *
+    1000;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Eventos por última detecção
+        </p>
+
+        <div className="mt-2 space-y-2">
+          <LegendRow
+            color="#ff2323"
+            label="Até 24 h"
+            description="Detecção mais recente"
+          />
+
+          <LegendRow
+            color="#ff9e17"
+            label="24–48 h"
+            description="Evento recente"
+          />
+
+          <LegendRow
+            color="#ffb1b0"
+            label="48–96 h"
+            description="Evento mais antigo"
+          />
+
+          <LegendRow
+            color="#c8c8c8"
+            label="Mais de 96 h"
+            description="Sem detecção recente"
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border/70 pt-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Alertas por distância
+          </p>
+
+          <span className="text-[9px] font-medium text-muted-foreground">
+            Limite:{' '}
+            {formatAlertDistance(
+              limitKm,
+            )}
+          </span>
+        </div>
+
+        <div className="mt-2 space-y-2">
+          <LegendRow
+            color="#dc2626"
+            label="Crítico"
+            description={
+              limitMeters <=
+              500
+                ? `Interseção ou até ${formatAlertDistance(
+                    limitKm,
+                  )}`
+                : 'Interseção ou até 500 m'
+            }
+          />
+
+          {limitMeters >
+            500 && (
+            <LegendRow
+              color="#f97316"
+              label="Alto"
+              description={
+                limitMeters <=
+                1000
+                  ? `De 500 m até ${formatAlertDistance(
+                      limitKm,
+                    )}`
+                  : 'De 500 m até 1 km'
+              }
+            />
+          )}
+
+          {limitMeters >
+            1000 && (
+            <LegendRow
+              color="#f59e0b"
+              label="Atenção"
+              description={`De 1 km até ${formatAlertDistance(
+                limitKm,
+              )}`}
+            />
+          )}
+        </div>
+
+        <p className="mt-2 text-[9px] leading-relaxed text-muted-foreground">
+          Eventos além do limite configurado não geram alerta de proximidade.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function LegendRow({
+  color,
+  label,
+  description,
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        className="h-3 w-3 shrink-0 rounded-full border border-black/10 shadow-sm"
+        style={{
+          backgroundColor:
+            color,
+        }}
+      />
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold">
+          {label}
+        </p>
+
+        <p className="text-[9px] text-muted-foreground">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function formatAlertDistance(
+  kilometers,
+) {
+  const numeric =
+    Number(
+      kilometers,
+    );
+
+  if (
+    !Number.isFinite(
+      numeric,
+    )
+  ) {
+    return '3 km';
+  }
+
+  if (
+    numeric <
+    1
+  ) {
+    return `${Math.round(
+      numeric *
+        1000,
+    ).toLocaleString(
+      'pt-BR',
+    )} m`;
+  }
+
+  return `${numeric.toLocaleString(
+    'pt-BR',
+    {
+      maximumFractionDigits:
+        1,
+    },
+  )} km`;
 }
 
 function EventDrawer({

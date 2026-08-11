@@ -1414,6 +1414,11 @@ function renderPanel(
           syncing={
             props.syncing
           }
+          alertDistanceKm={
+            props.config
+              ?.alertDistanceKm ??
+            3
+          }
           onOpenAlerts={
             props.openAlertsPanel
           }
