@@ -25,7 +25,7 @@ const EMPTY_FEATURE_COLLECTION = {
 };
 
 const CNUC_URL =
-  '/data/cnuc/ucs-ceara.geojson';
+  `${import.meta.env.BASE_URL}data/cnuc/ucs-ceara.geojson`;
 
 const CACHE_ID =
   'latest';

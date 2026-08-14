@@ -47,7 +47,7 @@ export default function App() {
     <QueryClientProvider
       client={queryClientInstance}
     >
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <ScrollToTop />
 
         <AppRoutes />

@@ -4,7 +4,13 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Permite publicar em subpath (ex: sistemas.cb.ce.gov.br/geofogo/) sem
+// afetar dev local nem outros deploys na raiz, que continuam usando '/'.
+const basePath = process.env.VITE_BASE_PATH || '/';
+
 export default defineConfig({
+  base: basePath,
+
   plugins: [
     react(),
 
@@ -19,7 +25,7 @@ export default defineConfig({
       ],
 
       manifest: {
-        id: '/',
+        id: basePath,
         name: 'GeoFogo Ceará',
         short_name: 'GeoFogo',
         description:
@@ -27,8 +33,8 @@ export default defineConfig({
 
         lang: 'pt-BR',
 
-        start_url: '/',
-        scope: '/',
+        start_url: basePath,
+        scope: basePath,
         display: 'standalone',
 
         background_color: '#0f172a',
@@ -43,7 +49,7 @@ export default defineConfig({
         icons: [
           {
             src:
-              '/icon-192-v2.png',
+              `${basePath}icon-192-v2.png`,
 
             sizes:
               '192x192',
@@ -56,7 +62,7 @@ export default defineConfig({
           },
           {
             src:
-              '/icon-512-v2.png',
+              `${basePath}icon-512-v2.png`,
 
             sizes:
               '512x512',
@@ -69,7 +75,7 @@ export default defineConfig({
           },
           {
             src:
-              '/icon-512-maskable-v2.png',
+              `${basePath}icon-512-maskable-v2.png`,
 
             sizes:
               '512x512',
@@ -92,7 +98,7 @@ export default defineConfig({
           '**/*.{js,css,html,ico,png,svg,json,woff,woff2}',
         ],
 
-        navigateFallback: '/index.html',
+        navigateFallback: `${basePath}index.html`,
 
         runtimeCaching: [
           {
